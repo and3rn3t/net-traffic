@@ -1,38 +1,48 @@
-import { useState, useEffect } from 'react'
-import { useKV } from '@github/spark/hooks'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { Activity, ShieldCheck, DeviceMobile, TrendUp, Graph, Warning, Eye, ChartLineUp, Sparkle } from '@phosphor-icons/react'
-import { MetricCard } from '@/components/MetricCard'
-import { ThreatAlert } from '@/components/ThreatAlert'
-import { ConnectionsTable } from '@/components/ConnectionsTable'
-import { DevicesList } from '@/components/DevicesList'
-import { TrafficChart } from '@/components/TrafficChart'
-import { ProtocolBreakdown } from '@/components/ProtocolBreakdown'
-import { NetworkGraph } from '@/components/NetworkGraph'
-import { FlowPipeVisualization } from '@/components/FlowPipeVisualization'
-import { HeatmapTimeline } from '@/components/HeatmapTimeline'
-import { PacketBurst } from '@/components/PacketBurst'
-import { BandwidthGauge } from '@/components/BandwidthGauge'
-import { GeographicMap } from '@/components/GeographicMap'
-import { ProtocolSankey } from '@/components/ProtocolSankey'
-import { RadarChart } from '@/components/RadarChart'
-import { TopUsers } from '@/components/TopUsers'
-import { TopSites } from '@/components/TopSites'
-import { HistoricalTrends } from '@/components/HistoricalTrends'
-import { UserActivityTimeline } from '@/components/UserActivityTimeline'
-import { BandwidthPatterns } from '@/components/BandwidthPatterns'
-import { GeographicDistribution } from '@/components/GeographicDistribution'
-import { ProtocolTimeline } from '@/components/ProtocolTimeline'
-import { InsightsSummary } from '@/components/InsightsSummary'
-import { ConnectionQuality } from '@/components/ConnectionQuality'
-import { PeakUsageAnalysis } from '@/components/PeakUsageAnalysis'
-import { AnomalyDetection } from '@/components/AnomalyDetection'
-import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator'
-import { SecurityPosture } from '@/components/SecurityPosture'
-import { DataExporter } from '@/components/DataExporter'
-import { NetworkFlow, Device, Threat } from '@/lib/types'
-import { formatBytes, formatBytesShort } from '@/lib/formatters'
+import { useState, useEffect } from 'react';
+import { useKV } from '@github/spark/hooks';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import {
+  Pulse,
+  ShieldCheck,
+  DeviceMobile,
+  TrendUp,
+  Graph,
+  Warning,
+  Eye,
+  ChartLineUp,
+  Sparkle,
+} from '@phosphor-icons/react';
+import { MetricCard } from '@/components/MetricCard';
+import { ThreatAlert } from '@/components/ThreatAlert';
+import { ConnectionsTable } from '@/components/ConnectionsTable';
+import { DevicesList } from '@/components/DevicesList';
+import { TrafficChart } from '@/components/TrafficChart';
+import { ProtocolBreakdown } from '@/components/ProtocolBreakdown';
+import { NetworkGraph } from '@/components/NetworkGraph';
+import { FlowPipeVisualization } from '@/components/FlowPipeVisualization';
+import { HeatmapTimeline } from '@/components/HeatmapTimeline';
+import { PacketBurst } from '@/components/PacketBurst';
+import { BandwidthGauge } from '@/components/BandwidthGauge';
+import { GeographicMap } from '@/components/GeographicMap';
+import { ProtocolSankey } from '@/components/ProtocolSankey';
+import { RadarChart } from '@/components/RadarChart';
+import { TopUsers } from '@/components/TopUsers';
+import { TopSites } from '@/components/TopSites';
+import { HistoricalTrends } from '@/components/HistoricalTrends';
+import { UserActivityTimeline } from '@/components/UserActivityTimeline';
+import { BandwidthPatterns } from '@/components/BandwidthPatterns';
+import { GeographicDistribution } from '@/components/GeographicDistribution';
+import { ProtocolTimeline } from '@/components/ProtocolTimeline';
+import { InsightsSummary } from '@/components/InsightsSummary';
+import { ConnectionQuality } from '@/components/ConnectionQuality';
+import { PeakUsageAnalysis } from '@/components/PeakUsageAnalysis';
+import { AnomalyDetection } from '@/components/AnomalyDetection';
+import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator';
+import { SecurityPosture } from '@/components/SecurityPosture';
+import { DataExporter } from '@/components/DataExporter';
+import { NetworkFlow, Device, Threat } from '@/lib/types';
+import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import {
   generateInitialDevices,
   generateInitialFlows,
@@ -40,85 +50,86 @@ import {
   generateAnalyticsData,
   generateProtocolStats,
   generateNetworkFlow,
-  generateThreat
-} from '@/lib/mockData'
-import { toast } from 'sonner'
+  generateThreat,
+} from '@/lib/mockData';
+import { toast } from 'sonner';
 
 function App() {
-  const [devices, setDevices] = useKV<Device[]>('network-devices', [])
-  const [flows, setFlows] = useKV<NetworkFlow[]>('network-flows', [])
-  const [threats, setThreats] = useKV<Threat[]>('network-threats', [])
-  const [analyticsData] = useState(() => generateAnalyticsData(24))
-  const [protocolStats] = useState(() => generateProtocolStats())
-  const [isCapturing, setIsCapturing] = useState(true)
+  const [devices, setDevices] = useKV<Device[]>('network-devices', []);
+  const [flows, setFlows] = useKV<NetworkFlow[]>('network-flows', []);
+  const [threats, setThreats] = useKV<Threat[]>('network-threats', []);
+  const [analyticsData] = useState(() => generateAnalyticsData(24));
+  const [protocolStats] = useState(() => generateProtocolStats());
+  const [isCapturing, setIsCapturing] = useState(true);
 
   useEffect(() => {
     if (!devices || devices.length === 0) {
-      const initialDevices = generateInitialDevices(8)
-      const initialFlows = generateInitialFlows(initialDevices, 30)
-      const initialThreats = generateInitialThreats(initialDevices, initialFlows, 3)
-      
-      setDevices(initialDevices)
-      setFlows(initialFlows)
-      setThreats(initialThreats)
+      const initialDevices = generateInitialDevices(8);
+      const initialFlows = generateInitialFlows(initialDevices, 30);
+      const initialThreats = generateInitialThreats(initialDevices, initialFlows, 3);
+
+      setDevices(initialDevices);
+      setFlows(initialFlows);
+      setThreats(initialThreats);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    if (!isCapturing || !devices || devices.length === 0) return
+    if (!isCapturing || !devices || devices.length === 0) return;
 
     const interval = setInterval(() => {
       setFlows(currentFlows => {
-        if (!currentFlows || !devices) return currentFlows || []
-        
-        const randomDevice = devices[Math.floor(Math.random() * devices.length)]
-        const newFlow = generateNetworkFlow(randomDevice.id, `flow-${Date.now()}`)
-        
+        if (!currentFlows || !devices) return currentFlows || [];
+
+        const randomDevice = devices[Math.floor(Math.random() * devices.length)];
+        const newFlow = generateNetworkFlow(randomDevice.id, `flow-${Date.now()}`);
+
         if (newFlow.threatLevel === 'high' || newFlow.threatLevel === 'critical') {
-          const newThreat = generateThreat(randomDevice.id, newFlow.id, `threat-${Date.now()}`)
+          const newThreat = generateThreat(randomDevice.id, newFlow.id, `threat-${Date.now()}`);
           setThreats(current => {
-            if (!current) return [newThreat]
-            return [newThreat, ...current].slice(0, 20)
-          })
+            if (!current) return [newThreat];
+            return [newThreat, ...current].slice(0, 20);
+          });
           toast.error(`Threat detected: ${newThreat.description}`, {
-            description: `Device: ${randomDevice.name}`
-          })
+            description: `Device: ${randomDevice.name}`,
+          });
         }
-        
-        const updatedFlows = [newFlow, ...currentFlows].slice(0, 100)
-        return updatedFlows
-      })
+
+        const updatedFlows = [newFlow, ...currentFlows].slice(0, 100);
+        return updatedFlows;
+      });
 
       setDevices(currentDevices => {
-        if (!currentDevices || !flows) return currentDevices || []
-        
+        if (!currentDevices || !flows) return currentDevices || [];
+
         return currentDevices.map(d => {
-          const deviceFlows = flows.filter(f => f.deviceId === d.id)
-          const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0)
+          const deviceFlows = flows.filter(f => f.deviceId === d.id);
+          const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
           return {
             ...d,
             lastSeen: Date.now(),
             bytesTotal: d.bytesTotal + totalBytes,
-            connectionsCount: d.connectionsCount + 1
-          }
-        })
-      })
-    }, 3000)
+            connectionsCount: d.connectionsCount + 1,
+          };
+        });
+      });
+    }, 3000);
 
-    return () => clearInterval(interval)
-  }, [isCapturing, devices, flows, setFlows, setDevices, setThreats])
+    return () => clearInterval(interval);
+  }, [isCapturing, devices, flows, setFlows, setDevices, setThreats]);
 
   const handleDismissThreat = (id: string) => {
     setThreats(currentThreats => {
-      if (!currentThreats) return []
-      return currentThreats.map(t => t.id === id ? { ...t, dismissed: true } : t)
-    })
-  }
+      if (!currentThreats) return [];
+      return currentThreats.map(t => (t.id === id ? { ...t, dismissed: true } : t));
+    });
+  };
 
-  const activeThreats = (threats || []).filter(t => !t.dismissed)
-  const activeFlows = (flows || []).filter(f => f.status === 'active')
-  const totalBytes = (flows || []).reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0)
-  const avgThreatScore = (devices || []).reduce((sum, d) => sum + d.threatScore, 0) / ((devices || []).length || 1)
+  const activeThreats = (threats || []).filter(t => !t.dismissed);
+  const activeFlows = (flows || []).filter(f => f.status === 'active');
+  const totalBytes = (flows || []).reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+  const avgThreatScore =
+    (devices || []).reduce((sum, d) => sum + d.threatScore, 0) / ((devices || []).length || 1);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -135,7 +146,7 @@ function App() {
                 size="sm"
                 onClick={() => setIsCapturing(!isCapturing)}
               >
-                <Activity size={16} className={isCapturing ? 'animate-pulse' : ''} />
+                <Pulse size={16} className={isCapturing ? 'animate-pulse' : ''} />
                 {isCapturing ? 'Capturing' : 'Paused'}
               </Button>
             </div>
@@ -147,7 +158,7 @@ function App() {
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList className="bg-card border border-border/50">
             <TabsTrigger value="dashboard" className="gap-2">
-              <Activity size={16} />
+              <Pulse size={16} />
               Dashboard
             </TabsTrigger>
             <TabsTrigger value="insights" className="gap-2">
@@ -195,7 +206,7 @@ function App() {
                 title="Network Throughput"
                 value={formatBytesShort(totalBytes)}
                 subtitle="Last 24 hours"
-                icon={<Activity size={24} />}
+                icon={<Pulse size={24} />}
                 trend="up"
                 trendValue={`${Math.floor(Math.random() * 30)}% increase`}
               />
@@ -209,7 +220,11 @@ function App() {
               <MetricCard
                 title="Threat Score"
                 value={`${avgThreatScore.toFixed(0)}%`}
-                subtitle={activeThreats.length > 0 ? `${activeThreats.length} active threats` : 'Network secure'}
+                subtitle={
+                  activeThreats.length > 0
+                    ? `${activeThreats.length} active threats`
+                    : 'Network secure'
+                }
                 icon={<ShieldCheck size={24} />}
                 trend={avgThreatScore > 50 ? 'up' : 'down'}
                 trendValue={avgThreatScore > 50 ? 'High risk' : 'Low risk'}
@@ -225,11 +240,7 @@ function App() {
                 </h2>
                 <div className="space-y-2">
                   {activeThreats.slice(0, 3).map(threat => (
-                    <ThreatAlert
-                      key={threat.id}
-                      threat={threat}
-                      onDismiss={handleDismissThreat}
-                    />
+                    <ThreatAlert key={threat.id} threat={threat} onDismiss={handleDismissThreat} />
                   ))}
                 </div>
               </div>
@@ -253,11 +264,7 @@ function App() {
               </p>
             </div>
 
-            <InsightsSummary 
-              devices={devices || []} 
-              flows={flows || []} 
-              threats={threats || []}
-            />
+            <InsightsSummary devices={devices || []} flows={flows || []} threats={threats || []} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ConnectionQuality flows={flows || []} />
@@ -290,24 +297,17 @@ function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SecurityPosture 
-                flows={flows || []} 
-                devices={devices || []} 
+              <SecurityPosture
+                flows={flows || []}
+                devices={devices || []}
                 threats={threats || []}
               />
-              <AnomalyDetection 
-                flows={flows || []} 
-                devices={devices || []}
-              />
+              <AnomalyDetection flows={flows || []} devices={devices || []} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BandwidthCostEstimator flows={flows || []} />
-              <DataExporter 
-                flows={flows || []} 
-                devices={devices || []} 
-                threats={threats || []}
-              />
+              <DataExporter flows={flows || []} devices={devices || []} threats={threats || []} />
             </div>
           </TabsContent>
 
@@ -318,10 +318,7 @@ function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BandwidthGauge 
-                currentBytes={totalBytes} 
-                maxBytes={totalBytes * 1.5} 
-              />
+              <BandwidthGauge currentBytes={totalBytes} maxBytes={totalBytes * 1.5} />
               <RadarChart devices={devices || []} />
             </div>
 
@@ -354,10 +351,12 @@ function App() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setThreats(currentThreats => {
-                    if (!currentThreats) return []
-                    return currentThreats.filter(t => !t.dismissed)
-                  })}
+                  onClick={() =>
+                    setThreats(currentThreats => {
+                      if (!currentThreats) return [];
+                      return currentThreats.filter(t => !t.dismissed);
+                    })
+                  }
                 >
                   Clear dismissed ({(threats || []).filter(t => t.dismissed).length})
                 </Button>
@@ -372,13 +371,16 @@ function App() {
               </div>
             ) : (
               <div className="space-y-2">
-                {(threats || []).map(threat => !threat.dismissed && (
-                  <ThreatAlert
-                    key={threat.id}
-                    threat={threat}
-                    onDismiss={handleDismissThreat}
-                  />
-                ))}
+                {(threats || []).map(
+                  threat =>
+                    !threat.dismissed && (
+                      <ThreatAlert
+                        key={threat.id}
+                        threat={threat}
+                        onDismiss={handleDismissThreat}
+                      />
+                    )
+                )}
               </div>
             )}
           </TabsContent>
@@ -388,7 +390,7 @@ function App() {
               <TrafficChart data={analyticsData} />
               <ProtocolBreakdown data={protocolStats} />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <MetricCard
                 title="Peak Traffic Hour"
@@ -412,7 +414,7 @@ function App() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
