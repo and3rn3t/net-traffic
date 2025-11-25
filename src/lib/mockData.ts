@@ -129,12 +129,20 @@ export function generateAnalyticsData(hoursBack: number = 24): AnalyticsData[] {
   const now = Date.now()
   
   for (let i = hoursBack; i >= 0; i--) {
+    const hour = new Date(now - i * 60 * 60 * 1000).getHours()
+    const isBusinessHours = hour >= 9 && hour <= 17
+    const isPeakHours = hour >= 18 && hour <= 22
+    
+    let baseBytes = 50000000
+    if (isPeakHours) baseBytes = 200000000
+    else if (isBusinessHours) baseBytes = 150000000
+    
     data.push({
       timestamp: now - i * 60 * 60 * 1000,
-      totalBytes: Math.floor(Math.random() * 1000000000) + 100000000,
-      totalConnections: Math.floor(Math.random() * 1000) + 100,
-      threatCount: Math.floor(Math.random() * 10),
-      activeDevices: Math.floor(Math.random() * 5) + 3
+      totalBytes: Math.floor(baseBytes + Math.random() * baseBytes * 0.3),
+      totalConnections: Math.floor((isPeakHours ? 800 : isBusinessHours ? 500 : 200) + Math.random() * 300),
+      threatCount: Math.floor(Math.random() * (isPeakHours ? 15 : 10)),
+      activeDevices: Math.floor((isPeakHours ? 7 : isBusinessHours ? 5 : 3) + Math.random() * 2)
     })
   }
   

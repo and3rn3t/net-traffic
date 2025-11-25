@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Activity, ShieldCheck, DeviceMobile, TrendUp, Graph, Warning, Eye } from '@phosphor-icons/react'
+import { Activity, ShieldCheck, DeviceMobile, TrendUp, Graph, Warning, Eye, ChartLineUp } from '@phosphor-icons/react'
 import { MetricCard } from '@/components/MetricCard'
 import { ThreatAlert } from '@/components/ThreatAlert'
 import { ConnectionsTable } from '@/components/ConnectionsTable'
@@ -17,6 +17,16 @@ import { BandwidthGauge } from '@/components/BandwidthGauge'
 import { GeographicMap } from '@/components/GeographicMap'
 import { ProtocolSankey } from '@/components/ProtocolSankey'
 import { RadarChart } from '@/components/RadarChart'
+import { TopUsers } from '@/components/TopUsers'
+import { TopSites } from '@/components/TopSites'
+import { HistoricalTrends } from '@/components/HistoricalTrends'
+import { UserActivityTimeline } from '@/components/UserActivityTimeline'
+import { BandwidthPatterns } from '@/components/BandwidthPatterns'
+import { GeographicDistribution } from '@/components/GeographicDistribution'
+import { ProtocolTimeline } from '@/components/ProtocolTimeline'
+import { InsightsSummary } from '@/components/InsightsSummary'
+import { ConnectionQuality } from '@/components/ConnectionQuality'
+import { PeakUsageAnalysis } from '@/components/PeakUsageAnalysis'
 import { NetworkFlow, Device, Threat } from '@/lib/types'
 import { formatBytes, formatBytesShort } from '@/lib/formatters'
 import {
@@ -136,6 +146,10 @@ function App() {
               <Activity size={16} />
               Dashboard
             </TabsTrigger>
+            <TabsTrigger value="insights" className="gap-2">
+              <ChartLineUp size={16} />
+              Insights
+            </TabsTrigger>
             <TabsTrigger value="visualizations" className="gap-2">
               <Eye size={16} />
               Visualizations
@@ -221,6 +235,42 @@ function App() {
             <FlowPipeVisualization flows={flows || []} devices={devices || []} />
 
             <ConnectionsTable flows={(flows || []).slice(0, 50)} />
+          </TabsContent>
+
+          <TabsContent value="insights" className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Network Insights</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Deep analysis of network patterns, top users, destinations, and usage trends
+              </p>
+            </div>
+
+            <InsightsSummary 
+              devices={devices || []} 
+              flows={flows || []} 
+              threats={threats || []}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ConnectionQuality flows={flows || []} />
+              <PeakUsageAnalysis flows={flows || []} devices={devices || []} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TopUsers devices={devices || []} flows={flows || []} />
+              <TopSites flows={flows || []} />
+            </div>
+
+            <HistoricalTrends data={analyticsData} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <BandwidthPatterns flows={flows || []} />
+              <GeographicDistribution flows={flows || []} />
+            </div>
+
+            <ProtocolTimeline flows={flows || []} />
+
+            <UserActivityTimeline flows={flows || []} />
           </TabsContent>
 
           <TabsContent value="visualizations" className="space-y-6">
