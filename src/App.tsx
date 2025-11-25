@@ -10,6 +10,7 @@ import { DevicesList } from '@/components/DevicesList'
 import { TrafficChart } from '@/components/TrafficChart'
 import { ProtocolBreakdown } from '@/components/ProtocolBreakdown'
 import { NetworkGraph } from '@/components/NetworkGraph'
+import { FlowPipeVisualization } from '@/components/FlowPipeVisualization'
 import { NetworkFlow, Device, Threat } from '@/lib/types'
 import { formatBytes, formatBytesShort } from '@/lib/formatters'
 import {
@@ -206,6 +207,8 @@ function App() {
               <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices || []} />
               <TrafficChart data={analyticsData} />
             </div>
+
+            <FlowPipeVisualization flows={flows || []} devices={devices || []} />
 
             <ConnectionsTable flows={(flows || []).slice(0, 50)} />
           </TabsContent>
