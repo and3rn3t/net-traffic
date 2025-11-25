@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Activity, ShieldCheck, DeviceMobile, TrendUp, Graph, Warning } from '@phosphor-icons/react'
+import { Activity, ShieldCheck, DeviceMobile, TrendUp, Graph, Warning, Eye } from '@phosphor-icons/react'
 import { MetricCard } from '@/components/MetricCard'
 import { ThreatAlert } from '@/components/ThreatAlert'
 import { ConnectionsTable } from '@/components/ConnectionsTable'
@@ -11,6 +11,12 @@ import { TrafficChart } from '@/components/TrafficChart'
 import { ProtocolBreakdown } from '@/components/ProtocolBreakdown'
 import { NetworkGraph } from '@/components/NetworkGraph'
 import { FlowPipeVisualization } from '@/components/FlowPipeVisualization'
+import { HeatmapTimeline } from '@/components/HeatmapTimeline'
+import { PacketBurst } from '@/components/PacketBurst'
+import { BandwidthGauge } from '@/components/BandwidthGauge'
+import { GeographicMap } from '@/components/GeographicMap'
+import { ProtocolSankey } from '@/components/ProtocolSankey'
+import { RadarChart } from '@/components/RadarChart'
 import { NetworkFlow, Device, Threat } from '@/lib/types'
 import { formatBytes, formatBytesShort } from '@/lib/formatters'
 import {
@@ -130,6 +136,10 @@ function App() {
               <Activity size={16} />
               Dashboard
             </TabsTrigger>
+            <TabsTrigger value="visualizations" className="gap-2">
+              <Eye size={16} />
+              Visualizations
+            </TabsTrigger>
             <TabsTrigger value="devices" className="gap-2">
               <DeviceMobile size={16} />
               Devices
@@ -211,6 +221,30 @@ function App() {
             <FlowPipeVisualization flows={flows || []} devices={devices || []} />
 
             <ConnectionsTable flows={(flows || []).slice(0, 50)} />
+          </TabsContent>
+
+          <TabsContent value="visualizations" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <HeatmapTimeline flows={flows || []} />
+              <PacketBurst flows={flows || []} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <BandwidthGauge 
+                currentBytes={totalBytes} 
+                maxBytes={totalBytes * 1.5} 
+              />
+              <RadarChart devices={devices || []} />
+            </div>
+
+            <GeographicMap flows={flows || []} />
+
+            <ProtocolSankey flows={flows || []} devices={devices || []} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices || []} />
+              <FlowPipeVisualization flows={flows || []} devices={devices || []} />
+            </div>
           </TabsContent>
 
           <TabsContent value="devices" className="space-y-6">

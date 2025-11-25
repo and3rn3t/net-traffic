@@ -13,11 +13,11 @@ A deep network traffic analysis platform that provides AI-powered behavioral ins
 ## Essential Features
 
 ### Real-Time Traffic Flow Visualization
-- **Functionality**: Live animated network graph showing all active connections with visual indicators for protocol type, bandwidth usage, and geographic endpoints
-- **Purpose**: Provides immediate visibility into what devices are communicating with what services in real-time
+- **Functionality**: Live animated network graph showing all active connections with visual indicators for protocol type, bandwidth usage, and geographic endpoints. Includes multiple visualization modes: flow pipes showing data streams, force-directed network topology, heatmap timeline, packet burst activity, bandwidth gauge, geographic connection map, protocol sankey diagram, and network health radar.
+- **Purpose**: Provides immediate visibility into what devices are communicating with what services in real-time through multiple visual perspectives
 - **Trigger**: Automatically starts on app load and continuously updates
-- **Progression**: App loads → Traffic capture begins → Connections appear as animated nodes → User can click nodes for details → Drill down into specific flows
-- **Success criteria**: Updates display within 500ms of new connections, supports 100+ simultaneous connections without lag
+- **Progression**: App loads → Traffic capture begins → Connections appear as animated nodes → User can click nodes for details → Drill down into specific flows → Switch between visualization modes
+- **Success criteria**: Updates display within 500ms of new connections, supports 100+ simultaneous connections without lag, smooth 60fps animations
 
 ### AI-Powered Behavioral Analysis
 - **Functionality**: Machine learning model identifies unusual patterns like unexpected data exfiltration, suspicious connection timing, or anomalous protocol usage
