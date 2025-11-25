@@ -35,6 +35,29 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Create Cloudflare Pages Project (if not exists)
+        run: |
+          PROJECT_NAME="net-traffic"
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          
+          # Check if project exists
+          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json")
+          
+          # If project doesn't exist (404), create it
+          if echo "$RESPONSE" | grep -q '"code":8000007' || echo "$RESPONSE" | grep -q '"success":false'; then
+            echo "Project not found, creating it..."
+            curl -X POST "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects" \
+              -H "Authorization: Bearer ${API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"name\":\"${PROJECT_NAME}\",\"production_branch\":\"main\"}"
+            echo "Project created successfully"
+          else
+            echo "Project already exists"
+          fi
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
@@ -42,10 +65,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: net-traffic
           directory: dist
-          # Optional: Set git commit info
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: Set branch for preview deployments
           branch: ${{ github.ref_name }}
-          # Optional: Set working directory
           wranglerVersion: '3'
 

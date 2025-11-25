@@ -47,9 +47,11 @@ This guide explains how to deploy NetInsight to Cloudflare Pages using GitHub Ac
 
 The following files are already configured:
 
-- ✅ `.github/workflows/deploy.yml` - GitHub Actions workflow
+- ✅ `.github/workflows/deploy.yml` - GitHub Actions workflow (auto-creates project if needed)
 - ✅ `wrangler.toml` - Cloudflare Pages configuration
 - ✅ `public/_redirects` - SPA routing support
+
+**Note:** The workflow will automatically create the Cloudflare Pages project on first deployment if it doesn't exist. No manual project creation needed!
 
 ## Step 4: Deploy
 
@@ -105,6 +107,10 @@ To add a custom domain:
 
 ### Deployment Failures
 
+- **404 "Project not found" error**: The workflow will auto-create the project on first run. If you see this error, ensure:
+  - Your API token has `Account → Cloudflare Pages → Edit` permission
+  - Your Account ID is correct
+  - Wait a moment and try again (project creation may take a few seconds)
 - Verify `CLOUDFLARE_API_TOKEN` has correct permissions
 - Check that `CLOUDFLARE_ACCOUNT_ID` is correct
 - Ensure the `dist` directory is being generated correctly
