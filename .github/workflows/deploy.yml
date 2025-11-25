@@ -35,37 +35,27 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Install Wrangler
+        run: npm install -g wrangler@3
+
       - name: Create Cloudflare Pages Project (if not exists)
         run: |
-          PROJECT_NAME="net-traffic"
-          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
-          
-          # Check if project exists
-          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}" \
-            -H "Authorization: Bearer ${API_TOKEN}" \
-            -H "Content-Type: application/json")
-          
-          # If project doesn't exist (404), create it
-          if echo "$RESPONSE" | grep -q '"code":8000007' || echo "$RESPONSE" | grep -q '"success":false'; then
-            echo "Project not found, creating it..."
-            curl -X POST "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects" \
-              -H "Authorization: Bearer ${API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "{\"name\":\"${PROJECT_NAME}\",\"production_branch\":\"main\"}"
-            echo "Project created successfully"
-          else
-            echo "Project already exists"
-          fi
+          # Try to create the project (will fail gracefully if it already exists)
+          wrangler pages project create net-traffic --production-branch=main || echo "Project may already exist, continuing..."
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        continue-on-error: true
 
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: net-traffic
-          directory: dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref_name }}
-          wranglerVersion: '3'
+        run: |
+          wrangler pages deploy dist \
+            --project-name=net-traffic \
+            --branch=${{ github.ref_name }} \
+            --commit-hash=${{ github.sha }} \
+            --commit-message="${{ github.event.head_commit.message }}" \
+            --commit-dirty=false
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 

@@ -51,7 +51,7 @@ The following files are already configured:
 - ✅ `wrangler.toml` - Cloudflare Pages configuration
 - ✅ `public/_redirects` - SPA routing support
 
-**Note:** The workflow will automatically create the Cloudflare Pages project on first deployment if it doesn't exist. No manual project creation needed!
+**Note:** The workflow uses Wrangler CLI which will automatically create the Cloudflare Pages project on first deployment if it doesn't exist. No manual project creation needed!
 
 ## Step 4: Deploy
 
