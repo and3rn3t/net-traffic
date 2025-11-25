@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Activity, ShieldCheck, DeviceMobile, TrendUp, Graph, Warning, Eye, ChartLineUp } from '@phosphor-icons/react'
+import { Activity, ShieldCheck, DeviceMobile, TrendUp, Graph, Warning, Eye, ChartLineUp, Sparkle } from '@phosphor-icons/react'
 import { MetricCard } from '@/components/MetricCard'
 import { ThreatAlert } from '@/components/ThreatAlert'
 import { ConnectionsTable } from '@/components/ConnectionsTable'
@@ -27,6 +27,10 @@ import { ProtocolTimeline } from '@/components/ProtocolTimeline'
 import { InsightsSummary } from '@/components/InsightsSummary'
 import { ConnectionQuality } from '@/components/ConnectionQuality'
 import { PeakUsageAnalysis } from '@/components/PeakUsageAnalysis'
+import { AnomalyDetection } from '@/components/AnomalyDetection'
+import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator'
+import { SecurityPosture } from '@/components/SecurityPosture'
+import { DataExporter } from '@/components/DataExporter'
 import { NetworkFlow, Device, Threat } from '@/lib/types'
 import { formatBytes, formatBytesShort } from '@/lib/formatters'
 import {
@@ -150,6 +154,10 @@ function App() {
               <ChartLineUp size={16} />
               Insights
             </TabsTrigger>
+            <TabsTrigger value="advanced" className="gap-2">
+              <Sparkle size={16} />
+              Advanced
+            </TabsTrigger>
             <TabsTrigger value="visualizations" className="gap-2">
               <Eye size={16} />
               Visualizations
@@ -271,6 +279,36 @@ function App() {
             <ProtocolTimeline flows={flows || []} />
 
             <UserActivityTimeline flows={flows || []} />
+          </TabsContent>
+
+          <TabsContent value="advanced" className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">Advanced Analytics</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                AI-powered insights, security scoring, cost analysis, and data export tools
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SecurityPosture 
+                flows={flows || []} 
+                devices={devices || []} 
+                threats={threats || []}
+              />
+              <AnomalyDetection 
+                flows={flows || []} 
+                devices={devices || []}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <BandwidthCostEstimator flows={flows || []} />
+              <DataExporter 
+                flows={flows || []} 
+                devices={devices || []} 
+                threats={threats || []}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="visualizations" className="space-y-6">
