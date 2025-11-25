@@ -1,65 +1,87 @@
-import { NetworkFlow } from '@/lib/types'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatBytesShort } from '@/lib/formatters'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
-import { Globe, ShieldCheck, Warning } from '@phosphor-icons/react'
+import { NetworkFlow } from '@/lib/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatBytesShort } from '@/lib/formatters';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Globe, ShieldCheck, Warning } from '@phosphor-icons/react';
 
 interface TopSitesProps {
-  flows: NetworkFlow[]
+  flows: NetworkFlow[];
 }
 
 export function TopSites({ flows }: TopSitesProps) {
-  const siteStats = flows.reduce((acc, flow) => {
-    const site = flow.domain || flow.destIp
-    if (!acc[site]) {
-      acc[site] = {
-        site,
-        totalBytes: 0,
-        connections: 0,
-        uniqueDevices: new Set<string>(),
-        protocol: flow.protocol,
-        threatLevel: flow.threatLevel,
-        country: flow.country
+  const siteStats = flows.reduce(
+    (acc, flow) => {
+      const site = flow.domain || flow.destIp;
+      if (!acc[site]) {
+        acc[site] = {
+          site,
+          totalBytes: 0,
+          connections: 0,
+          uniqueDevices: new Set<string>(),
+          protocol: flow.protocol,
+          threatLevel: flow.threatLevel,
+          country: flow.country,
+        };
       }
-    }
-    acc[site].totalBytes += flow.bytesIn + flow.bytesOut
-    acc[site].connections++
-    acc[site].uniqueDevices.add(flow.deviceId)
-    return acc
-  }, {} as Record<string, {
-    site: string
-    totalBytes: number
-    connections: number
-    uniqueDevices: Set<string>
-    protocol: string
-    threatLevel: string
-    country?: string
-  }>)
+      acc[site].totalBytes += flow.bytesIn + flow.bytesOut;
+      acc[site].connections++;
+      acc[site].uniqueDevices.add(flow.deviceId);
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        site: string;
+        totalBytes: number;
+        connections: number;
+        uniqueDevices: Set<string>;
+        protocol: string;
+        threatLevel: string;
+        country?: string;
+      }
+    >
+  );
 
   const topSites = Object.values(siteStats)
     .map(stat => ({
       ...stat,
-      uniqueDeviceCount: stat.uniqueDevices.size
+      uniqueDeviceCount: stat.uniqueDevices.size,
     }))
     .sort((a, b) => b.totalBytes - a.totalBytes)
-    .slice(0, 10)
+    .slice(0, 10);
 
-  const maxBytes = Math.max(...topSites.map(s => s.totalBytes))
+  const maxBytes = Math.max(...topSites.map(s => s.totalBytes));
 
   const getThreatBadge = (level: string) => {
     switch (level) {
       case 'critical':
       case 'high':
-        return <Badge variant="destructive" className="text-xs">Risk</Badge>
+        return (
+          <Badge variant="destructive" className="text-xs">
+            Risk
+          </Badge>
+        );
       case 'medium':
-        return <Badge variant="outline" className="text-xs border-warning text-warning">Medium</Badge>
+        return (
+          <Badge variant="outline" className="text-xs border-warning text-warning">
+            Medium
+          </Badge>
+        );
       case 'low':
-        return <Badge variant="outline" className="text-xs">Low</Badge>
+        return (
+          <Badge variant="outline" className="text-xs">
+            Low
+          </Badge>
+        );
       default:
-        return <Badge variant="outline" className="text-xs border-success text-success">Safe</Badge>
+        return (
+          <Badge variant="outline" className="text-xs border-success text-success">
+            Safe
+          </Badge>
+        );
     }
-  }
+  };
 
   return (
     <Card>
@@ -68,9 +90,7 @@ export function TopSites({ flows }: TopSitesProps) {
           <Globe size={20} />
           Top Destinations
         </CardTitle>
-        <CardDescription>
-          Most accessed sites and services by traffic volume
-        </CardDescription>
+        <CardDescription>Most accessed sites and services by traffic volume</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -112,12 +132,10 @@ export function TopSites({ flows }: TopSitesProps) {
             </div>
           ))}
           {topSites.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No site data available
-            </div>
+            <div className="text-center py-8 text-muted-foreground">No site data available</div>
           )}
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

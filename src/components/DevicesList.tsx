@@ -1,14 +1,14 @@
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Device } from '@/lib/types'
-import { formatBytes, formatTimestamp, getDeviceIcon } from '@/lib/formatters'
-import { motion } from 'framer-motion'
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Device } from '@/lib/types';
+import { formatBytes, formatTimestamp, getDeviceIcon } from '@/lib/formatters';
+import { motion } from 'framer-motion';
 
 interface DevicesListProps {
-  devices: Device[]
-  onDeviceSelect?: (device: Device) => void
+  devices: Device[];
+  onDeviceSelect?: (device: Device) => void;
 }
 
 export function DevicesList({ devices, onDeviceSelect }: DevicesListProps) {
@@ -21,13 +21,13 @@ export function DevicesList({ devices, onDeviceSelect }: DevicesListProps) {
             {devices.length} devices
           </Badge>
         </div>
-        
+
         <ScrollArea className="h-[400px]">
           <div className="space-y-2">
             {devices.map((device, idx) => {
-              const threatPercent = Math.min(device.threatScore, 100)
-              const isHighThreat = device.threatScore > 60
-              
+              const threatPercent = Math.min(device.threatScore, 100);
+              const isHighThreat = device.threatScore > 60;
+
               return (
                 <motion.div
                   key={device.id}
@@ -39,7 +39,7 @@ export function DevicesList({ devices, onDeviceSelect }: DevicesListProps) {
                 >
                   <div className="flex items-start gap-3">
                     <div className="text-2xl">{getDeviceIcon(device.type)}</div>
-                    
+
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -50,17 +50,23 @@ export function DevicesList({ devices, onDeviceSelect }: DevicesListProps) {
                           {device.type}
                         </Badge>
                       </div>
-                      
+
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">Threat Score</span>
-                          <span className={isHighThreat ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                          <span
+                            className={
+                              isHighThreat
+                                ? 'text-destructive font-medium'
+                                : 'text-muted-foreground'
+                            }
+                          >
                             {device.threatScore.toFixed(0)}%
                           </span>
                         </div>
                         <Progress value={threatPercent} className="h-1" />
                       </div>
-                      
+
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span>{formatBytes(device.bytesTotal)}</span>
                         <span>•</span>
@@ -68,20 +74,23 @@ export function DevicesList({ devices, onDeviceSelect }: DevicesListProps) {
                         <span>•</span>
                         <span>{formatTimestamp(device.lastSeen)}</span>
                       </div>
-                      
+
                       {device.behavioral.anomalyCount > 0 && (
-                        <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/20">
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-warning/10 text-warning border-warning/20"
+                        >
                           {device.behavioral.anomalyCount} anomalies
                         </Badge>
                       )}
                     </div>
                   </div>
                 </motion.div>
-              )
+              );
             })}
           </div>
         </ScrollArea>
       </div>
     </Card>
-  )
+  );
 }

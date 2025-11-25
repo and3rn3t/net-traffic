@@ -1,19 +1,32 @@
-import { useState, useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AnalyticsData } from '@/lib/types'
-import { formatBytesShort } from '@/lib/formatters'
-import { TrendUp, Clock } from '@phosphor-icons/react'
-import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { useState, useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AnalyticsData } from '@/lib/types';
+import { formatBytesShort } from '@/lib/formatters';
+import { TrendUp, Clock } from '@phosphor-icons/react';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
 interface HistoricalTrendsProps {
-  data: AnalyticsData[]
+  data: AnalyticsData[];
 }
 
-type TimeRange = '24h' | '7d' | '30d'
+type TimeRange = '24h' | '7d' | '30d';
 
 export function HistoricalTrends({ data }: HistoricalTrendsProps) {
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h')
+  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
 
   const chartData = useMemo(() => {
     return data.map(item => ({
@@ -21,38 +34,40 @@ export function HistoricalTrends({ data }: HistoricalTrendsProps) {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       }),
       bytes: item.totalBytes,
       connections: item.totalConnections,
       threats: item.threatCount,
-      devices: item.activeDevices
-    }))
-  }, [data])
+      devices: item.activeDevices,
+    }));
+  }, [data]);
 
   const stats = useMemo(() => {
-    const totalBytes = data.reduce((sum, d) => sum + d.totalBytes, 0)
-    const totalConnections = data.reduce((sum, d) => sum + d.totalConnections, 0)
-    const totalThreats = data.reduce((sum, d) => sum + d.threatCount, 0)
-    const avgDevices = data.reduce((sum, d) => sum + d.activeDevices, 0) / data.length
-    
-    const peakTraffic = Math.max(...data.map(d => d.totalBytes))
-    const peakHour = data.find(d => d.totalBytes === peakTraffic)
-    
+    const totalBytes = data.reduce((sum, d) => sum + d.totalBytes, 0);
+    const totalConnections = data.reduce((sum, d) => sum + d.totalConnections, 0);
+    const totalThreats = data.reduce((sum, d) => sum + d.threatCount, 0);
+    const avgDevices = data.reduce((sum, d) => sum + d.activeDevices, 0) / data.length;
+
+    const peakTraffic = Math.max(...data.map(d => d.totalBytes));
+    const peakHour = data.find(d => d.totalBytes === peakTraffic);
+
     return {
       totalBytes,
       totalConnections,
       totalThreats,
       avgDevices: Math.round(avgDevices),
       peakTraffic,
-      peakHour: peakHour ? new Date(peakHour.timestamp).toLocaleString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        month: 'short',
-        day: 'numeric'
-      }) : 'N/A'
-    }
-  }, [data])
+      peakHour: peakHour
+        ? new Date(peakHour.timestamp).toLocaleString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            month: 'short',
+            day: 'numeric',
+          })
+        : 'N/A',
+    };
+  }, [data]);
 
   return (
     <Card>
@@ -63,11 +78,9 @@ export function HistoricalTrends({ data }: HistoricalTrendsProps) {
               <Clock size={20} />
               Historical Trends
             </CardTitle>
-            <CardDescription>
-              Network activity patterns over time
-            </CardDescription>
+            <CardDescription>Network activity patterns over time</CardDescription>
           </div>
-          <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
+          <Tabs value={timeRange} onValueChange={v => setTimeRange(v as TimeRange)}>
             <TabsList className="grid grid-cols-3 w-[200px]">
               <TabsTrigger value="24h">24h</TabsTrigger>
               <TabsTrigger value="7d">7d</TabsTrigger>
@@ -103,36 +116,36 @@ export function HistoricalTrends({ data }: HistoricalTrendsProps) {
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorBytes" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="time" 
-                stroke="hsl(var(--muted-foreground))" 
+              <XAxis
+                dataKey="time"
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={10}
                 interval="preserveStartEnd"
               />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))" 
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={10}
-                tickFormatter={(value) => formatBytesShort(value)}
+                tickFormatter={value => formatBytesShort(value)}
               />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
-                  fontSize: '12px'
+                  fontSize: '12px',
                 }}
                 formatter={(value: any) => [formatBytesShort(value), 'Traffic']}
               />
-              <Area 
-                type="monotone" 
-                dataKey="bytes" 
-                stroke="hsl(var(--primary))" 
-                fillOpacity={1} 
+              <Area
+                type="monotone"
+                dataKey="bytes"
+                stroke="hsl(var(--primary))"
+                fillOpacity={1}
                 fill="url(#colorBytes)"
                 strokeWidth={2}
               />
@@ -145,41 +158,38 @@ export function HistoricalTrends({ data }: HistoricalTrendsProps) {
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="time" 
-                stroke="hsl(var(--muted-foreground))" 
+              <XAxis
+                dataKey="time"
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={10}
                 interval="preserveStartEnd"
               />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))" 
-                fontSize={10}
-              />
-              <Tooltip 
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
+              <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
-                  fontSize: '12px'
+                  fontSize: '12px',
                 }}
               />
-              <Legend 
+              <Legend
                 wrapperStyle={{
-                  fontSize: '12px'
+                  fontSize: '12px',
                 }}
               />
-              <Line 
-                type="monotone" 
-                dataKey="connections" 
-                stroke="hsl(var(--accent))" 
+              <Line
+                type="monotone"
+                dataKey="connections"
+                stroke="hsl(var(--accent))"
                 strokeWidth={2}
                 dot={false}
                 name="Connections"
               />
-              <Line 
-                type="monotone" 
-                dataKey="threats" 
-                stroke="hsl(var(--destructive))" 
+              <Line
+                type="monotone"
+                dataKey="threats"
+                stroke="hsl(var(--destructive))"
                 strokeWidth={2}
                 dot={false}
                 name="Threats"
@@ -193,33 +203,26 @@ export function HistoricalTrends({ data }: HistoricalTrendsProps) {
           <ResponsiveContainer width="100%" height={150}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="time" 
-                stroke="hsl(var(--muted-foreground))" 
+              <XAxis
+                dataKey="time"
+                stroke="hsl(var(--muted-foreground))"
                 fontSize={10}
                 interval="preserveStartEnd"
               />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))" 
-                fontSize={10}
-              />
-              <Tooltip 
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
+              <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
-                  fontSize: '12px'
+                  fontSize: '12px',
                 }}
               />
-              <Bar 
-                dataKey="devices" 
-                fill="hsl(var(--secondary))" 
-                radius={[4, 4, 0, 0]}
-              />
+              <Bar dataKey="devices" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

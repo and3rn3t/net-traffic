@@ -1,50 +1,56 @@
-import { useMemo } from 'react'
-import { NetworkFlow } from '@/lib/types'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatBytesShort } from '@/lib/formatters'
-import { Progress } from '@/components/ui/progress'
-import { MapPin } from '@phosphor-icons/react'
+import { useMemo } from 'react';
+import { NetworkFlow } from '@/lib/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatBytesShort } from '@/lib/formatters';
+import { Progress } from '@/components/ui/progress';
+import { MapPin } from '@phosphor-icons/react';
 
 interface GeographicDistributionProps {
-  flows: NetworkFlow[]
+  flows: NetworkFlow[];
 }
 
 const countryNames: Record<string, string> = {
-  'US': 'United States',
-  'GB': 'United Kingdom',
-  'DE': 'Germany',
-  'JP': 'Japan',
-  'SG': 'Singapore',
-  'CA': 'Canada',
-  'FR': 'France',
-  'AU': 'Australia'
-}
+  US: 'United States',
+  GB: 'United Kingdom',
+  DE: 'Germany',
+  JP: 'Japan',
+  SG: 'Singapore',
+  CA: 'Canada',
+  FR: 'France',
+  AU: 'Australia',
+};
 
 export function GeographicDistribution({ flows }: GeographicDistributionProps) {
   const countryStats = useMemo(() => {
-    const stats = flows.reduce((acc, flow) => {
-      const country = flow.country || 'Unknown'
-      if (!acc[country]) {
-        acc[country] = {
-          country,
-          totalBytes: 0,
-          connections: 0
+    const stats = flows.reduce(
+      (acc, flow) => {
+        const country = flow.country || 'Unknown';
+        if (!acc[country]) {
+          acc[country] = {
+            country,
+            totalBytes: 0,
+            connections: 0,
+          };
         }
-      }
-      acc[country].totalBytes += flow.bytesIn + flow.bytesOut
-      acc[country].connections++
-      return acc
-    }, {} as Record<string, {
-      country: string
-      totalBytes: number
-      connections: number
-    }>)
+        acc[country].totalBytes += flow.bytesIn + flow.bytesOut;
+        acc[country].connections++;
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          country: string;
+          totalBytes: number;
+          connections: number;
+        }
+      >
+    );
 
-    return Object.values(stats).sort((a, b) => b.totalBytes - a.totalBytes)
-  }, [flows])
+    return Object.values(stats).sort((a, b) => b.totalBytes - a.totalBytes);
+  }, [flows]);
 
-  const totalBytes = countryStats.reduce((sum, s) => sum + s.totalBytes, 0)
-  const maxBytes = Math.max(...countryStats.map(s => s.totalBytes))
+  const totalBytes = countryStats.reduce((sum, s) => sum + s.totalBytes, 0);
+  const maxBytes = Math.max(...countryStats.map(s => s.totalBytes));
 
   return (
     <Card>
@@ -53,14 +59,12 @@ export function GeographicDistribution({ flows }: GeographicDistributionProps) {
           <MapPin size={20} />
           Geographic Distribution
         </CardTitle>
-        <CardDescription>
-          Traffic breakdown by destination country
-        </CardDescription>
+        <CardDescription>Traffic breakdown by destination country</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {countryStats.map((stat, index) => {
-            const percentage = totalBytes > 0 ? (stat.totalBytes / totalBytes) * 100 : 0
+            const percentage = totalBytes > 0 ? (stat.totalBytes / totalBytes) * 100 : 0;
             return (
               <div key={stat.country} className="space-y-2">
                 <div className="flex items-center justify-between gap-4">
@@ -70,9 +74,7 @@ export function GeographicDistribution({ flows }: GeographicDistributionProps) {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium">
-                          {countryNames[stat.country] || stat.country}
-                        </p>
+                        <p className="font-medium">{countryNames[stat.country] || stat.country}</p>
                         <span className="text-xs text-muted-foreground font-mono">
                           {stat.country}
                         </span>
@@ -93,7 +95,7 @@ export function GeographicDistribution({ flows }: GeographicDistributionProps) {
                 </div>
                 <Progress value={(stat.totalBytes / maxBytes) * 100} className="h-1.5" />
               </div>
-            )
+            );
           })}
           {countryStats.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
@@ -103,5 +105,5 @@ export function GeographicDistribution({ flows }: GeographicDistributionProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

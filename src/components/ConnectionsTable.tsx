@@ -1,13 +1,13 @@
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { NetworkFlow } from '@/lib/types'
-import { formatBytes, formatTimestamp, getThreatColor, getThreatBgColor } from '@/lib/formatters'
-import { motion } from 'framer-motion'
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { NetworkFlow } from '@/lib/types';
+import { formatBytes, formatTimestamp, getThreatColor, getThreatBgColor } from '@/lib/formatters';
+import { motion } from 'framer-motion';
 
 interface ConnectionsTableProps {
-  flows: NetworkFlow[]
-  onFlowSelect?: (flow: NetworkFlow) => void
+  flows: NetworkFlow[];
+  onFlowSelect?: (flow: NetworkFlow) => void;
 }
 
 export function ConnectionsTable({ flows, onFlowSelect }: ConnectionsTableProps) {
@@ -20,7 +20,7 @@ export function ConnectionsTable({ flows, onFlowSelect }: ConnectionsTableProps)
             {flows.filter(f => f.status === 'active').length} active
           </Badge>
         </div>
-        
+
         <ScrollArea className="h-[400px]">
           <div className="space-y-2">
             {flows.length === 0 ? (
@@ -50,17 +50,19 @@ export function ConnectionsTable({ flows, onFlowSelect }: ConnectionsTableProps)
                           {flow.domain || flow.destIp}
                         </span>
                       </div>
-                      
+
                       <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground">
-                        <span className="truncate">{flow.sourceIp}:{flow.sourcePort}</span>
-                        <span>→</span>
-                        <span className="truncate">{flow.destIp}:{flow.destPort}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="text-muted-foreground">
-                          ↓ {formatBytes(flow.bytesIn)}
+                        <span className="truncate">
+                          {flow.sourceIp}:{flow.sourcePort}
                         </span>
+                        <span>→</span>
+                        <span className="truncate">
+                          {flow.destIp}:{flow.destPort}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-muted-foreground">↓ {formatBytes(flow.bytesIn)}</span>
                         <span className="text-muted-foreground">
                           ↑ {formatBytes(flow.bytesOut)}
                         </span>
@@ -69,11 +71,9 @@ export function ConnectionsTable({ flows, onFlowSelect }: ConnectionsTableProps)
                         </span>
                       </div>
                     </div>
-                    
+
                     <Badge className={getThreatBgColor(flow.threatLevel)}>
-                      <span className={getThreatColor(flow.threatLevel)}>
-                        {flow.threatLevel}
-                      </span>
+                      <span className={getThreatColor(flow.threatLevel)}>{flow.threatLevel}</span>
                     </Badge>
                   </div>
                 </motion.div>
@@ -83,5 +83,5 @@ export function ConnectionsTable({ flows, onFlowSelect }: ConnectionsTableProps)
         </ScrollArea>
       </div>
     </Card>
-  )
+  );
 }

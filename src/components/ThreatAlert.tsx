@@ -1,14 +1,14 @@
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { X, ShieldCheck } from '@phosphor-icons/react'
-import { Threat } from '@/lib/types'
-import { formatTimestamp } from '@/lib/formatters'
-import { motion } from 'framer-motion'
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { X, ShieldCheck } from '@phosphor-icons/react';
+import { Threat } from '@/lib/types';
+import { formatTimestamp } from '@/lib/formatters';
+import { motion } from 'framer-motion';
 
 interface ThreatAlertProps {
-  threat: Threat
-  onDismiss: (id: string) => void
+  threat: Threat;
+  onDismiss: (id: string) => void;
 }
 
 export function ThreatAlert({ threat, onDismiss }: ThreatAlertProps) {
@@ -16,8 +16,8 @@ export function ThreatAlert({ threat, onDismiss }: ThreatAlertProps) {
     low: 'bg-warning/10 text-warning border-warning/20',
     medium: 'bg-warning/20 text-warning border-warning/30',
     high: 'bg-destructive/10 text-destructive border-destructive/20',
-    critical: 'bg-destructive/20 text-destructive border-destructive/30'
-  }
+    critical: 'bg-destructive/20 text-destructive border-destructive/30',
+  };
 
   const typeLabels = {
     malware: '🦠 Malware',
@@ -25,8 +25,8 @@ export function ThreatAlert({ threat, onDismiss }: ThreatAlertProps) {
     scan: '🔍 Port Scan',
     botnet: '🤖 Botnet',
     phishing: '🎣 Phishing',
-    anomaly: '⚠️ Anomaly'
-  }
+    anomaly: '⚠️ Anomaly',
+  };
 
   return (
     <motion.div
@@ -46,15 +46,15 @@ export function ThreatAlert({ threat, onDismiss }: ThreatAlertProps) {
                 {formatTimestamp(threat.timestamp)}
               </span>
             </div>
-            
+
             <p className="text-sm text-foreground">{threat.description}</p>
-            
+
             <div className="flex items-start gap-2 p-2 bg-accent/5 rounded border border-accent/10">
               <ShieldCheck className="text-accent mt-0.5 flex-shrink-0" size={16} />
               <p className="text-xs text-muted-foreground">{threat.recommendation}</p>
             </div>
           </div>
-          
+
           <Button
             variant="ghost"
             size="icon"
@@ -66,5 +66,5 @@ export function ThreatAlert({ threat, onDismiss }: ThreatAlertProps) {
         </div>
       </Card>
     </motion.div>
-  )
+  );
 }

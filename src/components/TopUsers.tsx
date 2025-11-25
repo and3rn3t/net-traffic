@@ -1,40 +1,40 @@
-import { Device, NetworkFlow } from '@/lib/types'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatBytes, formatBytesShort } from '@/lib/formatters'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
-import { DeviceMobile, TrendUp, TrendDown, Minus } from '@phosphor-icons/react'
+import { Device, NetworkFlow } from '@/lib/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatBytes, formatBytesShort } from '@/lib/formatters';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { DeviceMobile, TrendUp, TrendDown, Minus } from '@phosphor-icons/react';
 
 interface TopUsersProps {
-  devices: Device[]
-  flows: NetworkFlow[]
+  devices: Device[];
+  flows: NetworkFlow[];
 }
 
 export function TopUsers({ devices, flows }: TopUsersProps) {
   const deviceStats = devices.map(device => {
-    const deviceFlows = flows.filter(f => f.deviceId === device.id)
-    const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0)
-    const totalConnections = deviceFlows.length
-    const recentActivity = deviceFlows.filter(f => Date.now() - f.timestamp < 3600000).length
-    
+    const deviceFlows = flows.filter(f => f.deviceId === device.id);
+    const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+    const totalConnections = deviceFlows.length;
+    const recentActivity = deviceFlows.filter(f => Date.now() - f.timestamp < 3600000).length;
+
     return {
       device,
       totalBytes,
       totalConnections,
       recentActivity,
-      bytesPerConnection: totalConnections > 0 ? totalBytes / totalConnections : 0
-    }
-  })
+      bytesPerConnection: totalConnections > 0 ? totalBytes / totalConnections : 0,
+    };
+  });
 
-  deviceStats.sort((a, b) => b.totalBytes - a.totalBytes)
-  const topUsers = deviceStats.slice(0, 10)
-  const maxBytes = Math.max(...topUsers.map(u => u.totalBytes))
+  deviceStats.sort((a, b) => b.totalBytes - a.totalBytes);
+  const topUsers = deviceStats.slice(0, 10);
+  const maxBytes = Math.max(...topUsers.map(u => u.totalBytes));
 
   const getTrendIcon = (recentActivity: number) => {
-    if (recentActivity > 10) return <TrendUp className="text-success" size={16} />
-    if (recentActivity < 3) return <TrendDown className="text-muted-foreground" size={16} />
-    return <Minus className="text-muted-foreground" size={16} />
-  }
+    if (recentActivity > 10) return <TrendUp className="text-success" size={16} />;
+    if (recentActivity < 3) return <TrendDown className="text-muted-foreground" size={16} />;
+    return <Minus className="text-muted-foreground" size={16} />;
+  };
 
   return (
     <Card>
@@ -43,9 +43,7 @@ export function TopUsers({ devices, flows }: TopUsersProps) {
           <DeviceMobile size={20} />
           Top Users by Traffic
         </CardTitle>
-        <CardDescription>
-          Devices ranked by total data consumption
-        </CardDescription>
+        <CardDescription>Devices ranked by total data consumption</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -79,12 +77,10 @@ export function TopUsers({ devices, flows }: TopUsersProps) {
             </div>
           ))}
           {topUsers.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No user data available
-            </div>
+            <div className="text-center py-8 text-muted-foreground">No user data available</div>
           )}
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

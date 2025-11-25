@@ -1,21 +1,21 @@
-import { Card } from '@/components/ui/card'
-import { AnalyticsData } from '@/lib/types'
-import { formatBytes } from '@/lib/formatters'
-import { useMemo } from 'react'
+import { Card } from '@/components/ui/card';
+import { AnalyticsData } from '@/lib/types';
+import { formatBytes } from '@/lib/formatters';
+import { useMemo } from 'react';
 
 interface TrafficChartProps {
-  data: AnalyticsData[]
+  data: AnalyticsData[];
 }
 
 export function TrafficChart({ data }: TrafficChartProps) {
-  const maxBytes = useMemo(() => Math.max(...data.map(d => d.totalBytes)), [data])
-  
+  const maxBytes = useMemo(() => Math.max(...data.map(d => d.totalBytes)), [data]);
+
   const chartData = useMemo(() => {
     return data.map(d => ({
       ...d,
-      height: (d.totalBytes / maxBytes) * 100
-    }))
-  }, [data, maxBytes])
+      height: (d.totalBytes / maxBytes) * 100,
+    }));
+  }, [data, maxBytes]);
 
   return (
     <Card className="p-4 border border-border/50">
@@ -24,13 +24,10 @@ export function TrafficChart({ data }: TrafficChartProps) {
           <h3 className="text-lg font-semibold">Traffic Over Time</h3>
           <p className="text-sm text-muted-foreground">Last 24 hours</p>
         </div>
-        
+
         <div className="h-[200px] flex items-end gap-1 px-2">
           {chartData.map((d, idx) => (
-            <div
-              key={idx}
-              className="flex-1 group relative"
-            >
+            <div key={idx} className="flex-1 group relative">
               <div
                 className="w-full bg-gradient-to-t from-accent/80 to-accent/40 rounded-t hover:from-accent hover:to-accent/60 transition-all cursor-pointer"
                 style={{ height: `${d.height}%` }}
@@ -49,12 +46,12 @@ export function TrafficChart({ data }: TrafficChartProps) {
             </div>
           ))}
         </div>
-        
+
         <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
           <span>24h ago</span>
           <span>Now</span>
         </div>
       </div>
     </Card>
-  )
+  );
 }
