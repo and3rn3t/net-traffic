@@ -51,7 +51,13 @@ class ApiClient {
   }
 
   // Health check
-  async healthCheck(): Promise<{ status: string; timestamp: string }> {
+  async healthCheck(): Promise<{
+    status: string;
+    timestamp: string;
+    capture_running: boolean;
+    active_flows: number;
+    active_devices: number;
+  }> {
     return this.request('/api/health');
   }
 
@@ -200,6 +206,3 @@ class ApiClient {
 
 // Export singleton instance
 export const apiClient = new ApiClient();
-
-// Export types
-export type { ApiConfig };
