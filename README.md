@@ -98,16 +98,20 @@ wrangler pages deploy dist --project-name=net-traffic
 │   ├── hooks/         # Custom React hooks
 │   └── styles/        # CSS styles
 ├── .github/
-│   └── workflows/     # GitHub Actions workflows
-├── wrangler.toml      # Cloudflare configuration
-└── vite.config.ts     # Vite build configuration
+│   ├── workflows/        # GitHub Actions workflows
+│   └── ISSUE_TEMPLATE/   # Issue templates
+├── .vscode/              # VS Code workspace settings
+├── src/                  # Source code
+└── vite.config.ts        # Vite build configuration
 ```
 
 ## 🔧 Configuration
 
-- `wrangler.toml`: Cloudflare Pages configuration
 - `vite.config.ts`: Vite build settings
-- `.github/workflows/deploy.yml`: CI/CD pipeline
+- `eslint.config.js`: ESLint configuration
+- `.prettierrc.json`: Prettier formatting rules
+- `.github/workflows/`: CI/CD pipelines
+- See [WORKSPACE_CONFIG.md](./WORKSPACE_CONFIG.md) for detailed configuration guide
 
 ## 📄 License
 
