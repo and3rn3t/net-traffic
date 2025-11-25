@@ -48,8 +48,9 @@ This guide explains how to deploy NetInsight to Cloudflare Pages using GitHub Ac
 The following files are already configured:
 
 - ✅ `.github/workflows/deploy.yml` - GitHub Actions workflow (auto-creates project if needed)
-- ✅ `wrangler.toml` - Cloudflare Pages configuration
 - ✅ `public/_redirects` - SPA routing support
+
+**Note:** `wrangler.toml` is not needed for Cloudflare Pages deployments. Pages deployments work without it.
 
 **Note:** The workflow uses Wrangler CLI which will automatically create the Cloudflare Pages project on first deployment if it doesn't exist. No manual project creation needed!
 

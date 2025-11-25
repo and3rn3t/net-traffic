@@ -4,7 +4,6 @@
 
 - [x] GitHub secrets configured (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`)
 - [x] GitHub Actions workflow created (`.github/workflows/deploy.yml`)
-- [x] Cloudflare configuration created (`wrangler.toml`)
 - [x] SPA routing support added (`public/_redirects`)
 - [x] Build configuration verified
 
@@ -57,6 +56,7 @@ Make sure your default branch matches the workflow:
 | Node Version | `20` | ✅ Configured |
 | Build Command | `npm run build` | ✅ Configured |
 | SPA Routing | `public/_redirects` | ✅ Configured |
+| Wrangler Config | Not needed for Pages | ✅ N/A |
 
 ## 🎯 Next Steps
 

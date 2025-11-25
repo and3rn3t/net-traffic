@@ -40,12 +40,70 @@ jobs:
 
       - name: Create Cloudflare Pages Project (if not exists)
         run: |
-          # Try to create the project (will fail gracefully if it already exists)
-          wrangler pages project create net-traffic --production-branch=main || echo "Project may already exist, continuing..."
+          PROJECT_NAME="net-traffic"
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          
+          echo "Checking if project '${PROJECT_NAME}' exists..."
+          
+          # Check if project exists
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json")
+          
+          echo "HTTP Status Code: ${HTTP_CODE}"
+          
+          # If project doesn't exist (404), create it
+          if [ "$HTTP_CODE" = "404" ]; then
+            echo "Project not found (404), creating it..."
+            CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects" \
+              -H "Authorization: Bearer ${API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"name\":\"${PROJECT_NAME}\",\"production_branch\":\"main\"}")
+            
+            echo "Create Response: ${CREATE_RESPONSE}"
+            
+            # Check if creation was successful
+            if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
+              echo "✅ Project created successfully"
+              echo "Waiting 3 seconds for project to be ready..."
+              sleep 3
+            else
+              echo "❌ Failed to create project"
+              echo "Response: ${CREATE_RESPONSE}"
+              # Don't exit - let Wrangler try to create it or provide better error
+            fi
+          elif [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Project already exists"
+          else
+            echo "⚠️ Unexpected HTTP code: ${HTTP_CODE}"
+            echo "Will attempt deployment anyway..."
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        continue-on-error: true
+
+      - name: Verify Project Exists
+        run: |
+          PROJECT_NAME="net-traffic"
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          
+          echo "Verifying project '${PROJECT_NAME}' exists before deployment..."
+          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json")
+          
+          if echo "$RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Project verified and ready for deployment"
+          else
+            echo "❌ Project verification failed!"
+            echo "Response: ${RESPONSE}"
+            exit 1
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy to Cloudflare Pages
         run: |
