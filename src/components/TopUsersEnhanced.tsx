@@ -7,7 +7,7 @@ import { Device, NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
-import { DeviceMobile, TrendUp, TrendDown, Minus, RefreshCw } from '@phosphor-icons/react';
+import { DeviceMobile, TrendUp, TrendDown, Minus, ArrowClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 
@@ -60,7 +60,9 @@ export function TopUsersEnhanced({
 
   const getTrendIcon = (user: (typeof users)[0]) => {
     // For API data, we don't have recentActivity, so we'll use connections as proxy
-    const recentActivity = 'recentActivity' in user ? user.recentActivity : user.connections;
+    // Type guard to check for recentActivity property
+    const userWithActivity = user as typeof user & { recentActivity?: number };
+    const recentActivity: number = userWithActivity.recentActivity ?? user.connections;
     if (recentActivity > 10) return <TrendUp className="text-success" size={16} />;
     if (recentActivity < 3) return <TrendDown className="text-muted-foreground" size={16} />;
     return <Minus className="text-muted-foreground" size={16} />;
@@ -84,7 +86,7 @@ export function TopUsersEnhanced({
               onClick={() => fetchTopDevices(limit, hours, sortBy)}
               disabled={isLoading}
             >
-              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

@@ -16,8 +16,7 @@ import {
 } from '@phosphor-icons/react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
-import { ConnectionsTable } from '@/components/ConnectionsTable';
-import { DevicesList } from '@/components/DevicesList';
+import { ConnectionsTableEnhanced } from '@/components/ConnectionsTableEnhanced';
 import { DevicesListEnhanced } from '@/components/DevicesListEnhanced';
 import { DataExporterEnhanced } from '@/components/DataExporterEnhanced';
 import { SearchBar } from '@/components/SearchBar';
@@ -41,11 +40,11 @@ import { BandwidthPatterns } from '@/components/BandwidthPatterns';
 import { ProtocolTimeline } from '@/components/ProtocolTimeline';
 import { InsightsSummary } from '@/components/InsightsSummary';
 import { ConnectionQuality } from '@/components/ConnectionQuality';
+import { ConnectionHealthMonitor } from '@/components/ConnectionHealthMonitor';
 import { PeakUsageAnalysis } from '@/components/PeakUsageAnalysis';
 import { AnomalyDetection } from '@/components/AnomalyDetection';
 import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator';
 import { SecurityPosture } from '@/components/SecurityPosture';
-import { DataExporter } from '@/components/DataExporter';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useApiData } from '@/hooks/useApiData';
 import { toast } from 'sonner';
@@ -367,7 +366,11 @@ function App() {
 
             <FlowPipeVisualization flows={flows} devices={devices} />
 
-            <ConnectionsTable flows={flows.slice(0, 50)} />
+            <ConnectionsTableEnhanced
+              flows={flows}
+              devices={devices}
+              useApiFilters={USE_REAL_API && isConnected}
+            />
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-6">
@@ -399,7 +402,7 @@ function App() {
               <TopSitesEnhanced flows={flows} hours={24} limit={10} />
             </div>
 
-            <HistoricalTrends data={analyticsData} />
+            <HistoricalTrends data={analyticsData} useApi={USE_REAL_API && isConnected} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BandwidthPatterns flows={flows} />
@@ -418,6 +421,15 @@ function App() {
                 AI-powered insights, security scoring, cost analysis, and data export tools
               </p>
             </div>
+
+            {USE_REAL_API && (
+              <ConnectionHealthMonitor
+                isConnected={isConnected}
+                error={error}
+                onRetry={() => apiData.refresh()}
+                enableMetrics={true}
+              />
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <SecurityPosture flows={flows} devices={devices} threats={threats} />
@@ -535,7 +547,11 @@ function App() {
               />
             </div>
 
-            <ConnectionsTable flows={flows.slice(0, 100)} />
+            <ConnectionsTableEnhanced
+              flows={flows}
+              devices={devices}
+              useApiFilters={USE_REAL_API && isConnected}
+            />
           </TabsContent>
         </Tabs>
       </div>

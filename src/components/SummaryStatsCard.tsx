@@ -1,11 +1,11 @@
 /**
  * Summary statistics card using the enhanced API
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MetricCard } from '@/components/MetricCard';
-import { formatBytes, formatBytesShort } from '@/lib/formatters';
-import { Activity, RefreshCw, ShieldCheck, AlertTriangle, Devices } from '@phosphor-icons/react';
+import { formatBytesShort } from '@/lib/formatters';
+import { Pulse, ArrowClockwise, ShieldCheck, Warning, DeviceMobile } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 
@@ -25,7 +25,7 @@ export function SummaryStatsCard() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Activity size={20} />
+              <Pulse size={20} />
               Network Overview
             </CardTitle>
             <CardDescription>Real-time network statistics and health metrics</CardDescription>
@@ -36,7 +36,7 @@ export function SummaryStatsCard() {
             onClick={() => fetchSummaryStats()}
             disabled={isLoading}
           >
-            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
           </Button>
         </div>
       </CardHeader>
@@ -49,19 +49,19 @@ export function SummaryStatsCard() {
             title="Total Devices"
             value={summaryStats.total_devices.toString()}
             subtitle={`${summaryStats.active_devices} active`}
-            icon={<Devices size={20} />}
+            icon={<DeviceMobile size={20} />}
           />
           <MetricCard
             title="Network Flows"
             value={summaryStats.total_flows.toString()}
             subtitle={`${summaryStats.active_flows} active`}
-            icon={<Activity size={20} />}
+            icon={<Pulse size={20} />}
           />
           <MetricCard
             title="Total Traffic"
             value={formatBytesShort(summaryStats.total_bytes)}
             subtitle={`${summaryStats.capture_duration_hours.toFixed(1)}h captured`}
-            icon={<Activity size={20} />}
+            icon={<Pulse size={20} />}
           />
           <MetricCard
             title="Security Status"
@@ -69,7 +69,7 @@ export function SummaryStatsCard() {
             subtitle={`${summaryStats.critical_threats} critical`}
             icon={
               summaryStats.critical_threats > 0 ? (
-                <AlertTriangle size={20} className="text-destructive" />
+                <Warning size={20} className="text-destructive" />
               ) : (
                 <ShieldCheck size={20} className="text-success" />
               )

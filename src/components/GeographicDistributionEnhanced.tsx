@@ -6,7 +6,7 @@ import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
-import { Globe, RefreshCw } from '@phosphor-icons/react';
+import { Globe, ArrowClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
@@ -16,7 +16,10 @@ interface GeographicDistributionEnhancedProps {
   hours?: number;
 }
 
-export function GeographicDistributionEnhanced({ flows = [], hours = 24 }: GeographicDistributionEnhancedProps) {
+export function GeographicDistributionEnhanced({
+  flows = [],
+  hours = 24,
+}: GeographicDistributionEnhancedProps) {
   const { geographicStats, isLoading, error, fetchGeographicStats } = useEnhancedAnalytics({
     autoFetch: true,
     hours,
@@ -45,7 +48,9 @@ export function GeographicDistributionEnhanced({ flows = [], hours = 24 }: Geogr
     {} as Record<string, { country: string; connections: number; bytes: number; threats: number }>
   );
 
-  const fallbackGeographic = Object.values(fallbackStats).sort((a, b) => b.connections - a.connections);
+  const fallbackGeographic = Object.values(fallbackStats).sort(
+    (a, b) => b.connections - a.connections
+  );
 
   // Use API data if available, otherwise use fallback
   const stats = useApi && geographicStats.length > 0 ? geographicStats : fallbackGeographic;
@@ -69,7 +74,7 @@ export function GeographicDistributionEnhanced({ flows = [], hours = 24 }: Geogr
               onClick={() => fetchGeographicStats(hours)}
               disabled={isLoading}
             >
-              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>
@@ -81,7 +86,7 @@ export function GeographicDistributionEnhanced({ flows = [], hours = 24 }: Geogr
           </div>
         )}
         <div className="space-y-4">
-          {stats.map((stat) => (
+          {stats.map(stat => (
             <div key={stat.country} className="space-y-2">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -112,14 +117,13 @@ export function GeographicDistributionEnhanced({ flows = [], hours = 24 }: Geogr
             </div>
           ))}
           {stats.length === 0 && !isLoading && (
-            <div className="text-center py-8 text-muted-foreground">No geographic data available</div>
+            <div className="text-center py-8 text-muted-foreground">
+              No geographic data available
+            </div>
           )}
-          {isLoading && (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
-          )}
+          {isLoading && <div className="text-center py-8 text-muted-foreground">Loading...</div>}
         </div>
       </CardContent>
     </Card>
   );
 }
-

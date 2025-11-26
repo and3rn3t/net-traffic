@@ -2,15 +2,13 @@
  * Enhanced TopSites component using API endpoints
  * Falls back to calculating from flows if API unavailable
  */
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Globe, RefreshCw } from '@phosphor-icons/react';
+import { Globe, ArrowClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
-import { apiClient } from '@/lib/api';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 
 interface TopSitesEnhancedProps {
@@ -24,7 +22,7 @@ export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSite
     autoFetch: true,
     hours,
   });
-  const [useApi, setUseApi] = useState(import.meta.env.VITE_USE_REAL_API === 'true');
+  const [useApi] = useState(import.meta.env.VITE_USE_REAL_API === 'true');
 
   // Fallback: calculate from flows if API not available
   const fallbackSites = flows.reduce(
@@ -86,7 +84,7 @@ export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSite
               onClick={() => fetchTopDomains(limit, hours)}
               disabled={isLoading}
             >
-              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>
