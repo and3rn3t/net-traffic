@@ -89,4 +89,3 @@ export function LazyWrapper({ children, fallback }: LazyWrapperProps) {
 
   return <Suspense fallback={fallback || defaultFallback}>{children}</Suspense>;
 }
-

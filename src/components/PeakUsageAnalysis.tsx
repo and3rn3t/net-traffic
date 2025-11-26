@@ -22,7 +22,10 @@ interface PeakUsageAnalysisProps {
 
 const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({ flows, devices }: PeakUsageAnalysisProps) {
+export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({
+  flows,
+  devices,
+}: PeakUsageAnalysisProps) {
   const analysis = useMemo(() => {
     const hourlyUsage = Array.from({ length: 24 }, (_, i) => ({
       hour: i,
