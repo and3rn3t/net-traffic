@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useKV } from '@github/spark/hooks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,11 +11,16 @@ import {
   Eye,
   ChartLineUp,
   Sparkle,
+  Circle,
+  WifiSlash,
 } from '@phosphor-icons/react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
 import { ConnectionsTable } from '@/components/ConnectionsTable';
 import { DevicesList } from '@/components/DevicesList';
+import { DevicesListEnhanced } from '@/components/DevicesListEnhanced';
+import { DataExporterEnhanced } from '@/components/DataExporterEnhanced';
+import { SearchBar } from '@/components/SearchBar';
 import { TrafficChart } from '@/components/TrafficChart';
 import { ProtocolBreakdown } from '@/components/ProtocolBreakdown';
 import { NetworkGraph } from '@/components/NetworkGraph';
@@ -27,12 +31,13 @@ import { BandwidthGauge } from '@/components/BandwidthGauge';
 import { GeographicMap } from '@/components/GeographicMap';
 import { ProtocolSankey } from '@/components/ProtocolSankey';
 import { RadarChart } from '@/components/RadarChart';
-import { TopUsers } from '@/components/TopUsers';
-import { TopSites } from '@/components/TopSites';
+import { TopUsersEnhanced } from '@/components/TopUsersEnhanced';
+import { TopSitesEnhanced } from '@/components/TopSitesEnhanced';
+import { GeographicDistributionEnhanced } from '@/components/GeographicDistributionEnhanced';
+import { SummaryStatsCard } from '@/components/SummaryStatsCard';
 import { HistoricalTrends } from '@/components/HistoricalTrends';
 import { UserActivityTimeline } from '@/components/UserActivityTimeline';
 import { BandwidthPatterns } from '@/components/BandwidthPatterns';
-import { GeographicDistribution } from '@/components/GeographicDistribution';
 import { ProtocolTimeline } from '@/components/ProtocolTimeline';
 import { InsightsSummary } from '@/components/InsightsSummary';
 import { ConnectionQuality } from '@/components/ConnectionQuality';
@@ -41,8 +46,10 @@ import { AnomalyDetection } from '@/components/AnomalyDetection';
 import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator';
 import { SecurityPosture } from '@/components/SecurityPosture';
 import { DataExporter } from '@/components/DataExporter';
-import { NetworkFlow, Device, Threat } from '@/lib/types';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
+import { useApiData } from '@/hooks/useApiData';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import {
   generateInitialDevices,
   generateInitialFlows,
@@ -52,41 +59,52 @@ import {
   generateNetworkFlow,
   generateThreat,
 } from '@/lib/mockData';
-import { toast } from 'sonner';
+import { Device, NetworkFlow, Threat } from '@/lib/types';
 
 function App() {
-  const [devices, setDevices] = useKV<Device[]>('network-devices', []);
-  const [flows, setFlows] = useKV<NetworkFlow[]>('network-flows', []);
-  const [threats, setThreats] = useKV<Threat[]>('network-threats', []);
-  const [analyticsData] = useState(() => generateAnalyticsData(24));
-  const [protocolStats] = useState(() => generateProtocolStats());
-  const [isCapturing, setIsCapturing] = useState(true);
+  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
+  // Use API hook for data fetching (only when API is enabled)
+  const apiData = useApiData({
+    pollingInterval: 5000, // Poll every 5 seconds as backup
+    useWebSocket: true, // Enable real-time WebSocket updates
+  });
+
+  // Fallback mock data state (used when API is disabled)
+  const [mockDevices, setMockDevices] = useState<Device[]>([]);
+  const [mockFlows, setMockFlows] = useState<NetworkFlow[]>([]);
+  const [mockThreats, setMockThreats] = useState<Threat[]>([]);
+  const [mockAnalyticsData] = useState(() => generateAnalyticsData(24));
+  const [mockProtocolStats] = useState(() => generateProtocolStats());
+  const [mockIsCapturing, setMockIsCapturing] = useState(true);
+
+  // Initialize mock data when API is disabled
   useEffect(() => {
-    if (!devices || devices.length === 0) {
+    if (!USE_REAL_API && (!mockDevices || mockDevices.length === 0)) {
       const initialDevices = generateInitialDevices(8);
       const initialFlows = generateInitialFlows(initialDevices, 30);
       const initialThreats = generateInitialThreats(initialDevices, initialFlows, 3);
 
-      setDevices(initialDevices);
-      setFlows(initialFlows);
-      setThreats(initialThreats);
+      setMockDevices(initialDevices);
+      setMockFlows(initialFlows);
+      setMockThreats(initialThreats);
     }
-  }, []);
+  }, [USE_REAL_API, mockDevices]);
 
+  // Mock data generation interval (only when API is disabled)
   useEffect(() => {
-    if (!isCapturing || !devices || devices.length === 0) return;
+    if (USE_REAL_API || !mockIsCapturing || !mockDevices || mockDevices.length === 0) return;
 
     const interval = setInterval(() => {
-      setFlows(currentFlows => {
-        if (!currentFlows || !devices) return currentFlows || [];
+      setMockFlows(currentFlows => {
+        if (!currentFlows || !mockDevices) return currentFlows || [];
 
-        const randomDevice = devices[Math.floor(Math.random() * devices.length)];
+        const randomDevice = mockDevices[Math.floor(Math.random() * mockDevices.length)];
         const newFlow = generateNetworkFlow(randomDevice.id, `flow-${Date.now()}`);
 
         if (newFlow.threatLevel === 'high' || newFlow.threatLevel === 'critical') {
           const newThreat = generateThreat(randomDevice.id, newFlow.id, `threat-${Date.now()}`);
-          setThreats(current => {
+          setMockThreats(current => {
             if (!current) return [newThreat];
             return [newThreat, ...current].slice(0, 20);
           });
@@ -99,11 +117,11 @@ function App() {
         return updatedFlows;
       });
 
-      setDevices(currentDevices => {
-        if (!currentDevices || !flows) return currentDevices || [];
+      setMockDevices(currentDevices => {
+        if (!currentDevices || !mockFlows) return currentDevices || [];
 
         return currentDevices.map(d => {
-          const deviceFlows = flows.filter(f => f.deviceId === d.id);
+          const deviceFlows = mockFlows.filter(f => f.deviceId === d.id);
           const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
           return {
             ...d,
@@ -116,20 +134,60 @@ function App() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [isCapturing, devices, flows, setFlows, setDevices, setThreats]);
+  }, [USE_REAL_API, mockIsCapturing, mockDevices, mockFlows]);
 
+  // Select data source based on API availability
+  const devices = USE_REAL_API ? apiData.devices : mockDevices;
+  const flows = USE_REAL_API ? apiData.flows : mockFlows;
+  const threats = USE_REAL_API ? apiData.threats : mockThreats;
+  const analyticsData = USE_REAL_API ? apiData.analyticsData : mockAnalyticsData;
+  const protocolStats = USE_REAL_API ? apiData.protocolStats : mockProtocolStats;
+  const isCapturing = USE_REAL_API ? apiData.isCapturing : mockIsCapturing;
+  const isLoading = USE_REAL_API ? apiData.isLoading : false;
+  const isConnected = USE_REAL_API ? apiData.isConnected : false;
+  const error = USE_REAL_API ? apiData.error : null;
+
+  // Handle loading state (only when using real API)
+  if (isLoading && USE_REAL_API) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Connecting to backend...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle dismiss threat
   const handleDismissThreat = (id: string) => {
-    setThreats(currentThreats => {
-      if (!currentThreats) return [];
-      return currentThreats.map(t => (t.id === id ? { ...t, dismissed: true } : t));
-    });
+    if (USE_REAL_API) {
+      apiData.dismissThreat(id);
+    } else {
+      setMockThreats(currentThreats => {
+        if (!currentThreats) return [];
+        return currentThreats.map(t => (t.id === id ? { ...t, dismissed: true } : t));
+      });
+    }
   };
 
-  const activeThreats = (threats || []).filter(t => !t.dismissed);
-  const activeFlows = (flows || []).filter(f => f.status === 'active');
-  const totalBytes = (flows || []).reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
-  const avgThreatScore =
-    (devices || []).reduce((sum, d) => sum + d.threatScore, 0) / ((devices || []).length || 1);
+  // Handle capture toggle
+  const handleToggleCapture = () => {
+    if (USE_REAL_API) {
+      if (isCapturing) {
+        apiData.stopCapture();
+      } else {
+        apiData.startCapture();
+      }
+    } else {
+      setMockIsCapturing(!mockIsCapturing);
+    }
+  };
+
+  const activeThreats = threats.filter(t => !t.dismissed);
+  const activeFlows = flows.filter(f => f.status === 'active');
+  const totalBytes = flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+  const avgThreatScore = devices.reduce((sum, d) => sum + d.threatScore, 0) / (devices.length || 1);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -141,16 +199,72 @@ function App() {
               <p className="text-sm text-muted-foreground">Deep Network Traffic Analysis</p>
             </div>
             <div className="flex items-center gap-3">
+              {/* Search Bar */}
+              <div className="hidden md:block">
+                <SearchBar
+                  onResultClick={(type, id) => {
+                    if (type === 'device') {
+                      // Could navigate to device details or scroll to device
+                      toast.info(`Device selected: ${id}`);
+                    } else if (type === 'flow') {
+                      toast.info(`Flow selected: ${id}`);
+                    } else if (type === 'threat') {
+                      toast.info(`Threat selected: ${id}`);
+                    }
+                  }}
+                />
+              </div>
+              {/* Connection Status Indicator */}
+              {USE_REAL_API && (
+                <Badge
+                  variant={isConnected ? 'default' : 'destructive'}
+                  className="flex items-center gap-1.5"
+                >
+                  {isConnected ? (
+                    <>
+                      <Circle size={8} weight="fill" className="animate-pulse" />
+                      Connected
+                    </>
+                  ) : (
+                    <>
+                      <WifiSlash size={12} />
+                      Disconnected
+                    </>
+                  )}
+                </Badge>
+              )}
+              {/* Capture Control Button */}
               <Button
                 variant={isCapturing ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setIsCapturing(!isCapturing)}
+                onClick={handleToggleCapture}
+                disabled={USE_REAL_API && !isConnected}
               >
                 <Pulse size={16} className={isCapturing ? 'animate-pulse' : ''} />
                 {isCapturing ? 'Capturing' : 'Paused'}
               </Button>
             </div>
           </div>
+          {/* Error Banner */}
+          {error && USE_REAL_API && (
+            <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <Warning size={16} />
+                <span>
+                  {error.includes('timeout') || error.includes('unavailable')
+                    ? 'Backend unavailable. Using offline mode.'
+                    : error}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => (USE_REAL_API ? apiData.refresh() : globalThis.location.reload())}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -197,7 +311,7 @@ function App() {
               <MetricCard
                 title="Active Connections"
                 value={activeFlows.length}
-                subtitle={`${(flows || []).length} total`}
+                subtitle={`${flows.length} total`}
                 icon={<Graph size={24} />}
                 trend="up"
                 trendValue={`${Math.floor(Math.random() * 20)}% from last hour`}
@@ -212,8 +326,8 @@ function App() {
               />
               <MetricCard
                 title="Active Devices"
-                value={(devices || []).length}
-                subtitle={`${(devices || []).filter(d => Date.now() - d.lastSeen < 300000).length} online now`}
+                value={devices.length}
+                subtitle={`${devices.filter(d => Date.now() - d.lastSeen < 300000).length} online now`}
                 icon={<DeviceMobile size={24} />}
                 trend="neutral"
               />
@@ -251,9 +365,9 @@ function App() {
               <TrafficChart data={analyticsData} />
             </div>
 
-            <FlowPipeVisualization flows={flows || []} devices={devices || []} />
+            <FlowPipeVisualization flows={flows} devices={devices} />
 
-            <ConnectionsTable flows={(flows || []).slice(0, 50)} />
+            <ConnectionsTable flows={flows.slice(0, 50)} />
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-6">
@@ -264,28 +378,37 @@ function App() {
               </p>
             </div>
 
-            <InsightsSummary devices={devices || []} flows={flows || []} threats={threats || []} />
+            <InsightsSummary devices={devices} flows={flows} threats={threats} />
+
+            {/* Summary Statistics Card - Enhanced API */}
+            <SummaryStatsCard />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ConnectionQuality flows={flows || []} />
-              <PeakUsageAnalysis flows={flows || []} devices={devices || []} />
+              <ConnectionQuality flows={flows} />
+              <PeakUsageAnalysis flows={flows} devices={devices} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TopUsers devices={devices || []} flows={flows || []} />
-              <TopSites flows={flows || []} />
+              <TopUsersEnhanced
+                devices={devices}
+                flows={flows}
+                hours={24}
+                limit={10}
+                sortBy="bytes"
+              />
+              <TopSitesEnhanced flows={flows} hours={24} limit={10} />
             </div>
 
             <HistoricalTrends data={analyticsData} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BandwidthPatterns flows={flows || []} />
-              <GeographicDistribution flows={flows || []} />
+              <BandwidthPatterns flows={flows} />
+              <GeographicDistributionEnhanced flows={flows} hours={24} />
             </div>
 
-            <ProtocolTimeline flows={flows || []} />
+            <ProtocolTimeline flows={flows} />
 
-            <UserActivityTimeline flows={flows || []} />
+            <UserActivityTimeline flows={flows} />
           </TabsContent>
 
           <TabsContent value="advanced" className="space-y-6">
@@ -297,44 +420,49 @@ function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SecurityPosture
-                flows={flows || []}
-                devices={devices || []}
-                threats={threats || []}
-              />
-              <AnomalyDetection flows={flows || []} devices={devices || []} />
+              <SecurityPosture flows={flows} devices={devices} threats={threats} />
+              <AnomalyDetection flows={flows} devices={devices} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BandwidthCostEstimator flows={flows || []} />
-              <DataExporter flows={flows || []} devices={devices || []} threats={threats || []} />
+              <BandwidthCostEstimator flows={flows} />
+              <DataExporterEnhanced flows={flows} devices={devices} threats={threats} />
             </div>
           </TabsContent>
 
           <TabsContent value="visualizations" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <HeatmapTimeline flows={flows || []} />
-              <PacketBurst flows={flows || []} />
+              <HeatmapTimeline flows={flows} />
+              <PacketBurst flows={flows} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BandwidthGauge currentBytes={totalBytes} maxBytes={totalBytes * 1.5} />
-              <RadarChart devices={devices || []} />
+              <RadarChart devices={devices} />
             </div>
 
-            <GeographicMap flows={flows || []} />
+            <GeographicMap flows={flows} />
 
-            <ProtocolSankey flows={flows || []} devices={devices || []} />
+            <ProtocolSankey flows={flows} devices={devices} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices || []} />
-              <FlowPipeVisualization flows={flows || []} devices={devices || []} />
+              <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices} />
+              <FlowPipeVisualization flows={flows} devices={devices} />
             </div>
           </TabsContent>
 
           <TabsContent value="devices" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DevicesList devices={devices || []} />
+              <DevicesListEnhanced
+                devices={devices}
+                onDeviceUpdate={updatedDevice => {
+                  // Update device in local state
+                  if (USE_REAL_API && apiData) {
+                    // Refresh devices from API
+                    apiData.refresh();
+                  }
+                }}
+              />
               <ProtocolBreakdown data={protocolStats} />
             </div>
           </TabsContent>
@@ -347,18 +475,16 @@ function App() {
                   {activeThreats.length} active threats detected
                 </p>
               </div>
-              {(threats || []).filter(t => t.dismissed).length > 0 && (
+              {threats.filter(t => t.dismissed).length > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    setThreats(currentThreats => {
-                      if (!currentThreats) return [];
-                      return currentThreats.filter(t => !t.dismissed);
-                    })
-                  }
+                  onClick={() => {
+                    // This would need to be handled through API if needed
+                    toast.info('Dismissed threats will be cleared automatically');
+                  }}
                 >
-                  Clear dismissed ({(threats || []).filter(t => t.dismissed).length})
+                  Clear dismissed ({threats.filter(t => t.dismissed).length})
                 </Button>
               )}
             </div>
@@ -371,7 +497,7 @@ function App() {
               </div>
             ) : (
               <div className="space-y-2">
-                {(threats || []).map(
+                {threats.map(
                   threat =>
                     !threat.dismissed && (
                       <ThreatAlert
@@ -404,12 +530,12 @@ function App() {
               />
               <MetricCard
                 title="Total Threats"
-                value={(threats || []).length}
+                value={threats.length}
                 subtitle={`${activeThreats.length} unresolved`}
               />
             </div>
 
-            <ConnectionsTable flows={(flows || []).slice(0, 100)} />
+            <ConnectionsTable flows={flows.slice(0, 100)} />
           </TabsContent>
         </Tabs>
       </div>

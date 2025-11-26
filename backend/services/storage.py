@@ -164,8 +164,12 @@ class StorageService:
         await self.db.commit()
 
     async def get_flows(self, limit: int = 100, device_id: Optional[str] = None,
-                       status: Optional[str] = None) -> List[NetworkFlow]:
-        """Get flows with filters"""
+                       status: Optional[str] = None, protocol: Optional[str] = None,
+                       start_time: Optional[int] = None, end_time: Optional[int] = None,
+                       source_ip: Optional[str] = None, dest_ip: Optional[str] = None,
+                       threat_level: Optional[str] = None, min_bytes: Optional[int] = None,
+                       offset: int = 0) -> List[NetworkFlow]:
+        """Get flows with advanced filters"""
         query = "SELECT * FROM flows WHERE 1=1"
         params = []
 
@@ -177,12 +181,74 @@ class StorageService:
             query += " AND status = ?"
             params.append(status)
 
-        query += " ORDER BY timestamp DESC LIMIT ?"
-        params.append(limit)
+        if protocol:
+            query += " AND protocol = ?"
+            params.append(protocol)
+
+        if start_time:
+            query += " AND timestamp >= ?"
+            params.append(start_time)
+
+        if end_time:
+            query += " AND timestamp <= ?"
+            params.append(end_time)
+
+        if source_ip:
+            query += " AND source_ip = ?"
+            params.append(source_ip)
+
+        if dest_ip:
+            query += " AND dest_ip = ?"
+            params.append(dest_ip)
+
+        if threat_level:
+            query += " AND threat_level = ?"
+            params.append(threat_level)
+
+        if min_bytes:
+            query += " AND (bytes_in + bytes_out) >= ?"
+            params.append(min_bytes)
+
+        query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
 
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_flow(row) for row in rows]
+
+    async def search_flows(self, query_text: str, limit: int = 50) -> List[NetworkFlow]:
+        """Search flows by IP address or domain"""
+        query = """
+            SELECT * FROM flows
+            WHERE source_ip LIKE ?
+               OR dest_ip LIKE ?
+               OR domain LIKE ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+        """
+        search_pattern = f"%{query_text}%"
+        params = [search_pattern, search_pattern, search_pattern, limit]
+
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [self._row_to_flow(row) for row in rows]
+
+    async def search_devices(self, query_text: str, limit: int = 50) -> List[Device]:
+        """Search devices by name, IP, or MAC"""
+        query = """
+            SELECT * FROM devices
+            WHERE name LIKE ?
+               OR ip LIKE ?
+               OR mac LIKE ?
+            ORDER BY last_seen DESC
+            LIMIT ?
+        """
+        search_pattern = f"%{query_text}%"
+        params = [search_pattern, search_pattern, search_pattern, limit]
+
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [self._row_to_device(row) for row in rows]
 
     async def get_flow(self, flow_id: str) -> Optional[NetworkFlow]:
         """Get flow by ID"""

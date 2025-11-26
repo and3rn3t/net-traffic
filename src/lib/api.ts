@@ -71,10 +71,32 @@ class ApiClient {
   }
 
   // Flows
-  async getFlows(limit: number = 100, deviceId?: string, status?: string): Promise<any[]> {
-    const params = new URLSearchParams({ limit: limit.toString() });
+  async getFlows(
+    limit: number = 100,
+    offset: number = 0,
+    deviceId?: string,
+    status?: string,
+    protocol?: string,
+    startTime?: number,
+    endTime?: number,
+    sourceIp?: string,
+    destIp?: string,
+    threatLevel?: string,
+    minBytes?: number
+  ): Promise<any[]> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+    });
     if (deviceId) params.append('device_id', deviceId);
     if (status) params.append('status', status);
+    if (protocol) params.append('protocol', protocol);
+    if (startTime) params.append('start_time', startTime.toString());
+    if (endTime) params.append('end_time', endTime.toString());
+    if (sourceIp) params.append('source_ip', sourceIp);
+    if (destIp) params.append('dest_ip', destIp);
+    if (threatLevel) params.append('threat_level', threatLevel);
+    if (minBytes) params.append('min_bytes', minBytes.toString());
 
     return this.request(`/api/flows?${params.toString()}`);
   }
@@ -112,6 +134,185 @@ class ApiClient {
 
   async stopCapture(): Promise<void> {
     return this.request('/api/capture/stop', { method: 'POST' });
+  }
+
+  // Enhanced endpoints
+
+  // Summary Statistics
+  async getSummaryStats(): Promise<{
+    total_devices: number;
+    active_devices: number;
+    total_flows: number;
+    active_flows: number;
+    total_bytes: number;
+    total_threats: number;
+    active_threats: number;
+    critical_threats: number;
+    oldest_flow_timestamp: number;
+    newest_flow_timestamp: number;
+    capture_duration_hours: number;
+  }> {
+    return this.request('/api/stats/summary');
+  }
+
+  // Geographic Statistics
+  async getGeographicStats(hours: number = 24): Promise<
+    Array<{
+      country: string;
+      connections: number;
+      bytes: number;
+      threats: number;
+    }>
+  > {
+    return this.request(`/api/stats/geographic?hours=${hours}`);
+  }
+
+  // Top Domains
+  async getTopDomains(
+    limit: number = 20,
+    hours: number = 24
+  ): Promise<
+    Array<{
+      domain: string;
+      connections: number;
+      bytes: number;
+      unique_devices: number;
+    }>
+  > {
+    return this.request(`/api/stats/top/domains?limit=${limit}&hours=${hours}`);
+  }
+
+  // Top Devices
+  async getTopDevices(
+    limit: number = 10,
+    hours: number = 24,
+    sortBy: 'bytes' | 'connections' | 'threats' = 'bytes'
+  ): Promise<
+    Array<{
+      device_id: string;
+      device_name: string;
+      device_ip: string;
+      device_type: string;
+      bytes: number;
+      connections: number;
+      threats: number;
+    }>
+  > {
+    return this.request(`/api/stats/top/devices?limit=${limit}&hours=${hours}&sort_by=${sortBy}`);
+  }
+
+  // Bandwidth Timeline
+  async getBandwidthTimeline(
+    hours: number = 24,
+    intervalMinutes: number = 5
+  ): Promise<
+    Array<{
+      timestamp: number;
+      bytes_in: number;
+      bytes_out: number;
+      packets: number;
+      connections: number;
+    }>
+  > {
+    return this.request(`/api/stats/bandwidth?hours=${hours}&interval_minutes=${intervalMinutes}`);
+  }
+
+  // Device Analytics
+  async getDeviceAnalytics(
+    deviceId: string,
+    hours: number = 24
+  ): Promise<{
+    device: {
+      id: string;
+      name: string;
+      ip: string;
+      type: string;
+    };
+    summary: {
+      total_bytes_in: number;
+      total_bytes_out: number;
+      total_bytes: number;
+      connections: number;
+      threats: number;
+    };
+    protocols: Array<{
+      protocol: string;
+      bytes: number;
+      connections: number;
+    }>;
+    top_domains: Array<{
+      domain: string;
+      bytes: number;
+    }>;
+    top_ports: Array<{
+      port: number;
+      connections: number;
+    }>;
+  }> {
+    return this.request(`/api/devices/${deviceId}/analytics?hours=${hours}`);
+  }
+
+  // Update Device
+  async updateDevice(
+    deviceId: string,
+    update: { name?: string; type?: string; notes?: string }
+  ): Promise<any> {
+    return this.request(`/api/devices/${deviceId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(update),
+    });
+  }
+
+  // Search
+  async search(
+    query: string,
+    type: 'all' | 'devices' | 'flows' | 'threats' = 'all',
+    limit: number = 50
+  ): Promise<{
+    query: string;
+    type: string;
+    devices: any[];
+    flows: any[];
+    threats: any[];
+  }> {
+    return this.request(`/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=${limit}`);
+  }
+
+  // Export Flows
+  async exportFlows(
+    format: 'json' | 'csv' = 'json',
+    startTime?: number,
+    endTime?: number,
+    deviceId?: string
+  ): Promise<void> {
+    const params = new URLSearchParams({ format });
+    if (startTime) params.append('start_time', startTime.toString());
+    if (endTime) params.append('end_time', endTime.toString());
+    if (deviceId) params.append('device_id', deviceId);
+
+    const url = `/api/export/flows?${params.toString()}`;
+
+    // Fetch as blob for both formats
+    const response = await fetch(`${this.baseURL}${url}`, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = globalThis.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    const extension = format === 'csv' ? 'csv' : 'json';
+    link.download = `flows_export_${new Date().toISOString().slice(0, 10)}.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    globalThis.URL.revokeObjectURL(downloadUrl);
   }
 
   // WebSocket connection for real-time updates

@@ -4,15 +4,16 @@ Raspberry Pi 5 compatible network traffic analysis service
 """
 import asyncio
 import os
+import csv
 from contextlib import asynccontextmanager
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+from io import StringIO
 import logging
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi.responses import Response
 from dotenv import load_dotenv
 
 from services.packet_capture import PacketCaptureService
@@ -20,7 +21,11 @@ from services.device_fingerprinting import DeviceFingerprintingService
 from services.threat_detection import ThreatDetectionService
 from services.storage import StorageService
 from services.analytics import AnalyticsService
-from models.types import NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
+from services.advanced_analytics import AdvancedAnalyticsService
+from models.types import (
+    NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
+)
+from models.requests import DeviceUpdateRequest
 
 load_dotenv()
 
@@ -37,6 +42,7 @@ device_service: Optional[DeviceFingerprintingService] = None
 threat_service: Optional[ThreatDetectionService] = None
 storage: Optional[StorageService] = None
 analytics: Optional[AnalyticsService] = None
+advanced_analytics: Optional[AdvancedAnalyticsService] = None
 
 # WebSocket connections for real-time updates
 active_connections: List[WebSocket] = []
@@ -57,6 +63,8 @@ async def lifespan(app: FastAPI):
     device_service = DeviceFingerprintingService(storage)
     threat_service = ThreatDetectionService(storage)
     analytics = AnalyticsService(storage)
+    global advanced_analytics
+    advanced_analytics = AdvancedAnalyticsService(storage)
 
     # Initialize packet capture
     interface = os.getenv("NETWORK_INTERFACE", "eth0")
@@ -169,13 +177,33 @@ async def get_device(device_id: str):
 @app.get("/api/flows", response_model=List[NetworkFlow])
 async def get_flows(
     limit: int = 100,
+    offset: int = 0,
     device_id: Optional[str] = None,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    protocol: Optional[str] = None,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    source_ip: Optional[str] = None,
+    dest_ip: Optional[str] = None,
+    threat_level: Optional[str] = None,
+    min_bytes: Optional[int] = None
 ):
-    """Get network flows with optional filters"""
+    """Get network flows with advanced filtering options"""
     if not storage:
         raise HTTPException(status_code=503, detail="Storage not initialized")
-    return await storage.get_flows(limit=limit, device_id=device_id, status=status)
+    return await storage.get_flows(
+        limit=limit,
+        offset=offset,
+        device_id=device_id,
+        status=status,
+        protocol=protocol,
+        start_time=start_time,
+        end_time=end_time,
+        source_ip=source_ip,
+        dest_ip=dest_ip,
+        threat_level=threat_level,
+        min_bytes=min_bytes
+    )
 
 
 @app.get("/api/flows/{flow_id}", response_model=NetworkFlow)
@@ -222,6 +250,179 @@ async def get_protocol_stats():
     if not analytics:
         raise HTTPException(status_code=503, detail="Analytics service not initialized")
     return await analytics.get_protocol_stats()
+
+
+@app.get("/api/stats/summary")
+async def get_summary_stats():
+    """Get overall summary statistics"""
+    if not advanced_analytics:
+        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+    return await advanced_analytics.get_summary_stats()
+
+
+@app.get("/api/stats/geographic")
+async def get_geographic_stats(hours: int = 24):
+    """Get geographic distribution of connections"""
+    if not advanced_analytics:
+        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+    return await advanced_analytics.get_geographic_distribution(hours_back=hours)
+
+
+@app.get("/api/stats/top/domains")
+async def get_top_domains(limit: int = 20, hours: int = 24):
+    """Get top domains by traffic"""
+    if not advanced_analytics:
+        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+    return await advanced_analytics.get_top_domains(limit=limit, hours_back=hours)
+
+
+@app.get("/api/stats/top/devices")
+async def get_top_devices(limit: int = 10, hours: int = 24, sort_by: str = "bytes"):
+    """Get top devices by traffic"""
+    if not advanced_analytics:
+        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+    return await advanced_analytics.get_top_devices(limit=limit, hours_back=hours, sort_by=sort_by)
+
+
+@app.get("/api/stats/bandwidth")
+async def get_bandwidth_timeline(hours: int = 24, interval_minutes: int = 5):
+    """Get bandwidth usage timeline"""
+    if not advanced_analytics:
+        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+    return await advanced_analytics.get_bandwidth_timeline(hours_back=hours, interval_minutes=interval_minutes)
+
+
+@app.get("/api/devices/{device_id}/analytics")
+async def get_device_analytics(device_id: str, hours: int = 24):
+    """Get detailed analytics for a specific device"""
+    if not advanced_analytics:
+        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+    result = await advanced_analytics.get_device_analytics(device_id, hours_back=hours)
+    if not result:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return result
+
+
+@app.patch("/api/devices/{device_id}")
+async def update_device(device_id: str, update: DeviceUpdateRequest):
+    """Update device information (name, notes, type)"""
+    if not storage:
+        raise HTTPException(status_code=503, detail="Storage not initialized")
+
+    device = await storage.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # Update fields if provided
+    if update.name is not None:
+        device.name = update.name
+    if update.type is not None:
+        device.type = update.type
+    # Note: notes field would need to be added to Device model
+    # For now, we can store it in behavioral dict
+    if update.notes is not None:
+        behavioral = device.behavioral.copy() if isinstance(device.behavioral, dict) else {}
+        behavioral["notes"] = update.notes
+        device.behavioral = behavioral
+
+    await storage.upsert_device(device)
+    return device
+
+
+@app.get("/api/search")
+async def search(
+    q: str,
+    type: str = "all",
+    limit: int = 50
+):
+    """Search across devices, flows, and threats"""
+    if not storage:
+        raise HTTPException(status_code=503, detail="Storage not initialized")
+
+    results = {
+        "query": q,
+        "type": type,
+        "devices": [],
+        "flows": [],
+        "threats": []
+    }
+
+    if type in ["all", "devices"]:
+        results["devices"] = await storage.search_devices(q, limit)
+
+    if type in ["all", "flows"]:
+        results["flows"] = await storage.search_flows(q, limit)
+
+    if type in ["all", "threats"]:
+        threats = await storage.get_threats(active_only=False)
+        results["threats"] = [
+            t for t in threats
+            if q.lower() in t.description.lower() or q.lower() in t.type.lower()
+        ][:limit]
+
+    return results
+
+
+@app.get("/api/export/flows")
+async def export_flows(
+    format: str = "json",
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    device_id: Optional[str] = None
+):
+    """Export flows as JSON or CSV"""
+    if not storage:
+        raise HTTPException(status_code=503, detail="Storage not initialized")
+
+    flows = await storage.get_flows(
+        limit=10000,
+        start_time=start_time,
+        end_time=end_time,
+        device_id=device_id
+    )
+
+    if format.lower() == "csv":
+        output = StringIO()  # type: ignore
+        writer = csv.DictWriter(output, fieldnames=[
+            "id", "timestamp", "source_ip", "source_port", "dest_ip", "dest_port",
+            "protocol", "bytes_in", "bytes_out", "packets_in", "packets_out",
+            "duration", "status", "country", "domain", "threat_level", "device_id"
+        ])
+        writer.writeheader()
+
+        for flow in flows:
+            writer.writerow({
+                "id": flow.id,
+                "timestamp": flow.timestamp,
+                "source_ip": flow.sourceIp,
+                "source_port": flow.sourcePort,
+                "dest_ip": flow.destIp,
+                "dest_port": flow.destPort,
+                "protocol": flow.protocol,
+                "bytes_in": flow.bytesIn,
+                "bytes_out": flow.bytesOut,
+                "packets_in": flow.packetsIn,
+                "packets_out": flow.packetsOut,
+                "duration": flow.duration,
+                "status": flow.status,
+                "country": flow.country or "",
+                "domain": flow.domain or "",
+                "threat_level": flow.threatLevel,
+                "device_id": flow.deviceId
+            })
+
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=flows_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+        )
+    else:
+        # JSON format
+        return {
+            "export_date": datetime.now().isoformat(),
+            "count": len(flows),
+            "flows": [flow.dict() for flow in flows]
+        }
 
 
 @app.post("/api/capture/start")
