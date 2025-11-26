@@ -255,29 +255,6 @@ function App() {
               <ErrorDisplay error={error} context="Failed to connect to backend" />
             </div>
           )}
-
-          {/* Legacy Error Banner (for backward compatibility) */}
-          {error && USE_REAL_API && false && (
-            <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-destructive">
-                <Warning size={16} />
-                <span>
-                  {error
-                    ? error!.includes('timeout') || error!.includes('unavailable')
-                      ? 'Backend unavailable. Using offline mode.'
-                      : error
-                    : 'Unknown error'}
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => (USE_REAL_API ? apiData.refresh() : globalThis.location.reload())}
-              >
-                Retry
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
