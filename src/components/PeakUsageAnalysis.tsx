@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { NetworkFlow, Device } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
@@ -22,7 +22,7 @@ interface PeakUsageAnalysisProps {
 
 const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function PeakUsageAnalysis({ flows, devices }: PeakUsageAnalysisProps) {
+export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({ flows, devices }: PeakUsageAnalysisProps) {
   const analysis = useMemo(() => {
     const hourlyUsage = Array.from({ length: 24 }, (_, i) => ({
       hour: i,
@@ -232,4 +232,4 @@ export function PeakUsageAnalysis({ flows, devices }: PeakUsageAnalysisProps) {
       </CardContent>
     </Card>
   );
-}
+});

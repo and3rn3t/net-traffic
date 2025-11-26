@@ -23,31 +23,67 @@ class ApiClient {
     this.timeout = config.timeout || 30000;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    retries: number = 2
+  ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        signal: AbortSignal.timeout(this.timeout),
-      });
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+          signal: AbortSignal.timeout(this.timeout),
+        });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: response.statusText }));
-        throw new Error(error.message || `HTTP ${response.status}`);
-      }
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: response.statusText }));
+          const errorMessage = error.message || `HTTP ${response.status}`;
 
-      return await response.json();
-    } catch (error) {
-      if (error instanceof Error && error.name === 'TimeoutError') {
-        throw new Error('Request timeout - backend may be unavailable');
+          // Don't retry on client errors (4xx) except 429 (rate limit)
+          if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+            throw new Error(errorMessage);
+          }
+
+          // Retry on server errors (5xx) and rate limits (429)
+          if (attempt < retries) {
+            const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        return await response.json();
+      } catch (error) {
+        if (error instanceof Error && error.name === 'TimeoutError') {
+          // Retry timeout errors
+          if (attempt < retries) {
+            const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          throw new Error('Request timeout - backend may be unavailable');
+        }
+
+        // If this is the last attempt, throw the error
+        if (attempt === retries) {
+          throw error;
+        }
+
+        // Otherwise, wait and retry
+        const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-      throw error;
     }
+
+    throw new Error('Request failed after retries');
   }
 
   // Health check
@@ -57,6 +93,26 @@ class ApiClient {
     capture_running: boolean;
     active_flows: number;
     active_devices: number;
+    services?: {
+      storage: boolean;
+      packet_capture: boolean;
+      device_service: boolean;
+      threat_service: boolean;
+      analytics: boolean;
+    };
+    capture?: {
+      running: boolean;
+      interface: string;
+      packets_captured: number;
+      flows_detected: number;
+    };
+    database?: {
+      active_flows: number;
+      active_devices: number;
+    };
+    websocket?: {
+      active_connections: number;
+    };
   }> {
     return this.request('/api/health');
   }

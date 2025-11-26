@@ -18,8 +18,10 @@ interface CostBreakdown {
   tier: 'free' | 'standard' | 'premium' | 'enterprise';
 }
 
-export function BandwidthCostEstimator({ flows }: BandwidthCostEstimatorProps) {
-  const calculateCosts = (): CostBreakdown => {
+export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
+  flows,
+}: BandwidthCostEstimatorProps) {
+  const costs = useMemo((): CostBreakdown => {
     const totalBytes = flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
     const totalGB = totalBytes / 1024 ** 3;
 
@@ -63,9 +65,7 @@ export function BandwidthCostEstimator({ flows }: BandwidthCostEstimatorProps) {
       overage,
       tier,
     };
-  };
-
-  const costs = calculateCosts();
+  }, [flows]);
   const usagePercent = Math.min(100, (costs.totalGB / 1000) * 100);
 
   const getTierInfo = (tier: CostBreakdown['tier']) => {
@@ -191,4 +191,4 @@ export function BandwidthCostEstimator({ flows }: BandwidthCostEstimatorProps) {
       </CardContent>
     </Card>
   );
-}
+});

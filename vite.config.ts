@@ -22,4 +22,38 @@ export default defineConfig({
       '@': resolve(projectRoot, 'src')
     }
   },
+  build: {
+    // Code splitting configuration
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom', 'react-error-boundary'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs'],
+          'chart-vendor': ['recharts'],
+          'animation-vendor': ['framer-motion'],
+          'query-vendor': ['@tanstack/react-query'],
+          'd3-vendor': ['d3'],
+          // Feature chunks
+          'visualizations': [
+            './src/components/NetworkGraph',
+            './src/components/GeographicMap',
+            './src/components/FlowPipeVisualization',
+            './src/components/HeatmapTimeline',
+            './src/components/ProtocolSankey',
+            './src/components/RadarChart',
+          ],
+          'analytics': [
+            './src/components/HistoricalTrends',
+            './src/components/PeakUsageAnalysis',
+            './src/components/BandwidthPatterns',
+            './src/components/ProtocolTimeline',
+            './src/components/UserActivityTimeline',
+          ],
+        },
+      },
+    },
+    // Optimize chunk size
+    chunkSizeWarningLimit: 1000,
+  },
 });

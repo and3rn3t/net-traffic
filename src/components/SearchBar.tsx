@@ -1,7 +1,9 @@
 /**
  * Search component for devices, flows, and threats
+ * Uses debouncing for better performance
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,7 @@ import { Device, NetworkFlow, Threat } from '@/lib/types';
 import { formatBytes, formatTimestamp } from '@/lib/formatters';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface SearchBarProps {
   onResultClick?: (type: 'device' | 'flow' | 'threat', id: string) => void;
@@ -28,59 +31,56 @@ interface SearchBarProps {
 export function SearchBar({ onResultClick }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [searchType] = useState<'all' | 'devices' | 'flows' | 'threats'>('all');
-  const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [results, setResults] = useState<{
-    devices: Device[];
-    flows: NetworkFlow[];
-    threats: Threat[];
-  }>({
-    devices: [],
-    flows: [],
-    threats: [],
-  });
+
+  // Debounce search query to avoid excessive API calls
+  const debouncedQuery = useDebounce(query, 500);
   const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
-  const handleSearch = async () => {
-    if (!query.trim()) {
-      toast.error('Please enter a search query');
-      return;
-    }
-
-    setIsSearching(true);
-    setShowResults(true);
-
-    try {
-      if (USE_REAL_API) {
-        const searchResults = await apiClient.search(
-          query,
-          searchType === 'all' ? 'all' : (searchType as 'devices' | 'flows' | 'threats'),
-          20
-        );
-        setResults({
-          devices: searchResults.devices || [],
-          flows: searchResults.flows || [],
-          threats: searchResults.threats || [],
-        });
-      } else {
-        // Fallback local search (simple text matching)
-        // This would search through local data if available
-        toast.info('Search requires backend API. Enable VITE_USE_REAL_API to use search.');
-        setResults({ devices: [], flows: [], threats: [] });
+  // Use React Query for search with automatic caching and deduplication
+  const {
+    data: results = { devices: [], flows: [], threats: [] },
+    isLoading: isSearching,
+    error,
+  } = useQuery({
+    queryKey: ['search', debouncedQuery, searchType],
+    queryFn: async () => {
+      if (!debouncedQuery.trim() || !USE_REAL_API) {
+        return { devices: [], flows: [], threats: [] };
       }
-    } catch (error) {
+      return await apiClient.search(
+        debouncedQuery,
+        searchType === 'all' ? 'all' : (searchType as 'devices' | 'flows' | 'threats'),
+        20
+      );
+    },
+    enabled: debouncedQuery.trim().length > 0 && USE_REAL_API,
+    staleTime: 2 * 60 * 1000, // Cache search results for 2 minutes
+  });
+
+  // Auto-show results when search completes
+  useEffect(() => {
+    if (debouncedQuery.trim() && !isSearching && results) {
+      const totalResults = results.devices.length + results.flows.length + results.threats.length;
+      if (totalResults > 0) {
+        setShowResults(true);
+      }
+    }
+  }, [debouncedQuery, isSearching, results]);
+
+  // Show error toast if search fails
+  useEffect(() => {
+    if (error) {
       toast.error('Search failed', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
-      setResults({ devices: [], flows: [], threats: [] });
-    } finally {
-      setIsSearching(false);
     }
-  };
+  }, [error]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
+    if (e.key === 'Enter' && query.trim()) {
+      // Trigger search by ensuring debounced query updates
+      setShowResults(true);
     }
   };
 
@@ -317,9 +317,9 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
             <Button variant="outline" onClick={() => setShowResults(false)}>
               Close
             </Button>
-            <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
+            <Button onClick={() => setShowResults(true)} disabled={isSearching || !query.trim()}>
               <MagnifyingGlass size={16} className="mr-2" />
-              Search Again
+              {isSearching ? 'Searching...' : 'Search Again'}
             </Button>
           </div>
         </DialogContent>

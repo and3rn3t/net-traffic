@@ -17,8 +17,11 @@ interface AnomalyDetectionProps {
   devices: Device[];
 }
 
-export function AnomalyDetection({ flows, devices }: AnomalyDetectionProps) {
-  const detectAnomalies = (): Anomaly[] => {
+export const AnomalyDetection = memo(function AnomalyDetection({
+  flows,
+  devices,
+}: AnomalyDetectionProps) {
+  const detectAnomalies = useMemo((): Anomaly[] => {
     const anomalies: Anomaly[] = [];
 
     const deviceTraffic = devices.map(device => {
@@ -112,9 +115,7 @@ export function AnomalyDetection({ flows, devices }: AnomalyDetectionProps) {
     }
 
     return anomalies.sort((a, b) => b.score - a.score);
-  };
-
-  const anomalies = detectAnomalies();
+  }, [flows, devices]);
   const overallScore =
     anomalies.length === 0
       ? 0
@@ -235,4 +236,4 @@ export function AnomalyDetection({ flows, devices }: AnomalyDetectionProps) {
       </CardContent>
     </Card>
   );
-}
+});

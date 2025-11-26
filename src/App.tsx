@@ -45,6 +45,8 @@ import { PeakUsageAnalysis } from '@/components/PeakUsageAnalysis';
 import { AnomalyDetection } from '@/components/AnomalyDetection';
 import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator';
 import { SecurityPosture } from '@/components/SecurityPosture';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useApiData } from '@/hooks/useApiData';
 import { toast } from 'sonner';
@@ -244,8 +246,18 @@ function App() {
               </Button>
             </div>
           </div>
+          {/* Offline Indicator */}
+          <OfflineIndicator />
+
           {/* Error Banner */}
           {error && USE_REAL_API && (
+            <div className="mt-3">
+              <ErrorDisplay error={error} context="Failed to connect to backend" />
+            </div>
+          )}
+
+          {/* Legacy Error Banner (for backward compatibility) */}
+          {error && USE_REAL_API && false && (
             <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-destructive">
                 <Warning size={16} />

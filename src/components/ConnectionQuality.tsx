@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -9,7 +9,9 @@ interface ConnectionQualityProps {
   flows: NetworkFlow[];
 }
 
-export function ConnectionQuality({ flows }: ConnectionQualityProps) {
+export const ConnectionQuality = memo(function ConnectionQuality({
+  flows,
+}: ConnectionQualityProps) {
   const metrics = useMemo(() => {
     const activeFlows = flows.filter(f => f.status === 'active');
     const closedFlows = flows.filter(f => f.status === 'closed');
@@ -229,4 +231,4 @@ export function ConnectionQuality({ flows }: ConnectionQualityProps) {
       </CardContent>
     </Card>
   );
-}
+});
