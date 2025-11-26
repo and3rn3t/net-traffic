@@ -10,7 +10,7 @@ export interface ApiConfig {
   timeout?: number;
 }
 
-class ApiClient {
+export class ApiClient {
   private baseURL: string;
   private timeout: number;
   private ws: WebSocket | null = null;
@@ -43,14 +43,19 @@ class ApiClient {
 
         if (!response.ok) {
           const error = await response.json().catch(() => ({ message: response.statusText }));
-          const errorMessage = error.message || `HTTP ${response.status}`;
+          // For 4xx errors, always include status code in message for proper detection
+          const errorMessage =
+            response.status >= 400 && response.status < 500
+              ? `HTTP ${response.status}${error.message ? `: ${error.message}` : ''}`
+              : error.message || `HTTP ${response.status}`;
 
-          // Don't retry on client errors (4xx) except 429 (rate limit)
-          if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          // Don't retry on client errors (4xx) - including 429 rate limit
+          // Throw immediately without retrying
+          if (response.status >= 400 && response.status < 500) {
             throw new Error(errorMessage);
           }
 
-          // Retry on server errors (5xx) and rate limits (429)
+          // Retry on server errors (5xx)
           if (attempt < retries) {
             const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Exponential backoff
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -62,6 +67,14 @@ class ApiClient {
 
         return await response.json();
       } catch (error) {
+        // Check if this is a 4xx error that was thrown (should not retry)
+        // 4xx errors are thrown immediately and should not be retried
+        // Check error message for HTTP 4xx pattern
+        if (error instanceof Error && /HTTP 4\d{2}/.test(error.message)) {
+          throw error; // Don't retry 4xx errors - exit function immediately
+        }
+
+        // If fetch rejects (network error), response will be undefined
         if (error instanceof Error && error.name === 'TimeoutError') {
           // Retry timeout errors
           if (attempt < retries) {
@@ -74,10 +87,10 @@ class ApiClient {
 
         // If this is the last attempt, throw the error
         if (attempt === retries) {
-          throw error;
+          throw error instanceof Error ? error : new Error(String(error));
         }
 
-        // Otherwise, wait and retry
+        // Otherwise, wait and retry (for network errors, etc.)
         const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -374,7 +387,7 @@ class ApiClient {
   // WebSocket connection for real-time updates
   connectWebSocket(onMessage: (data: any) => void): () => void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      return this.disconnectWebSocket;
+      return () => this.disconnectWebSocket();
     }
 
     const wsUrl = this.baseURL.replace(/^http/, 'ws') + '/ws';
@@ -433,7 +446,7 @@ class ApiClient {
       console.error('Failed to connect WebSocket:', error);
     }
 
-    return this.disconnectWebSocket;
+    return () => this.disconnectWebSocket();
   }
 
   disconnectWebSocket(): void {

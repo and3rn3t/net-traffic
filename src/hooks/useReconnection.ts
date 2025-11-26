@@ -28,6 +28,7 @@ export function useReconnection(options: UseReconnectionOptions = {}) {
   const [nextRetryDelay, setNextRetryDelay] = useState(initialDelay);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef(0);
+  const isStoppedRef = useRef(false);
 
   const calculateDelay = useCallback(
     (attempt: number): number => {
@@ -39,42 +40,69 @@ export function useReconnection(options: UseReconnectionOptions = {}) {
 
   const attemptReconnect = useCallback(
     async (testConnection: () => Promise<boolean>) => {
+      // Check if stopped before doing anything
+      if (isStoppedRef.current) {
+        return;
+      }
+
       if (retryCountRef.current >= maxRetries) {
-        setIsReconnecting(false);
+        if (!isStoppedRef.current) {
+          setIsReconnecting(false);
+        }
         onMaxRetriesReached?.();
         return;
       }
 
-      setIsReconnecting(true);
+      if (!isStoppedRef.current) {
+        setIsReconnecting(true);
+      }
       retryCountRef.current += 1;
 
       try {
         const connected = await testConnection();
         if (connected) {
           // Successfully reconnected
-          setIsReconnecting(false);
-          setRetryCount(0);
+          if (!isStoppedRef.current) {
+            setIsReconnecting(false);
+            setRetryCount(0);
+            setNextRetryDelay(initialDelay);
+          }
           retryCountRef.current = 0;
-          setNextRetryDelay(initialDelay);
           onReconnect?.();
         } else {
           // Still disconnected, schedule next retry
+          if (isStoppedRef.current) {
+            setIsReconnecting(false);
+            return;
+          }
           const delay = calculateDelay(retryCountRef.current);
-          setNextRetryDelay(delay);
-          setRetryCount(retryCountRef.current);
+          if (!isStoppedRef.current) {
+            setNextRetryDelay(delay);
+            setRetryCount(retryCountRef.current);
+          }
 
           timeoutRef.current = setTimeout(() => {
-            attemptReconnect(testConnection);
+            if (!isStoppedRef.current) {
+              attemptReconnect(testConnection);
+            }
           }, delay);
         }
-      } catch (error) {
+      } catch {
         // Connection test failed, schedule next retry
+        if (isStoppedRef.current) {
+          setIsReconnecting(false);
+          return;
+        }
         const delay = calculateDelay(retryCountRef.current);
-        setNextRetryDelay(delay);
-        setRetryCount(retryCountRef.current);
+        if (!isStoppedRef.current) {
+          setNextRetryDelay(delay);
+          setRetryCount(retryCountRef.current);
+        }
 
         timeoutRef.current = setTimeout(() => {
-          attemptReconnect(testConnection);
+          if (!isStoppedRef.current) {
+            attemptReconnect(testConnection);
+          }
         }, delay);
       }
     },
@@ -84,6 +112,7 @@ export function useReconnection(options: UseReconnectionOptions = {}) {
   const startReconnection = useCallback(
     (testConnection: () => Promise<boolean>) => {
       // Reset state
+      isStoppedRef.current = false;
       retryCountRef.current = 0;
       setRetryCount(0);
       setNextRetryDelay(initialDelay);
@@ -95,6 +124,7 @@ export function useReconnection(options: UseReconnectionOptions = {}) {
   );
 
   const stopReconnection = useCallback(() => {
+    isStoppedRef.current = true;
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -109,6 +139,7 @@ export function useReconnection(options: UseReconnectionOptions = {}) {
     setRetryCount(0);
     retryCountRef.current = 0;
     setNextRetryDelay(initialDelay);
+    isStoppedRef.current = false;
   }, [stopReconnection, initialDelay]);
 
   // Cleanup on unmount
@@ -129,4 +160,3 @@ export function useReconnection(options: UseReconnectionOptions = {}) {
     reset,
   };
 }
-
