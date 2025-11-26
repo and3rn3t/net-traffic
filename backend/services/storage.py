@@ -101,6 +101,75 @@ class StorageService:
 
         await self.db.commit()
 
+    async def cleanup_old_data(self, days: int = 30):
+        """Clean up old flows and threats older than specified days"""
+        cutoff_time = int(
+            (datetime.now() - timedelta(days=days)).timestamp() * 1000
+        )
+
+        # Delete old flows
+        cursor = await self.db.execute(
+            "DELETE FROM flows WHERE timestamp < ?", (cutoff_time,)
+        )
+        flows_deleted = cursor.rowcount
+
+        # Delete old threats
+        cursor = await self.db.execute(
+            "DELETE FROM threats WHERE timestamp < ? AND dismissed = 1",
+            (cutoff_time,)
+        )
+        threats_deleted = cursor.rowcount
+
+        await self.db.commit()
+
+        logger.info(
+            f"Cleanup completed: {flows_deleted} flows, "
+            f"{threats_deleted} dismissed threats deleted"
+        )
+
+        return {
+            "flows_deleted": flows_deleted,
+            "threats_deleted": threats_deleted,
+            "cutoff_timestamp": cutoff_time
+        }
+
+    async def get_database_stats(self) -> dict:
+        """Get database statistics"""
+        stats = {}
+
+        # Count flows
+        async with self.db.execute("SELECT COUNT(*) FROM flows") as cursor:
+            row = await cursor.fetchone()
+            stats["total_flows"] = row[0] if row else 0
+
+        # Count devices
+        async with self.db.execute("SELECT COUNT(*) FROM devices") as cursor:
+            row = await cursor.fetchone()
+            stats["total_devices"] = row[0] if row else 0
+
+        # Count threats
+        async with self.db.execute("SELECT COUNT(*) FROM threats") as cursor:
+            row = await cursor.fetchone()
+            stats["total_threats"] = row[0] if row else 0
+
+        # Get oldest and newest flow timestamps
+        async with self.db.execute(
+            "SELECT MIN(timestamp), MAX(timestamp) FROM flows"
+        ) as cursor:
+            row = await cursor.fetchone()
+            stats["oldest_flow"] = row[0] if row and row[0] else None
+            stats["newest_flow"] = row[1] if row and row[1] else None
+
+        # Get database size (approximate)
+        async with self.db.execute(
+            "SELECT page_count * page_size as size FROM pragma_page_count(), "
+            "pragma_page_size()"
+        ) as cursor:
+            row = await cursor.fetchone()
+            stats["database_size_bytes"] = row[0] if row else 0
+
+        return stats
+
     async def close(self):
         """Close database connection"""
         if self.db:

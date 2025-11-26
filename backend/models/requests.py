@@ -10,15 +10,15 @@ class FlowQueryParams(BaseModel):
     """Query parameters for flow filtering"""
     limit: int = Field(default=100, ge=1, le=1000)
     offset: int = Field(default=0, ge=0)
-    device_id: Optional[str] = None
-    status: Optional[str] = None
-    protocol: Optional[str] = None
-    start_time: Optional[int] = None  # Unix timestamp in ms
-    end_time: Optional[int] = None
-    source_ip: Optional[str] = None
-    dest_ip: Optional[str] = None
-    threat_level: Optional[str] = None
-    min_bytes: Optional[int] = None
+    device_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    status: Optional[str] = Field(None, pattern="^(active|closed)$")
+    protocol: Optional[str] = Field(None, min_length=1, max_length=20)
+    start_time: Optional[int] = Field(None, ge=0)  # Unix timestamp in ms
+    end_time: Optional[int] = Field(None, ge=0)
+    source_ip: Optional[str] = Field(None, pattern="^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")
+    dest_ip: Optional[str] = Field(None, pattern="^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$")
+    threat_level: Optional[str] = Field(None, pattern="^(safe|low|medium|high|critical)$")
+    min_bytes: Optional[int] = Field(None, ge=0)
 
 
 class DeviceUpdateRequest(BaseModel):

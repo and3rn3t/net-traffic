@@ -18,7 +18,8 @@ class AdvancedAnalyticsService:
     async def get_summary_stats(self) -> Dict:
         """Get overall summary statistics"""
         devices = await self.storage.get_devices()
-        flows = await self.storage.get_flows(limit=10000)
+        # Use reasonable limit for summary stats
+        flows = await self.storage.get_flows(limit=50000)
         threats = await self.storage.get_threats(active_only=False)
 
         total_bytes = sum(f.bytesIn + f.bytesOut for f in flows)
@@ -50,10 +51,17 @@ class AdvancedAnalyticsService:
 
     async def get_geographic_distribution(self, hours_back: int = 24) -> List[Dict]:
         """Get geographic distribution of connections"""
-        start_time = int((datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000)
-        flows = await self.storage.get_flows(limit=10000)
-
-        flows = [f for f in flows if f.timestamp >= start_time and f.country]
+        start_time = int(
+            (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
+        )
+        # Use database filtering and get all flows with countries
+        flows = await self.storage.get_flows(
+            limit=100000,
+            start_time=start_time
+        )
+        
+        # Filter to only flows with country info
+        flows = [f for f in flows if f.country]
 
         country_stats = defaultdict(lambda: {
             "country": "",
@@ -84,10 +92,17 @@ class AdvancedAnalyticsService:
 
     async def get_top_domains(self, limit: int = 20, hours_back: int = 24) -> List[Dict]:
         """Get top domains by traffic"""
-        start_time = int((datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000)
-        flows = await self.storage.get_flows(limit=10000)
-
-        flows = [f for f in flows if f.timestamp >= start_time and f.domain]
+        start_time = int(
+            (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
+        )
+        # Use database filtering
+        flows = await self.storage.get_flows(
+            limit=100000,
+            start_time=start_time
+        )
+        
+        # Filter to only flows with domain info
+        flows = [f for f in flows if f.domain]
 
         domain_stats = defaultdict(lambda: {
             "domain": "",
@@ -124,11 +139,15 @@ class AdvancedAnalyticsService:
 
     async def get_top_devices(self, limit: int = 10, hours_back: int = 24, sort_by: str = "bytes") -> List[Dict]:
         """Get top devices by traffic"""
-        start_time = int((datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000)
+        start_time = int(
+            (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
+        )
         devices = await self.storage.get_devices()
-        flows = await self.storage.get_flows(limit=10000)
-
-        flows = [f for f in flows if f.timestamp >= start_time]
+        # Use database filtering
+        flows = await self.storage.get_flows(
+            limit=100000,
+            start_time=start_time
+        )
 
         device_stats = defaultdict(lambda: {
             "device_id": "",
@@ -175,10 +194,14 @@ class AdvancedAnalyticsService:
 
     async def get_bandwidth_timeline(self, hours_back: int = 24, interval_minutes: int = 5) -> List[Dict]:
         """Get bandwidth usage timeline with configurable interval"""
-        start_time = int((datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000)
-        flows = await self.storage.get_flows(limit=10000)
-
-        flows = [f for f in flows if f.timestamp >= start_time]
+        start_time = int(
+            (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
+        )
+        # Use database filtering
+        flows = await self.storage.get_flows(
+            limit=100000,
+            start_time=start_time
+        )
 
         interval_ms = interval_minutes * 60 * 1000
 
@@ -219,10 +242,15 @@ class AdvancedAnalyticsService:
         if not device:
             return {}
 
-        start_time = int((datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000)
-        flows = await self.storage.get_flows(limit=10000, device_id=device_id)
-
-        flows = [f for f in flows if f.timestamp >= start_time]
+        start_time = int(
+            (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
+        )
+        # Use database filtering with both device_id and start_time
+        flows = await self.storage.get_flows(
+            limit=100000,
+            device_id=device_id,
+            start_time=start_time
+        )
 
         protocols = defaultdict(lambda: {"bytes": 0, "connections": 0})
         domains = defaultdict(int)

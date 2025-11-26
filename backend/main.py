@@ -3,7 +3,6 @@ NetInsight Backend API
 Raspberry Pi 5 compatible network traffic analysis service
 """
 import asyncio
-import os
 import csv
 from contextlib import asynccontextmanager
 from typing import List, Optional
@@ -11,10 +10,12 @@ from datetime import datetime
 from io import StringIO
 import logging
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import (
+    FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from dotenv import load_dotenv
+from utils.rate_limit import RateLimitMiddleware
 
 from services.packet_capture import PacketCaptureService
 from services.device_fingerprinting import DeviceFingerprintingService
@@ -26,8 +27,7 @@ from models.types import (
     NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
 )
 from models.requests import DeviceUpdateRequest
-
-load_dotenv()
+from utils.config import config
 
 # Configure logging
 logging.basicConfig(
@@ -47,6 +47,30 @@ advanced_analytics: Optional[AdvancedAnalyticsService] = None
 # WebSocket connections for real-time updates
 active_connections: List[WebSocket] = []
 
+# Error messages
+ERR_STORAGE_NOT_INIT = "Storage service not initialized"
+ERR_DEVICE_NOT_FOUND = "Device not found"
+ERR_FLOW_NOT_FOUND = "Flow not found"
+ERR_THREAT_NOT_FOUND = "Threat not found"
+ERR_ANALYTICS_NOT_INIT = "Analytics service not initialized"
+ERR_ADV_ANALYTICS_NOT_INIT = "Advanced analytics service not initialized"
+ERR_CAPTURE_NOT_INIT = "Packet capture not initialized"
+
+
+async def _periodic_cleanup(storage: StorageService, interval_hours: int):
+    """Periodic cleanup task for old data"""
+    while True:
+        try:
+            await asyncio.sleep(interval_hours * 3600)  # Convert to seconds
+            retention_days = config.data_retention_days
+            logger.info(f"Running periodic cleanup (retention: {retention_days} days)")
+            await storage.cleanup_old_data(days=retention_days)
+        except asyncio.CancelledError:
+            logger.info("Periodic cleanup task cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Error in periodic cleanup: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,7 +80,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting NetInsight Backend...")
 
     # Initialize storage
-    storage = StorageService()
+    storage = StorageService(db_path=config.db_path)
     await storage.initialize()
 
     # Initialize services
@@ -67,9 +91,8 @@ async def lifespan(app: FastAPI):
     advanced_analytics = AdvancedAnalyticsService(storage)
 
     # Initialize packet capture
-    interface = os.getenv("NETWORK_INTERFACE", "eth0")
     packet_capture = PacketCaptureService(
-        interface=interface,
+        interface=config.network_interface,
         device_service=device_service,
         threat_service=threat_service,
         storage=storage,
@@ -79,12 +102,30 @@ async def lifespan(app: FastAPI):
     # Start packet capture in background
     capture_task = asyncio.create_task(packet_capture.start())
 
-    logger.info(f"Packet capture started on interface: {interface}")
+    # Start periodic cleanup task
+    cleanup_interval_hours = 24  # Run cleanup once per day
+    cleanup_task = asyncio.create_task(
+        _periodic_cleanup(storage, cleanup_interval_hours)
+    )
+
+    logger.info(
+        f"Packet capture started on interface: {config.network_interface}"
+    )
 
     yield
 
     # Cleanup
     logger.info("Shutting down NetInsight Backend...")
+    
+    # Cancel cleanup task
+    if 'cleanup_task' in locals():
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+    
+    # Stop packet capture
     if packet_capture:
         await packet_capture.stop()
     capture_task.cancel()
@@ -92,6 +133,8 @@ async def lifespan(app: FastAPI):
         await capture_task
     except asyncio.CancelledError:
         pass
+    
+    # Close storage
     await storage.close()
 
 
@@ -102,10 +145,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Rate limiting (before CORS)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=config.rate_limit_per_minute
+)
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=config.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -145,21 +194,61 @@ async def root():
 
 @app.get("/api/health")
 async def health():
-    """Health check endpoint"""
-    return {
+    """Health check endpoint with detailed status"""
+    health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "capture_running": packet_capture.is_running() if packet_capture else False,
-        "active_flows": await storage.count_flows() if storage else 0,
-        "active_devices": await storage.count_devices() if storage else 0
+        "services": {
+            "storage": storage is not None,
+            "packet_capture": packet_capture is not None,
+            "device_service": device_service is not None,
+            "threat_service": threat_service is not None,
+            "analytics": analytics is not None,
+        },
+        "capture": {
+            "running": packet_capture.is_running() if packet_capture else False,
+            "interface": (
+                packet_capture.interface
+                if packet_capture
+                else None
+            ),
+            "packets_captured": (
+                packet_capture.packets_captured
+                if packet_capture
+                else 0
+            ),
+            "flows_detected": (
+                packet_capture.flows_detected
+                if packet_capture
+                else 0
+            ),
+        },
+        "database": {
+            "active_flows": await storage.count_flows() if storage else 0,
+            "active_devices": await storage.count_devices() if storage else 0,
+        },
+        "websocket": {
+            "active_connections": len(active_connections)
+        }
     }
+
+    # Determine overall health status
+    if not storage or not packet_capture:
+        health_status["status"] = "degraded"
+    if not packet_capture or not packet_capture.is_running():
+        health_status["status"] = "unhealthy"
+
+    return health_status
 
 
 @app.get("/api/devices", response_model=List[Device])
 async def get_devices():
     """Get all discovered devices"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(
+            status_code=503,
+            detail=ERR_STORAGE_NOT_INIT
+        )
     return await storage.get_devices()
 
 
@@ -167,10 +256,10 @@ async def get_devices():
 async def get_device(device_id: str):
     """Get specific device details"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
     device = await storage.get_device(device_id)
     if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
     return device
 
 
@@ -190,7 +279,7 @@ async def get_flows(
 ):
     """Get network flows with advanced filtering options"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
     return await storage.get_flows(
         limit=limit,
         offset=offset,
@@ -210,10 +299,10 @@ async def get_flows(
 async def get_flow(flow_id: str):
     """Get specific flow details"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
     flow = await storage.get_flow(flow_id)
     if not flow:
-        raise HTTPException(status_code=404, detail="Flow not found")
+        raise HTTPException(status_code=404, detail=ERR_FLOW_NOT_FOUND)
     return flow
 
 
@@ -221,7 +310,7 @@ async def get_flow(flow_id: str):
 async def get_threats(active_only: bool = True):
     """Get threat alerts"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
     return await storage.get_threats(active_only=active_only)
 
 
@@ -229,10 +318,10 @@ async def get_threats(active_only: bool = True):
 async def dismiss_threat(threat_id: str):
     """Dismiss a threat alert"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
     success = await storage.dismiss_threat(threat_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Threat not found")
+        raise HTTPException(status_code=404, detail=ERR_THREAT_NOT_FOUND)
     return {"status": "dismissed", "threat_id": threat_id}
 
 
@@ -240,7 +329,9 @@ async def dismiss_threat(threat_id: str):
 async def get_analytics(hours: int = 24):
     """Get analytics data for specified time range"""
     if not analytics:
-        raise HTTPException(status_code=503, detail="Analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ANALYTICS_NOT_INIT
+        )
     return await analytics.get_analytics_data(hours_back=hours)
 
 
@@ -248,7 +339,9 @@ async def get_analytics(hours: int = 24):
 async def get_protocol_stats():
     """Get protocol breakdown statistics"""
     if not analytics:
-        raise HTTPException(status_code=503, detail="Analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ANALYTICS_NOT_INIT
+        )
     return await analytics.get_protocol_stats()
 
 
@@ -256,7 +349,9 @@ async def get_protocol_stats():
 async def get_summary_stats():
     """Get overall summary statistics"""
     if not advanced_analytics:
-        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
+        )
     return await advanced_analytics.get_summary_stats()
 
 
@@ -264,7 +359,9 @@ async def get_summary_stats():
 async def get_geographic_stats(hours: int = 24):
     """Get geographic distribution of connections"""
     if not advanced_analytics:
-        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
+        )
     return await advanced_analytics.get_geographic_distribution(hours_back=hours)
 
 
@@ -272,7 +369,9 @@ async def get_geographic_stats(hours: int = 24):
 async def get_top_domains(limit: int = 20, hours: int = 24):
     """Get top domains by traffic"""
     if not advanced_analytics:
-        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
+        )
     return await advanced_analytics.get_top_domains(limit=limit, hours_back=hours)
 
 
@@ -280,7 +379,9 @@ async def get_top_domains(limit: int = 20, hours: int = 24):
 async def get_top_devices(limit: int = 10, hours: int = 24, sort_by: str = "bytes"):
     """Get top devices by traffic"""
     if not advanced_analytics:
-        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
+        )
     return await advanced_analytics.get_top_devices(limit=limit, hours_back=hours, sort_by=sort_by)
 
 
@@ -288,7 +389,9 @@ async def get_top_devices(limit: int = 10, hours: int = 24, sort_by: str = "byte
 async def get_bandwidth_timeline(hours: int = 24, interval_minutes: int = 5):
     """Get bandwidth usage timeline"""
     if not advanced_analytics:
-        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
+        )
     return await advanced_analytics.get_bandwidth_timeline(hours_back=hours, interval_minutes=interval_minutes)
 
 
@@ -296,10 +399,12 @@ async def get_bandwidth_timeline(hours: int = 24, interval_minutes: int = 5):
 async def get_device_analytics(device_id: str, hours: int = 24):
     """Get detailed analytics for a specific device"""
     if not advanced_analytics:
-        raise HTTPException(status_code=503, detail="Advanced analytics service not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
+        )
     result = await advanced_analytics.get_device_analytics(device_id, hours_back=hours)
     if not result:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
     return result
 
 
@@ -307,11 +412,11 @@ async def get_device_analytics(device_id: str, hours: int = 24):
 async def update_device(device_id: str, update: DeviceUpdateRequest):
     """Update device information (name, notes, type)"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
     device = await storage.get_device(device_id)
     if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+        raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
 
     # Update fields if provided
     if update.name is not None:
@@ -337,7 +442,7 @@ async def search(
 ):
     """Search across devices, flows, and threats"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
     results = {
         "query": q,
@@ -372,7 +477,7 @@ async def export_flows(
 ):
     """Export flows as JSON or CSV"""
     if not storage:
-        raise HTTPException(status_code=503, detail="Storage not initialized")
+        raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
     flows = await storage.get_flows(
         limit=10000,
@@ -429,7 +534,9 @@ async def export_flows(
 async def start_capture():
     """Start packet capture"""
     if not packet_capture:
-        raise HTTPException(status_code=503, detail="Packet capture not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_CAPTURE_NOT_INIT
+        )
     if packet_capture.is_running():
         return {"status": "already_running"}
     await packet_capture.start()
@@ -440,7 +547,9 @@ async def start_capture():
 async def stop_capture():
     """Stop packet capture"""
     if not packet_capture:
-        raise HTTPException(status_code=503, detail="Packet capture not initialized")
+        raise HTTPException(
+            status_code=503, detail=ERR_CAPTURE_NOT_INIT
+        )
     await packet_capture.stop()
     return {"status": "stopped"}
 
@@ -456,6 +565,35 @@ async def capture_status():
         "packets_captured": packet_capture.packets_captured,
         "flows_detected": packet_capture.flows_detected
     }
+
+
+@app.post("/api/maintenance/cleanup")
+async def trigger_cleanup(days: Optional[int] = None):
+    """Manually trigger data cleanup"""
+    if not storage:
+        raise HTTPException(
+            status_code=503,
+            detail="Storage service not initialized"
+        )
+    
+    retention_days = days or config.data_retention_days
+    result = await storage.cleanup_old_data(days=retention_days)
+    return {
+        "status": "success",
+        "retention_days": retention_days,
+        **result
+    }
+
+
+@app.get("/api/maintenance/stats")
+async def get_database_stats():
+    """Get database statistics"""
+    if not storage:
+        raise HTTPException(
+            status_code=503,
+            detail="Storage service not initialized"
+        )
+    return await storage.get_database_stats()
 
 
 @app.websocket("/ws")
@@ -495,13 +633,10 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
 
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
-
     uvicorn.run(
         "main:app",
-        host=host,
-        port=port,
-        reload=os.getenv("DEBUG", "false").lower() == "true"
+        host=config.host,
+        port=config.port,
+        reload=config.debug
     )
 

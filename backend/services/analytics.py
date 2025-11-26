@@ -2,7 +2,7 @@
 Analytics service for aggregated data
 """
 import logging
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -18,13 +18,16 @@ class AnalyticsService:
 
     async def get_analytics_data(self, hours_back: int = 24) -> List[AnalyticsData]:
         """Get aggregated analytics data for time range"""
-        # Get all flows from the time range
-        start_time = int((datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000)
+        # Get flows from the time range using database filtering
+        start_time = int(
+            (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
+        )
 
-        flows = await self.storage.get_flows(limit=10000)
-
-        # Filter by time range
-        flows = [f for f in flows if f.timestamp >= start_time]
+        # Use database-level filtering instead of loading all flows
+        flows = await self.storage.get_flows(
+            limit=100000,  # High limit for analytics
+            start_time=start_time
+        )
 
         # Group by hour
         hourly_data = defaultdict(lambda: {
@@ -76,9 +79,19 @@ class AnalyticsService:
 
         return result
 
-    async def get_protocol_stats(self) -> List[ProtocolStats]:
+    async def get_protocol_stats(self, hours_back: Optional[int] = None) -> List[ProtocolStats]:
         """Get protocol breakdown statistics"""
-        flows = await self.storage.get_flows(limit=10000)
+        # Optionally filter by time range
+        start_time = None
+        if hours_back:
+            start_time = int(
+                (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
+            )
+        
+        flows = await self.storage.get_flows(
+            limit=100000,
+            start_time=start_time
+        )
 
         # Aggregate by protocol
         protocol_data = defaultdict(lambda: {

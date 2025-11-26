@@ -12,12 +12,13 @@ import uuid
 try:
     from scapy.all import sniff, get_if_list, IP, TCP, UDP, ICMP, ARP
     from scapy.layers.l2 import Ether
+    from scapy.layers.dns import DNS
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
     logging.warning("Scapy not available. Packet capture will be disabled.")
 
-from models.types import NetworkFlow, Device
+from models.types import NetworkFlow
 from services.device_fingerprinting import DeviceFingerprintingService
 from services.threat_detection import ThreatDetectionService
 from services.storage import StorageService
@@ -45,8 +46,12 @@ class PacketCaptureService:
         self.packets_captured = 0
         self.flows_detected = 0
 
-        # Active flows tracking: (src_ip, src_port, dst_ip, dst_port, protocol) -> flow_data
+        # Active flows tracking:
+        # (src_ip, src_port, dst_ip, dst_port, protocol) -> flow_data
         self._active_flows: Dict[str, dict] = {}
+
+        # DNS resolution cache: IP -> domain
+        self._dns_cache: Dict[str, str] = {}
 
     def is_running(self) -> bool:
         """Check if capture is running"""
@@ -65,13 +70,17 @@ class PacketCaptureService:
         # Verify interface exists
         interfaces = get_if_list()
         if self.interface not in interfaces:
-            logger.warning(f"Interface {self.interface} not found. Available: {interfaces}")
+            logger.warning(
+                f"Interface {self.interface} not found. "
+                f"Available: {interfaces}"
+            )
             if interfaces:
                 self.interface = interfaces[0]
                 logger.info(f"Using interface: {self.interface}")
 
         self._running = True
         self._capture_task = asyncio.create_task(self._capture_loop())
+        self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
         logger.info(f"Packet capture started on {self.interface}")
 
     async def stop(self):
@@ -80,12 +89,25 @@ class PacketCaptureService:
             return
 
         self._running = False
+        
+        # Cancel capture task
         if self._capture_task:
             self._capture_task.cancel()
             try:
                 await self._capture_task
             except asyncio.CancelledError:
                 pass
+        
+        # Cancel cleanup task
+        if hasattr(self, '_cleanup_task') and self._cleanup_task:
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+        
+        # Finalize all remaining active flows
+        await self._finalize_all_flows()
 
         logger.info("Packet capture stopped")
 
@@ -209,14 +231,100 @@ class PacketCaptureService:
                 self.flows_detected += 1
 
             # Extract domain from DNS (if available)
-            # TODO: Add DNS parsing
-
-            # Periodically flush active flows (every 60 seconds of inactivity)
-            if timestamp_ms - flow_data["last_seen"] > 60000:
-                await self._finalize_flow(flow_key, flow_data)
+            domain = await self._extract_domain_from_packet(packet, dst_ip)
+            if domain:
+                flow_data["domain"] = domain
+                # Cache domain for this IP
+                self._dns_cache[dst_ip] = domain
 
         except Exception as e:
             logger.error(f"Error processing packet: {e}")
+
+    async def _periodic_cleanup(self):
+        """Periodically clean up inactive flows"""
+        while self._running:
+            try:
+                await asyncio.sleep(30)  # Check every 30 seconds
+                if not self._running:
+                    break
+                
+                current_time = int(datetime.now().timestamp() * 1000)
+                inactive_flows = []
+                
+                # Find flows inactive for more than 60 seconds
+                for flow_key, flow_data in self._active_flows.items():
+                    if current_time - flow_data["last_seen"] > 60000:
+                        inactive_flows.append((flow_key, flow_data))
+                
+                # Finalize inactive flows
+                for flow_key, flow_data in inactive_flows:
+                    await self._finalize_flow(flow_key, flow_data)
+                    
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in periodic cleanup: {e}")
+
+    async def _finalize_all_flows(self):
+        """Finalize all active flows (called on shutdown)"""
+        for flow_key, flow_data in self._active_flows.items():
+            try:
+                await self._finalize_flow(flow_key, flow_data)
+            except Exception as e:
+                logger.error(
+                    f"Error finalizing flow {flow_key}: {e}"
+                )
+
+    async def _extract_domain_from_packet(self, packet, ip: str) -> Optional[str]:
+        """Extract domain name from DNS packet or use cache"""
+        # Check DNS cache first
+        if ip in self._dns_cache:
+            return self._dns_cache[ip]
+        
+        # Try to extract from DNS response packet
+        if packet.haslayer(DNS):
+            dns = packet[DNS]
+            # DNS response (qr=1)
+            if dns.qr == 1 and dns.an:
+                # Check if this is a response for the IP we're interested in
+                for i in range(dns.ancount):
+                    if dns.an[i].type == 1:  # A record
+                        response_ip = dns.an[i].rdata
+                        if response_ip == ip and dns.qd:
+                            # Get the queried domain name
+                            query_name = dns.qd.qname.decode('utf-8').rstrip('.')
+                            self._dns_cache[ip] = query_name
+                            return query_name
+                # Check for CNAME records
+                for i in range(dns.ancount):
+                    if dns.an[i].type == 5:  # CNAME record
+                        if dns.qd:
+                            query_name = dns.qd.qname.decode('utf-8').rstrip('.')
+                            self._dns_cache[ip] = query_name
+                            return query_name
+        
+        # Try reverse DNS lookup for destination IP
+        # (if not already cached)
+        if ip not in self._dns_cache:
+            try:
+                import socket
+                # Only do reverse lookup for non-local IPs
+                if not self._is_local_ip(ip):
+                    hostname = socket.gethostbyaddr(ip)[0]
+                    if hostname and hostname != ip:
+                        domain = (
+                            hostname.split('.')[0]
+                            if '.' in hostname
+                            else hostname
+                        )
+                        self._dns_cache[ip] = domain
+                        return domain
+            except (socket.herror, socket.gaierror, OSError):
+                # Reverse DNS lookup failed,
+                # cache empty string to avoid retrying
+                self._dns_cache[ip] = ""
+        
+        return None
 
     async def _get_or_create_device(self, ip: str, packet) -> str:
         """Get or create device from IP address"""
@@ -234,7 +342,7 @@ class PacketCaptureService:
     def _is_local_ip(self, ip: str) -> bool:
         """Check if IP is local/private"""
         try:
-            ip_obj = socket.inet_aton(ip)
+            socket.inet_aton(ip)
             # Private IP ranges
             return (
                 ip.startswith("192.168.") or
@@ -243,7 +351,7 @@ class PacketCaptureService:
                 ip.startswith("127.") or
                 ip.startswith("169.254.")  # Link-local
             )
-        except:
+        except (socket.error, OSError):
             return False
 
     async def _finalize_flow(self, flow_key: str, flow_data: dict):
@@ -254,6 +362,12 @@ class PacketCaptureService:
             if self.threat_service:
                 threat_level = await self.threat_service.analyze_flow(flow_data)
 
+            # Get domain from cache or flow data
+            domain = (
+                flow_data.get("domain") or
+                self._dns_cache.get(flow_data["dest_ip"])
+            )
+            
             # Create NetworkFlow object
             flow = NetworkFlow(
                 id=flow_data["id"],
@@ -270,7 +384,8 @@ class PacketCaptureService:
                 duration=flow_data["duration"],
                 status="closed",
                 threatLevel=threat_level,
-                deviceId=flow_data["device_id"]
+                deviceId=flow_data["device_id"],
+                domain=domain if domain else None
             )
 
             # Save to storage
