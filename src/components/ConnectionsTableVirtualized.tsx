@@ -4,8 +4,9 @@
  */
 import { memo, useMemo } from 'react';
 
-// @ts-expect-error - react-window types may not be properly resolved
-import { FixedSizeList } from 'react-window';
+// @ts-expect-error - react-window ESM import issue in build
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { FixedSizeList } = require('react-window');
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { NetworkFlow } from '@/lib/types';

@@ -1,12 +1,12 @@
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react-swc";
-import { defineConfig, PluginOption } from "vite";
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react-swc';
+import { defineConfig, PluginOption } from 'vite';
 
-import sparkPlugin from "@github/spark/spark-vite-plugin";
-import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
-import { resolve } from 'path'
+import sparkPlugin from '@github/spark/spark-vite-plugin';
+import createIconImportProxy from '@github/spark/vitePhosphorIconProxyPlugin';
+import { resolve } from 'path';
 
-const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
+const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname;
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -19,8 +19,11 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': resolve(projectRoot, 'src')
-    }
+      '@': resolve(projectRoot, 'src'),
+    },
+  },
+  optimizeDeps: {
+    include: ['react-window'],
   },
   build: {
     // Code splitting configuration
@@ -35,7 +38,7 @@ export default defineConfig({
           'query-vendor': ['@tanstack/react-query'],
           'd3-vendor': ['d3'],
           // Feature chunks
-          'visualizations': [
+          visualizations: [
             './src/components/NetworkGraph',
             './src/components/GeographicMap',
             './src/components/FlowPipeVisualization',
@@ -43,7 +46,7 @@ export default defineConfig({
             './src/components/ProtocolSankey',
             './src/components/RadarChart',
           ],
-          'analytics': [
+          analytics: [
             './src/components/HistoricalTrends',
             './src/components/PeakUsageAnalysis',
             './src/components/BandwidthPatterns',
