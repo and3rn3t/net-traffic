@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ApiClient } from '../api';
 
 // Mock fetch globally
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 describe('API Client Error Handling Integration Tests', () => {
   let apiClient: ApiClient;
@@ -20,7 +20,7 @@ describe('API Client Error Handling Integration Tests', () => {
 
   describe('Network Errors', () => {
     it('should handle network failures', async () => {
-      (global.fetch as any).mockRejectedValue(new Error('Network request failed'));
+      (globalThis.fetch as any).mockRejectedValue(new Error('Network request failed'));
 
       await expect(apiClient.getDevices()).rejects.toThrow('Network request failed');
     });
@@ -28,7 +28,7 @@ describe('API Client Error Handling Integration Tests', () => {
     it('should retry on network failures', async () => {
       const mockDevices = [{ id: '1', name: 'Device 1' }];
 
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockRejectedValueOnce(new Error('Network error'))
         .mockResolvedValueOnce({
           ok: true,
@@ -38,20 +38,20 @@ describe('API Client Error Handling Integration Tests', () => {
       const devices = await apiClient.getDevices();
 
       expect(devices).toEqual(mockDevices);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('should fail after max retries', async () => {
-      (global.fetch as any).mockRejectedValue(new Error('Network error'));
+      (globalThis.fetch as any).mockRejectedValue(new Error('Network error'));
 
       await expect(apiClient.getDevices()).rejects.toThrow('Network error');
-      expect(global.fetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
+      expect(globalThis.fetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
     });
   });
 
   describe('HTTP Error Responses', () => {
     it('should handle 400 Bad Request', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 400,
         statusText: 'Bad Request',
@@ -62,7 +62,7 @@ describe('API Client Error Handling Integration Tests', () => {
     });
 
     it('should handle 401 Unauthorized', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 401,
         statusText: 'Unauthorized',
@@ -73,7 +73,7 @@ describe('API Client Error Handling Integration Tests', () => {
     });
 
     it('should handle 404 Not Found', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -86,7 +86,7 @@ describe('API Client Error Handling Integration Tests', () => {
     it('should retry on 500 Internal Server Error', async () => {
       const mockDevice = { id: '1', name: 'Device 1' };
 
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockResolvedValueOnce({
           ok: false,
           status: 500,
@@ -101,13 +101,13 @@ describe('API Client Error Handling Integration Tests', () => {
       const device = await apiClient.getDevice('1');
 
       expect(device).toEqual(mockDevice);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('should retry on 503 Service Unavailable', async () => {
       const mockDevices = [{ id: '1', name: 'Device 1' }];
 
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockResolvedValueOnce({
           ok: false,
           status: 503,
@@ -122,11 +122,11 @@ describe('API Client Error Handling Integration Tests', () => {
       const devices = await apiClient.getDevices();
 
       expect(devices).toEqual(mockDevices);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('should not retry on 429 Rate Limit (but handle gracefully)', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 429,
         statusText: 'Too Many Requests',
@@ -135,13 +135,13 @@ describe('API Client Error Handling Integration Tests', () => {
 
       await expect(apiClient.getDevices()).rejects.toThrow();
       // Should not retry on 429 - error message will include "HTTP 429"
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Timeout Errors', () => {
     it('should handle request timeouts', async () => {
-      (global.fetch as any).mockImplementation(
+      (globalThis.fetch as any).mockImplementation(
         () =>
           new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), 100))
       );
@@ -152,7 +152,7 @@ describe('API Client Error Handling Integration Tests', () => {
     it('should retry on timeout', async () => {
       const mockDevices = [{ id: '1', name: 'Device 1' }];
 
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockImplementationOnce(
           () => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 100))
         )
@@ -170,7 +170,7 @@ describe('API Client Error Handling Integration Tests', () => {
 
   describe('Invalid JSON Responses', () => {
     it('should handle invalid JSON in error response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -183,7 +183,7 @@ describe('API Client Error Handling Integration Tests', () => {
     });
 
     it('should handle empty response body', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 204,
         statusText: 'No Content',
@@ -200,7 +200,7 @@ describe('API Client Error Handling Integration Tests', () => {
       const mockDevices = [{ id: '1', name: 'Device 1' }];
       const mockFlows = [{ id: '1', protocol: 'HTTPS' }];
 
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => mockDevices,
@@ -219,7 +219,7 @@ describe('API Client Error Handling Integration Tests', () => {
     it('should handle mixed success and failure in concurrent requests', async () => {
       const mockDevices = [{ id: '1', name: 'Device 1' }];
 
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => mockDevices,
@@ -239,8 +239,8 @@ describe('API Client Error Handling Integration Tests', () => {
   describe('WebSocket Error Scenarios', () => {
     it('should handle WebSocket connection failures', () => {
       // Mock WebSocket to throw on construction
-      const OriginalWebSocket = global.WebSocket;
-      global.WebSocket = class {
+      const OriginalWebSocket = globalThis.WebSocket;
+      globalThis.WebSocket = class {
         constructor() {
           throw new Error('WebSocket connection failed');
         }
@@ -254,7 +254,7 @@ describe('API Client Error Handling Integration Tests', () => {
       }).not.toThrow();
 
       // Restore
-      global.WebSocket = OriginalWebSocket;
+      globalThis.WebSocket = OriginalWebSocket;
     });
 
     it('should handle WebSocket message parsing errors', async () => {
@@ -275,7 +275,7 @@ describe('API Client Error Handling Integration Tests', () => {
 
   describe('Edge Cases', () => {
     it('should handle empty arrays', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => [],
       });
@@ -286,7 +286,7 @@ describe('API Client Error Handling Integration Tests', () => {
     });
 
     it('should handle null responses', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => null,
       });
@@ -302,7 +302,7 @@ describe('API Client Error Handling Integration Tests', () => {
         name: `Device ${i}`,
       }));
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => largeArray,
       });

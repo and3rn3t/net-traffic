@@ -46,22 +46,22 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
+globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
-}));
+})) as any;
 
 // Mock IntersectionObserver
-global.IntersectionObserver = vi.fn().mockImplementation(() => ({
+globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
-}));
+})) as any;
 
 // Mock URL.createObjectURL and revokeObjectURL (not available in jsdom)
-global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
-global.URL.revokeObjectURL = vi.fn();
+globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url') as any;
+globalThis.URL.revokeObjectURL = vi.fn() as any;
 
 // Suppress console errors in tests (optional - remove if you want to see them)
 // global.console = {

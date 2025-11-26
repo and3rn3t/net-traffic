@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ApiClient } from '../api';
 
 // Mock fetch globally
-global.fetch = vi.fn();
+globalThis.fetch = vi.fn();
 
 // Mock WebSocket globally
 class MockWebSocket {
@@ -59,7 +59,7 @@ class MockWebSocket {
   }
 }
 
-global.WebSocket = MockWebSocket as any;
+globalThis.WebSocket = MockWebSocket as any;
 
 describe('ApiClient Integration Tests', () => {
   let apiClient: ApiClient;
@@ -91,7 +91,7 @@ describe('ApiClient Integration Tests', () => {
         },
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockHealthResponse,
       });
@@ -99,7 +99,7 @@ describe('ApiClient Integration Tests', () => {
       const health = await apiClient.healthCheck();
 
       expect(health).toEqual(mockHealthResponse);
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `${baseURL}/api/health`,
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -110,11 +110,11 @@ describe('ApiClient Integration Tests', () => {
     });
 
     it('should handle health check failures', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      (globalThis.fetch as any).mockRejectedValueOnce(new Error('Network error'));
 
       await expect(apiClient.healthCheck()).rejects.toThrow();
       // Should retry, so fetch will be called multiple times
-      expect(global.fetch).toHaveBeenCalled();
+      expect(globalThis.fetch).toHaveBeenCalled();
     });
 
     it('should retry on transient failures', async () => {
@@ -125,7 +125,7 @@ describe('ApiClient Integration Tests', () => {
       };
 
       // First call fails, second succeeds
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockRejectedValueOnce(new Error('Temporary failure'))
         .mockResolvedValueOnce({
           ok: true,
@@ -135,7 +135,7 @@ describe('ApiClient Integration Tests', () => {
       const health = await apiClient.healthCheck();
 
       expect(health).toEqual(mockResponse);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -146,7 +146,7 @@ describe('ApiClient Integration Tests', () => {
         { id: '2', name: 'Device 2', type: 'phone' },
       ];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockDevices,
       });
@@ -154,13 +154,13 @@ describe('ApiClient Integration Tests', () => {
       const devices = await apiClient.getDevices();
 
       expect(devices).toEqual(mockDevices);
-      expect(global.fetch).toHaveBeenCalledWith(`${baseURL}/api/devices`, expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith(`${baseURL}/api/devices`, expect.any(Object));
     });
 
     it('should fetch a single device', async () => {
       const mockDevice = { id: '1', name: 'Device 1', type: 'laptop' };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockDevice,
       });
@@ -168,20 +168,20 @@ describe('ApiClient Integration Tests', () => {
       const device = await apiClient.getDevice('1');
 
       expect(device).toEqual(mockDevice);
-      expect(global.fetch).toHaveBeenCalledWith(`${baseURL}/api/devices/1`, expect.any(Object));
+      expect(globalThis.fetch).toHaveBeenCalledWith(`${baseURL}/api/devices/1`, expect.any(Object));
     });
 
     it('should update device successfully', async () => {
       const updateData = { name: 'Updated Device', notes: 'Test notes' };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ id: '1', ...updateData }),
       });
 
       const result = await apiClient.updateDevice('1', updateData);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `${baseURL}/api/devices/1`,
         expect.objectContaining({
           method: 'PATCH',
@@ -198,7 +198,7 @@ describe('ApiClient Integration Tests', () => {
         { id: '2', protocol: 'HTTP', bytes_in: 2000, bytes_out: 1000 },
       ];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockFlows,
       });
@@ -206,7 +206,7 @@ describe('ApiClient Integration Tests', () => {
       const flows = await apiClient.getFlows();
 
       expect(flows).toEqual(mockFlows);
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         expect.stringContaining(`${baseURL}/api/flows?limit=100&offset=0`),
         expect.any(Object)
       );
@@ -215,7 +215,7 @@ describe('ApiClient Integration Tests', () => {
     it('should fetch flows with filters', async () => {
       const mockFlows = [{ id: '1', protocol: 'HTTPS' }];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockFlows,
       });
@@ -223,7 +223,7 @@ describe('ApiClient Integration Tests', () => {
       const flows = await apiClient.getFlows(50, 0, 'device-1', 'active', 'HTTPS');
 
       expect(flows).toEqual(mockFlows);
-      const callUrl = (global.fetch as any).mock.calls[0][0];
+      const callUrl = (globalThis.fetch as any).mock.calls[0][0];
       expect(callUrl).toContain('device_id=device-1');
       expect(callUrl).toContain('status=active');
       expect(callUrl).toContain('protocol=HTTPS');
@@ -236,19 +236,19 @@ describe('ApiClient Integration Tests', () => {
         blob: async () => mockBlob,
       };
 
-      (global.fetch as any).mockResolvedValueOnce(mockResponse);
+      (globalThis.fetch as any).mockResolvedValueOnce(mockResponse);
 
       // Mock URL methods if they don't exist
       const createObjectURLSpy = vi
-        .spyOn(global.URL, 'createObjectURL')
+        .spyOn(globalThis.URL, 'createObjectURL')
         .mockReturnValue('blob:test');
       const revokeObjectURLSpy = vi
-        .spyOn(global.URL, 'revokeObjectURL')
+        .spyOn(globalThis.URL, 'revokeObjectURL')
         .mockImplementation(() => {});
 
       await apiClient.exportFlows('csv', Date.now() - 3600000, Date.now());
 
-      expect(global.fetch).toHaveBeenCalled();
+      expect(globalThis.fetch).toHaveBeenCalled();
       expect(createObjectURLSpy).toHaveBeenCalled();
       expect(revokeObjectURLSpy).toHaveBeenCalled();
 
@@ -261,7 +261,7 @@ describe('ApiClient Integration Tests', () => {
     it('should fetch active threats', async () => {
       const mockThreats = [{ id: '1', level: 'high', description: 'Suspicious activity' }];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockThreats,
       });
@@ -269,21 +269,21 @@ describe('ApiClient Integration Tests', () => {
       const threats = await apiClient.getThreats(true);
 
       expect(threats).toEqual(mockThreats);
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `${baseURL}/api/threats?active_only=true`,
         expect.any(Object)
       );
     });
 
     it('should dismiss a threat', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await apiClient.dismissThreat('threat-1');
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `${baseURL}/api/threats/threat-1/dismiss`,
         expect.objectContaining({
           method: 'POST',
@@ -294,14 +294,14 @@ describe('ApiClient Integration Tests', () => {
 
   describe('Capture Control', () => {
     it('should start capture', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await apiClient.startCapture();
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `${baseURL}/api/capture/start`,
         expect.objectContaining({
           method: 'POST',
@@ -310,14 +310,14 @@ describe('ApiClient Integration Tests', () => {
     });
 
     it('should stop capture', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await apiClient.stopCapture();
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(globalThis.fetch).toHaveBeenCalledWith(
         `${baseURL}/api/capture/stop`,
         expect.objectContaining({
           method: 'POST',
@@ -375,7 +375,7 @@ describe('ApiClient Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle 404 errors', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      (globalThis.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -389,7 +389,7 @@ describe('ApiClient Integration Tests', () => {
       const mockResponse = { id: '1', name: 'Device 1' };
 
       // First call fails with 500, second succeeds
-      (global.fetch as any)
+      (globalThis.fetch as any)
         .mockResolvedValueOnce({
           ok: false,
           status: 500,
@@ -404,11 +404,11 @@ describe('ApiClient Integration Tests', () => {
       const device = await apiClient.getDevice('1');
 
       expect(device).toEqual(mockResponse);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     });
 
     it('should handle timeout errors', async () => {
-      (global.fetch as any).mockImplementation(
+      (globalThis.fetch as any).mockImplementation(
         () => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 100))
       );
 
