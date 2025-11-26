@@ -22,7 +22,7 @@ import {
 import { useHistoricalTrends } from '@/hooks/useHistoricalTrends';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from '@phosphor-icons/react';
+import { Warning } from '@phosphor-icons/react';
 
 type TimeRange = '1h' | '24h' | '7d' | '30d';
 
@@ -141,7 +141,7 @@ export function HistoricalTrends({
       <CardContent className="space-y-6">
         {error && useApi && (
           <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
+            <Warning className="h-4 w-4" />
             <AlertDescription>
               {error}
               <Button variant="ghost" size="sm" onClick={refresh} className="ml-2 h-auto py-1">

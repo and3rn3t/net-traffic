@@ -21,7 +21,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Funnel, X, Filter, Save, Trash2 } from '@phosphor-icons/react';
+import { Funnel, X } from '@phosphor-icons/react';
 
 export interface FlowFilters {
   protocols: string[];
@@ -213,7 +213,7 @@ export function FlowFiltersComponent({
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Filter size={20} />
+            <Funnel size={20} />
             Flow Filters
           </SheetTitle>
           <SheetDescription>
@@ -493,7 +493,7 @@ export function FlowFiltersComponent({
                     className="w-full gap-2"
                     onClick={() => setShowSavePreset(true)}
                   >
-                    <Save size={16} />
+                    <Funnel size={16} />
                     Save Filter Preset
                   </Button>
                 ) : (
@@ -536,7 +536,7 @@ export function FlowFiltersComponent({
               Clear All
             </Button>
             <Button onClick={handleApply} className="flex-1 gap-2">
-              <Filter size={16} />
+              <Funnel size={16} />
               Apply Filters ({activeCount})
             </Button>
           </div>

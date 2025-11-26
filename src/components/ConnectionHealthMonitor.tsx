@@ -18,10 +18,9 @@ import {
   Heartbeat,
   WifiSlash,
   CheckCircle,
-  XCircle,
   Clock,
-  Activity,
-  AlertCircle,
+  Pulse,
+  Warning,
   ArrowClockwise,
 } from '@phosphor-icons/react';
 import { apiClient } from '@/lib/api';
@@ -185,7 +184,7 @@ export function ConnectionHealthMonitor({
       case 'degraded':
         return (
           <Badge className="bg-warning/20 text-warning border-warning/50">
-            <AlertCircle size={14} className="mr-1" />
+            <Warning size={14} className="mr-1" />
             Degraded
           </Badge>
         );
@@ -251,7 +250,7 @@ export function ConnectionHealthMonitor({
 
         {overallStatus === 'degraded' && (
           <Alert>
-            <AlertCircle className="h-4 w-4" />
+            <Warning className="h-4 w-4" />
             <AlertDescription>
               Connection is experiencing high latency. Response times may be slower than usual.
             </AlertDescription>
@@ -290,7 +289,7 @@ export function ConnectionHealthMonitor({
               <p className="text-lg font-semibold flex items-center gap-1">
                 {healthStatus.capture_running ? (
                   <>
-                    <Activity size={16} className="text-success animate-pulse" />
+                    <Pulse size={16} className="text-success animate-pulse" />
                     Running
                   </>
                 ) : (
