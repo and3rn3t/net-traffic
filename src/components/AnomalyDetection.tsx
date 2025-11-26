@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Warning, CheckCircle, Info } from '@phosphor-icons/react';
@@ -116,6 +117,8 @@ export const AnomalyDetection = memo(function AnomalyDetection({
 
     return anomalies.sort((a, b) => b.score - a.score);
   }, [flows, devices]);
+  
+  const anomalies = detectAnomalies;
   const overallScore =
     anomalies.length === 0
       ? 0

@@ -114,7 +114,6 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
             onClick={() => {
               setQuery('');
               setShowResults(false);
-              setResults({ devices: [], flows: [], threats: [] });
             }}
           >
             <X size={14} />

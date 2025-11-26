@@ -262,9 +262,11 @@ function App() {
               <div className="flex items-center gap-2 text-sm text-destructive">
                 <Warning size={16} />
                 <span>
-                  {error.includes('timeout') || error.includes('unavailable')
-                    ? 'Backend unavailable. Using offline mode.'
-                    : error}
+                  {error
+                    ? error!.includes('timeout') || error!.includes('unavailable')
+                      ? 'Backend unavailable. Using offline mode.'
+                      : error
+                    : 'Unknown error'}
                 </span>
               </div>
               <Button

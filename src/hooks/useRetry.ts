@@ -25,7 +25,7 @@ export function useRetry<T>(options: UseRetryOptions = {}) {
 
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const calculateDelay = useCallback(
     (attempt: number): number => {

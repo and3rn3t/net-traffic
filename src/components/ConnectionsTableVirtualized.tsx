@@ -3,7 +3,9 @@
  * Uses react-window for efficient rendering of 1000+ items
  */
 import { memo, useMemo } from 'react';
-import { FixedSizeList as List } from 'react-window';
+
+// @ts-expect-error - react-window types may not be properly resolved
+import { FixedSizeList } from 'react-window';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { NetworkFlow } from '@/lib/types';
@@ -18,8 +20,16 @@ interface ConnectionsTableVirtualizedProps {
 
 // Memoized row component for better performance
 const FlowRow = memo(
-  ({ index, style, data }: { index: number; style: React.CSSProperties; data: NetworkFlow[] }) => {
-    const flow = data[index];
+  ({
+    index,
+    style,
+    data,
+  }: {
+    index: number;
+    style: React.CSSProperties;
+    data: { flows: NetworkFlow[]; onFlowSelect?: (flow: NetworkFlow) => void };
+  }) => {
+    const flow = data.flows[index];
     if (!flow) return null;
 
     return (
@@ -113,7 +123,7 @@ export function ConnectionsTableVirtualized({
         </div>
 
         <div className="border border-border/30 rounded-lg overflow-hidden">
-          <List
+          <FixedSizeList
             height={height}
             itemCount={flows.length}
             itemSize={120} // Estimated height per item
@@ -122,7 +132,7 @@ export function ConnectionsTableVirtualized({
             overscanCount={5} // Render 5 extra items outside viewport for smooth scrolling
           >
             {FlowRow}
-          </List>
+          </FixedSizeList>
         </div>
       </div>
     </Card>

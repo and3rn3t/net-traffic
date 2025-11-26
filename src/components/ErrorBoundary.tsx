@@ -6,7 +6,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, RefreshCw, Home, Bug } from '@phosphor-icons/react';
+import { Warning, ArrowClockwise, House, Bug } from '@phosphor-icons/react';
 
 interface Props {
   children: ReactNode;
