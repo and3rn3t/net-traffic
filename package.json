@@ -20,7 +20,8 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "vitest run src/**/*.integration.{test,spec}.{ts,tsx}"
+    "test:integration": "vitest run src/**/*.integration.{test,spec}.{ts,tsx}",
+    "validate:env": "node scripts/validate-env.js"
   },
   "dependencies": {
     "@github/spark": "^0.39.0",

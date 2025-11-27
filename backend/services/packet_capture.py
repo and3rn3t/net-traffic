@@ -50,8 +50,14 @@ class PacketCaptureService:
         # (src_ip, src_port, dst_ip, dst_port, protocol) -> flow_data
         self._active_flows: Dict[str, dict] = {}
 
+        # Lock for thread-safe access to _active_flows
+        self._flows_lock = asyncio.Lock()
+
         # DNS resolution cache: IP -> domain
         self._dns_cache: Dict[str, str] = {}
+
+        # Lock for thread-safe access to _dns_cache
+        self._dns_cache_lock = asyncio.Lock()
 
     def is_running(self) -> bool:
         """Check if capture is running"""
@@ -89,7 +95,7 @@ class PacketCaptureService:
             return
 
         self._running = False
-        
+
         # Cancel capture task
         if self._capture_task:
             self._capture_task.cancel()
@@ -97,7 +103,7 @@ class PacketCaptureService:
                 await self._capture_task
             except asyncio.CancelledError:
                 pass
-        
+
         # Cancel cleanup task
         if hasattr(self, '_cleanup_task') and self._cleanup_task:
             self._cleanup_task.cancel()
@@ -105,7 +111,7 @@ class PacketCaptureService:
                 await self._cleanup_task
             except asyncio.CancelledError:
                 pass
-        
+
         # Finalize all remaining active flows
         await self._finalize_all_flows()
 
@@ -191,51 +197,61 @@ class PacketCaptureService:
             # Determine direction (incoming vs outgoing)
             is_incoming = self._is_local_ip(dst_ip)
 
-            # Find or create flow
-            flow_data = self._active_flows.get(flow_key) or self._active_flows.get(reverse_key)
+            # Determine source device (do this outside lock to avoid blocking)
+            device_id = await self._get_or_create_device(src_ip, packet)
 
-            if flow_data:
-                # Update existing flow
-                if is_incoming:
-                    flow_data["bytes_in"] += packet_size
-                    flow_data["packets_in"] += 1
-                else:
-                    flow_data["bytes_out"] += packet_size
-                    flow_data["packets_out"] += 1
-                flow_data["last_seen"] = timestamp_ms
-                flow_data["duration"] = timestamp_ms - flow_data["first_seen"]
-            else:
-                # Create new flow
-                # Determine source device
-                device_id = await self._get_or_create_device(src_ip, packet)
-
-                flow_data = {
-                    "id": str(uuid.uuid4()),
-                    "source_ip": src_ip,
-                    "source_port": src_port,
-                    "dest_ip": dst_ip,
-                    "dest_port": dst_port,
-                    "protocol": protocol,
-                    "bytes_in": packet_size if is_incoming else 0,
-                    "bytes_out": packet_size if not is_incoming else 0,
-                    "packets_in": 1 if is_incoming else 0,
-                    "packets_out": 1 if not is_incoming else 0,
-                    "first_seen": timestamp_ms,
-                    "last_seen": timestamp_ms,
-                    "duration": 0,
-                    "device_id": device_id,
-                    "status": "active"
-                }
-
-                self._active_flows[flow_key] = flow_data
-                self.flows_detected += 1
-
-            # Extract domain from DNS (if available)
+            # Extract domain from DNS (if available) - do this outside lock
             domain = await self._extract_domain_from_packet(packet, dst_ip)
+
+            # Thread-safe access to active flows
+            async with self._flows_lock:
+                # Find or create flow
+                flow_data = self._active_flows.get(flow_key) or self._active_flows.get(reverse_key)
+
+                if flow_data:
+                    # Update existing flow
+                    if is_incoming:
+                        flow_data["bytes_in"] += packet_size
+                        flow_data["packets_in"] += 1
+                    else:
+                        flow_data["bytes_out"] += packet_size
+                        flow_data["packets_out"] += 1
+                    flow_data["last_seen"] = timestamp_ms
+                    flow_data["duration"] = timestamp_ms - flow_data["first_seen"]
+
+                    # Update domain if found
+                    if domain:
+                        flow_data["domain"] = domain
+                else:
+                    # Create new flow
+                    flow_data = {
+                        "id": str(uuid.uuid4()),
+                        "source_ip": src_ip,
+                        "source_port": src_port,
+                        "dest_ip": dst_ip,
+                        "dest_port": dst_port,
+                        "protocol": protocol,
+                        "bytes_in": packet_size if is_incoming else 0,
+                        "bytes_out": packet_size if not is_incoming else 0,
+                        "packets_in": 1 if is_incoming else 0,
+                        "packets_out": 1 if not is_incoming else 0,
+                        "first_seen": timestamp_ms,
+                        "last_seen": timestamp_ms,
+                        "duration": 0,
+                        "device_id": device_id,
+                        "status": "active"
+                    }
+
+                    if domain:
+                        flow_data["domain"] = domain
+
+                    self._active_flows[flow_key] = flow_data
+                    self.flows_detected += 1
+
+            # Cache domain outside of flows lock to avoid deadlock
             if domain:
-                flow_data["domain"] = domain
-                # Cache domain for this IP
-                self._dns_cache[dst_ip] = domain
+                async with self._dns_cache_lock:
+                    self._dns_cache[dst_ip] = domain
 
         except Exception as e:
             logger.error(f"Error processing packet: {e}")
@@ -247,19 +263,22 @@ class PacketCaptureService:
                 await asyncio.sleep(30)  # Check every 30 seconds
                 if not self._running:
                     break
-                
+
                 current_time = int(datetime.now().timestamp() * 1000)
                 inactive_flows = []
-                
-                # Find flows inactive for more than 60 seconds
-                for flow_key, flow_data in self._active_flows.items():
-                    if current_time - flow_data["last_seen"] > 60000:
-                        inactive_flows.append((flow_key, flow_data))
-                
-                # Finalize inactive flows
+
+                # Thread-safe access to find inactive flows
+                async with self._flows_lock:
+                    # Find flows inactive for more than 60 seconds
+                    for flow_key, flow_data in self._active_flows.items():
+                        if current_time - flow_data["last_seen"] > 60000:
+                            # Create a copy of flow_data to avoid holding lock during finalization
+                            inactive_flows.append((flow_key, flow_data.copy()))
+
+                # Finalize inactive flows (outside lock to avoid blocking)
                 for flow_key, flow_data in inactive_flows:
                     await self._finalize_flow(flow_key, flow_data)
-                    
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -267,7 +286,15 @@ class PacketCaptureService:
 
     async def _finalize_all_flows(self):
         """Finalize all active flows (called on shutdown)"""
-        for flow_key, flow_data in self._active_flows.items():
+        # Get a snapshot of all flows while holding the lock
+        flows_to_finalize = []
+        async with self._flows_lock:
+            for flow_key, flow_data in self._active_flows.items():
+                # Create a copy to avoid holding lock during finalization
+                flows_to_finalize.append((flow_key, flow_data.copy()))
+
+        # Finalize flows outside lock to avoid blocking
+        for flow_key, flow_data in flows_to_finalize:
             try:
                 await self._finalize_flow(flow_key, flow_data)
             except Exception as e:
@@ -277,10 +304,13 @@ class PacketCaptureService:
 
     async def _extract_domain_from_packet(self, packet, ip: str) -> Optional[str]:
         """Extract domain name from DNS packet or use cache"""
-        # Check DNS cache first
-        if ip in self._dns_cache:
-            return self._dns_cache[ip]
-        
+        # Check DNS cache first (thread-safe)
+        async with self._dns_cache_lock:
+            if ip in self._dns_cache:
+                cached = self._dns_cache[ip]
+                # Return None if cached as empty string (failed lookup)
+                return cached if cached else None
+
         # Try to extract from DNS response packet
         if packet.haslayer(DNS):
             dns = packet[DNS]
@@ -293,16 +323,18 @@ class PacketCaptureService:
                         if response_ip == ip and dns.qd:
                             # Get the queried domain name
                             query_name = dns.qd.qname.decode('utf-8').rstrip('.')
-                            self._dns_cache[ip] = query_name
+                            async with self._dns_cache_lock:
+                                self._dns_cache[ip] = query_name
                             return query_name
                 # Check for CNAME records
                 for i in range(dns.ancount):
                     if dns.an[i].type == 5:  # CNAME record
                         if dns.qd:
                             query_name = dns.qd.qname.decode('utf-8').rstrip('.')
-                            self._dns_cache[ip] = query_name
+                            async with self._dns_cache_lock:
+                                self._dns_cache[ip] = query_name
                             return query_name
-        
+
         # Try reverse DNS lookup for destination IP
         # (if not already cached)
         if ip not in self._dns_cache:
@@ -317,13 +349,15 @@ class PacketCaptureService:
                             if '.' in hostname
                             else hostname
                         )
-                        self._dns_cache[ip] = domain
+                        async with self._dns_cache_lock:
+                            self._dns_cache[ip] = domain
                         return domain
             except (socket.herror, socket.gaierror, OSError):
                 # Reverse DNS lookup failed,
                 # cache empty string to avoid retrying
-                self._dns_cache[ip] = ""
-        
+                async with self._dns_cache_lock:
+                    self._dns_cache[ip] = ""
+
         return None
 
     async def _get_or_create_device(self, ip: str, packet) -> str:
@@ -367,7 +401,7 @@ class PacketCaptureService:
                 flow_data.get("domain") or
                 self._dns_cache.get(flow_data["dest_ip"])
             )
-            
+
             # Create NetworkFlow object
             flow = NetworkFlow(
                 id=flow_data["id"],
@@ -399,9 +433,10 @@ class PacketCaptureService:
                     "flow": flow.dict()
                 })
 
-            # Remove from active flows
-            if flow_key in self._active_flows:
-                del self._active_flows[flow_key]
+            # Thread-safe removal from active flows
+            async with self._flows_lock:
+                if flow_key in self._active_flows:
+                    del self._active_flows[flow_key]
 
         except Exception as e:
             logger.error(f"Error finalizing flow: {e}")

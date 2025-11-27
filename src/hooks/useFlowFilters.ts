@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { NetworkFlow } from '@/lib/types';
 import type { FlowFilters } from '@/components/FlowFilters';
+import { useDebounce } from './useDebounce';
 
 interface UseFlowFiltersOptions {
   autoFetch?: boolean;
@@ -32,10 +34,22 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
     timeRangePreset: null,
   });
 
-  const [filteredFlows, setFilteredFlows] = useState<NetworkFlow[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [savedPresets, setSavedPresets] = useState<SavedPreset[]>([]);
+  const [shouldFetch, setShouldFetch] = useState(false);
+
+  // Debounce filters to avoid excessive API calls
+  // Debounce text inputs (IP addresses) more aggressively
+  const debouncedFilters = useDebounce(
+    {
+      ...filters,
+      sourceIp: filters.sourceIp,
+      destIp: filters.destIp,
+    },
+    500 // 500ms debounce for text inputs
+  );
+
+  // Use React Query for caching and automatic request management
+  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
   // Load saved presets from localStorage
   useEffect(() => {
@@ -122,84 +136,92 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
     [limit]
   );
 
-  // Fetch flows with current filters
+  // Fetch flows function for React Query
   const fetchFilteredFlows = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+    const params = filtersToApiParams(debouncedFilters);
 
-    try {
-      const params = filtersToApiParams(filters);
+    // If multiple protocols selected, we need to fetch for each and merge
+    let allFlows: NetworkFlow[] = [];
 
-      // If multiple protocols selected, we need to fetch for each and merge
-      let allFlows: NetworkFlow[] = [];
-
-      if (filters.protocols.length > 1) {
-        // Fetch for each protocol and merge results
-        const promises = filters.protocols.map(protocol =>
-          apiClient.getFlows(
-            params.limit || limit,
-            params.offset || 0,
-            params.deviceId,
-            params.status,
-            protocol,
-            params.startTime,
-            params.endTime,
-            params.sourceIp,
-            params.destIp,
-            params.threatLevel,
-            params.minBytes
-          )
-        );
-        const results = await Promise.all(promises);
-        // Merge and deduplicate by flow ID
-        const flowMap = new Map<string, NetworkFlow>();
-        results.flat().forEach(flow => {
-          if (!flowMap.has(flow.id)) {
-            flowMap.set(flow.id, flow);
-          }
-        });
-        allFlows = Array.from(flowMap.values());
-      } else {
-        // Single protocol or no protocol filter
-        allFlows = await apiClient.getFlows(
+    if (debouncedFilters.protocols.length > 1) {
+      // Fetch for each protocol and merge results
+      const promises = debouncedFilters.protocols.map(protocol =>
+        apiClient.getFlows(
           params.limit || limit,
           params.offset || 0,
           params.deviceId,
           params.status,
-          params.protocol,
+          protocol,
           params.startTime,
           params.endTime,
           params.sourceIp,
           params.destIp,
           params.threatLevel,
           params.minBytes
-        );
-      }
-
-      // Apply additional client-side filtering for protocols (if multiple selected)
-      let filtered = allFlows;
-
-      if (filters.protocols.length > 1) {
-        filtered = allFlows.filter(flow => filters.protocols.includes(flow.protocol));
-      }
-
-      setFilteredFlows(filtered);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch filtered flows';
-      setError(errorMessage);
-      console.error('Error fetching filtered flows:', err);
-      setFilteredFlows([]);
-    } finally {
-      setIsLoading(false);
+        )
+      );
+      const results = await Promise.all(promises);
+      // Merge and deduplicate by flow ID
+      const flowMap = new Map<string, NetworkFlow>();
+      results.flat().forEach(flow => {
+        if (!flowMap.has(flow.id)) {
+          flowMap.set(flow.id, flow);
+        }
+      });
+      allFlows = Array.from(flowMap.values());
+    } else {
+      // Single protocol or no protocol filter
+      allFlows = await apiClient.getFlows(
+        params.limit || limit,
+        params.offset || 0,
+        params.deviceId,
+        params.status,
+        params.protocol,
+        params.startTime,
+        params.endTime,
+        params.sourceIp,
+        params.destIp,
+        params.threatLevel,
+        params.minBytes
+      );
     }
-  }, [filters, filtersToApiParams, limit]);
 
-  // Auto-fetch when filters change (if autoFetch is enabled)
+    // Apply additional client-side filtering for protocols (if multiple selected)
+    let filtered = allFlows;
+
+    if (debouncedFilters.protocols.length > 1) {
+      filtered = allFlows.filter(flow => debouncedFilters.protocols.includes(flow.protocol));
+    }
+
+    return filtered;
+  }, [debouncedFilters, filtersToApiParams, limit]);
+
+  // Use React Query for caching and automatic request management
+  const {
+    data: filteredFlows = [],
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ['flows', 'filtered', debouncedFilters, limit],
+    queryFn: fetchFilteredFlows,
+    enabled: (autoFetch && shouldFetch && USE_REAL_API) || false,
+    staleTime: 30 * 1000, // Cache for 30 seconds
+    gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
+  });
+
+  // Extract error message from React Query error
+  let error: string | null = null;
+  if (queryError) {
+    error = queryError instanceof Error ? queryError.message : 'Failed to fetch filtered flows';
+  }
+
+  // Auto-fetch when debounced filters change (if autoFetch is enabled)
   useEffect(() => {
-    if (autoFetch) {
-      fetchFilteredFlows();
+    if (autoFetch && USE_REAL_API) {
+      setShouldFetch(true);
     }
-  }, [autoFetch, fetchFilteredFlows]);
+  }, [autoFetch, USE_REAL_API]);
 
   // Update filters
   const updateFilters = useCallback((newFilters: Partial<FlowFilters>) => {
@@ -221,13 +243,13 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
       timeRangePreset: null,
     };
     setFilters(cleared);
-    setError(null);
   }, []);
 
   // Apply filters (manual trigger)
   const applyFilters = useCallback(() => {
-    fetchFilteredFlows();
-  }, [fetchFilteredFlows]);
+    setShouldFetch(true);
+    refetch();
+  }, [refetch]);
 
   // Save filter preset
   const savePreset = useCallback(
@@ -270,6 +292,6 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
     savePreset,
     loadPreset,
     deletePreset,
-    refresh: fetchFilteredFlows,
+    refresh: refetch,
   };
 }

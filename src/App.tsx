@@ -47,6 +47,7 @@ import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator';
 import { SecurityPosture } from '@/components/SecurityPosture';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useApiData } from '@/hooks/useApiData';
 import { toast } from 'sonner';
@@ -350,18 +351,28 @@ function App() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices || []} />
-              <TrafficChart data={analyticsData} />
-            </div>
+            <ErrorBoundary>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ErrorBoundary>
+                  <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices || []} />
+                </ErrorBoundary>
+                <ErrorBoundary>
+                  <TrafficChart data={analyticsData} />
+                </ErrorBoundary>
+              </div>
+            </ErrorBoundary>
 
-            <FlowPipeVisualization flows={flows} devices={devices} />
+            <ErrorBoundary>
+              <FlowPipeVisualization flows={flows} devices={devices} />
+            </ErrorBoundary>
 
-            <ConnectionsTableEnhanced
-              flows={flows}
-              devices={devices}
-              useApiFilters={USE_REAL_API && isConnected}
-            />
+            <ErrorBoundary>
+              <ConnectionsTableEnhanced
+                flows={flows}
+                devices={devices}
+                useApiFilters={USE_REAL_API && isConnected}
+              />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-6">
@@ -393,7 +404,9 @@ function App() {
               <TopSitesEnhanced flows={flows} hours={24} limit={10} />
             </div>
 
-            <HistoricalTrends data={analyticsData} useApi={USE_REAL_API && isConnected} />
+            <ErrorBoundary>
+              <HistoricalTrends data={analyticsData} useApi={USE_REAL_API && isConnected} />
+            </ErrorBoundary>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BandwidthPatterns flows={flows} />
@@ -414,12 +427,14 @@ function App() {
             </div>
 
             {USE_REAL_API && (
-              <ConnectionHealthMonitor
-                isConnected={isConnected}
-                error={error}
-                onRetry={() => apiData.refresh()}
-                enableMetrics={true}
-              />
+              <ErrorBoundary>
+                <ConnectionHealthMonitor
+                  isConnected={isConnected}
+                  error={error}
+                  onRetry={() => apiData.refresh()}
+                  enableMetrics={true}
+                />
+              </ErrorBoundary>
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -4,7 +4,7 @@ Device fingerprinting and identification service
 import logging
 import uuid
 import socket
-from typing import Optional
+from typing import Optional, Callable
 from datetime import datetime
 import re
 
@@ -35,8 +35,9 @@ VENDOR_DB = {
 
 
 class DeviceFingerprintingService:
-    def __init__(self, storage: StorageService):
+    def __init__(self, storage: StorageService, on_device_update: Optional[Callable] = None):
         self.storage = storage
+        self.on_device_update = on_device_update
 
     async def process_arp_packet(self, packet):
         """Process ARP packet for device discovery"""
@@ -71,6 +72,9 @@ class DeviceFingerprintingService:
             # Update last seen
             device.lastSeen = int(datetime.now().timestamp() * 1000)
             await self.storage.upsert_device(device)
+            # Notify of device update
+            if self.on_device_update:
+                await self.on_device_update(device)
             return device
 
         # Create new device
@@ -102,6 +106,10 @@ class DeviceFingerprintingService:
 
         await self.storage.upsert_device(device)
         logger.info(f"New device discovered: {device.name} ({device.ip})")
+
+        # Notify of new device
+        if self.on_device_update:
+            await self.on_device_update(device)
 
         return device
 

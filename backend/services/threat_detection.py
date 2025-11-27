@@ -2,7 +2,7 @@
 Threat detection and analysis service
 """
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable
 from datetime import datetime
 import uuid
 
@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class ThreatDetectionService:
-    def __init__(self, storage: StorageService):
+    def __init__(self, storage: StorageService, on_threat_update: Optional[Callable] = None):
         self.storage = storage
+        self.on_threat_update = on_threat_update
 
     async def analyze_flow(self, flow_data: Dict) -> str:
         """Analyze flow and determine threat level"""
@@ -72,6 +73,10 @@ class ThreatDetectionService:
 
             await self.storage.add_threat(threat)
             logger.warning(f"Threat detected: {threat.description}")
+
+            # Notify of new threat
+            if self.on_threat_update:
+                await self.on_threat_update(threat)
 
         except Exception as e:
             logger.error(f"Error creating threat: {e}")

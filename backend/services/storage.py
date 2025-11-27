@@ -4,6 +4,7 @@ Database storage service using SQLite
 import aiosqlite
 import json
 import logging
+import asyncio
 from typing import List, Optional
 from datetime import datetime, timedelta
 import os
@@ -17,14 +18,104 @@ class StorageService:
     def __init__(self, db_path: str = "netinsight.db"):
         self.db_path = db_path
         self.db: Optional[aiosqlite.Connection] = None
+        self._connection_lock = asyncio.Lock()
+        self._max_retries = 3
+        self._retry_delay = 1.0  # seconds
 
     async def initialize(self):
         """Initialize database and create tables"""
-        self.db = await aiosqlite.connect(self.db_path)
-        self.db.row_factory = aiosqlite.Row
-
+        await self._ensure_connection()
         await self._create_tables()
         logger.info(f"Database initialized: {self.db_path}")
+
+    async def _ensure_connection(self):
+        """Ensure database connection is active, reconnect if needed"""
+        async with self._connection_lock:
+            if self.db is not None:
+                # Check if connection is still alive
+                try:
+                    await asyncio.wait_for(
+                        self.db.execute("SELECT 1"),
+                        timeout=1.0
+                    )
+                    return  # Connection is healthy
+                except Exception as e:
+                    logger.warning(f"Database connection check failed: {e}")
+                    # Connection is dead, close it
+                    try:
+                        await self.db.close()
+                    except Exception:
+                        pass
+                    self.db = None
+
+            # Connect or reconnect
+            if self.db is None:
+                await self._connect_with_retry()
+
+    async def _connect_with_retry(self):
+        """Connect to database with retry logic"""
+        last_error = None
+        for attempt in range(self._max_retries):
+            try:
+                self.db = await asyncio.wait_for(
+                    aiosqlite.connect(self.db_path, timeout=5.0),
+                    timeout=5.0
+                )
+                self.db.row_factory = aiosqlite.Row
+                logger.info(f"Database connected: {self.db_path}")
+                return
+            except Exception as e:
+                last_error = e
+                if attempt < self._max_retries - 1:
+                    delay = self._retry_delay * (2 ** attempt)  # Exponential backoff
+                    logger.warning(
+                        f"Database connection attempt {attempt + 1} failed: {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        f"Failed to connect to database after {self._max_retries} attempts: {e}"
+                    )
+                    raise
+
+    async def _execute_with_retry(self, query: str, params=None):
+        """Execute query with automatic reconnection on failure"""
+        for attempt in range(self._max_retries):
+            try:
+                await self._ensure_connection()
+                if params:
+                    return await self.db.execute(query, params)
+                else:
+                    return await self.db.execute(query)
+            except (aiosqlite.OperationalError, aiosqlite.DatabaseError) as e:
+                error_str = str(e).lower()
+                # Check if it's a connection-related error
+                if any(keyword in error_str for keyword in [
+                    'closed', 'lost', 'unable to open', 'database is locked'
+                ]):
+                    logger.warning(f"Database error (attempt {attempt + 1}): {e}")
+                    # Close connection and retry
+                    async with self._connection_lock:
+                        if self.db:
+                            try:
+                                await self.db.close()
+                            except Exception:
+                                pass
+                            self.db = None
+
+                    if attempt < self._max_retries - 1:
+                        await asyncio.sleep(self._retry_delay * (2 ** attempt))
+                        continue
+                    else:
+                        logger.error(f"Database operation failed after retries: {e}")
+                        raise
+                else:
+                    # Not a connection error, don't retry
+                    raise
+            except Exception as e:
+                # Other errors - don't retry
+                raise
 
     async def _create_tables(self):
         """Create database tables"""
@@ -85,18 +176,63 @@ class StorageService:
             )
         """)
 
-        # Create indexes
+        # Create indexes for performance optimization
+        # Flow indexes
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_timestamp ON flows(timestamp DESC)
+            CREATE INDEX IF NOT EXISTS idx_flows_timestamp 
+            ON flows(timestamp DESC)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_device ON flows(device_id)
+            CREATE INDEX IF NOT EXISTS idx_flows_device 
+            ON flows(device_id)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_status ON flows(status)
+            CREATE INDEX IF NOT EXISTS idx_flows_status 
+            ON flows(status)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_threats_dismissed ON threats(dismissed)
+            CREATE INDEX IF NOT EXISTS idx_flows_source_ip 
+            ON flows(source_ip)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_flows_dest_ip 
+            ON flows(dest_ip)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_flows_domain 
+            ON flows(domain)
+        """)
+        
+        # Device indexes for search
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_devices_name 
+            ON devices(name)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_devices_ip 
+            ON devices(ip)
+        """)
+        
+        # Threat indexes
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threats_dismissed 
+            ON threats(dismissed)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threats_timestamp 
+            ON threats(timestamp DESC)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threats_type 
+            ON threats(type)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threats_description 
+            ON threats(description)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threats_severity 
+            ON threats(severity)
         """)
 
         await self.db.commit()
@@ -108,18 +244,19 @@ class StorageService:
         )
 
         # Delete old flows
-        cursor = await self.db.execute(
+        cursor = await self._execute_with_retry(
             "DELETE FROM flows WHERE timestamp < ?", (cutoff_time,)
         )
         flows_deleted = cursor.rowcount
 
         # Delete old threats
-        cursor = await self.db.execute(
+        cursor = await self._execute_with_retry(
             "DELETE FROM threats WHERE timestamp < ? AND dismissed = 1",
             (cutoff_time,)
         )
         threats_deleted = cursor.rowcount
 
+        await self._ensure_connection()
         await self.db.commit()
 
         logger.info(
@@ -135,6 +272,7 @@ class StorageService:
 
     async def get_database_stats(self) -> dict:
         """Get database statistics"""
+        await self._ensure_connection()
         stats = {}
 
         # Count flows
@@ -197,7 +335,7 @@ class StorageService:
 
     async def upsert_device(self, device: Device):
         """Insert or update device"""
-        await self.db.execute("""
+        await self._execute_with_retry("""
             INSERT OR REPLACE INTO devices
             (id, name, ip, mac, type, vendor, first_seen, last_seen, bytes_total,
              connections_count, threat_score, behavioral)
@@ -207,6 +345,7 @@ class StorageService:
             device.firstSeen, device.lastSeen, device.bytesTotal, device.connectionsCount,
             device.threatScore, json.dumps(device.behavioral)
         ))
+        await self._ensure_connection()
         await self.db.commit()
 
     async def count_devices(self) -> int:
@@ -218,7 +357,7 @@ class StorageService:
     # Flow methods
     async def add_flow(self, flow: NetworkFlow):
         """Add network flow"""
-        await self.db.execute("""
+        await self._execute_with_retry("""
             INSERT OR REPLACE INTO flows
             (id, timestamp, source_ip, source_port, dest_ip, dest_port, protocol,
              bytes_in, bytes_out, packets_in, packets_out, duration, status,
@@ -230,6 +369,7 @@ class StorageService:
             flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
             flow.country, flow.domain, flow.threatLevel, flow.deviceId
         ))
+        await self._ensure_connection()
         await self.db.commit()
 
     async def get_flows(self, limit: int = 100, device_id: Optional[str] = None,
@@ -334,7 +474,7 @@ class StorageService:
     # Threat methods
     async def add_threat(self, threat: Threat):
         """Add threat"""
-        await self.db.execute("""
+        await self._execute_with_retry("""
             INSERT OR REPLACE INTO threats
             (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -343,6 +483,7 @@ class StorageService:
             threat.deviceId, threat.flowId, threat.description,
             threat.recommendation, 1 if threat.dismissed else 0
         ))
+        await self._ensure_connection()
         await self.db.commit()
 
     async def get_threats(self, active_only: bool = True) -> List[Threat]:
@@ -355,6 +496,67 @@ class StorageService:
         async with self.db.execute(query) as cursor:
             rows = await cursor.fetchall()
             return [self._row_to_threat(row) for row in rows]
+
+    async def search_threats(
+        self, query_text: str, limit: int = 50, active_only: bool = False
+    ) -> List[Threat]:
+        """Search threats by type, description, or severity using database queries"""
+        search_pattern = f"%{query_text}%"
+        
+        # Build query with search conditions
+        where_clauses = [
+            "type LIKE ?",
+            "description LIKE ?",
+            "severity LIKE ?"
+        ]
+        params = [search_pattern, search_pattern, search_pattern]
+        
+        # Add dismissed filter if needed
+        if active_only:
+            where_clauses.append("dismissed = 0")
+        
+        query = f"""
+            SELECT * FROM threats
+            WHERE ({' OR '.join(where_clauses[:3])})
+            {'AND dismissed = 0' if active_only else ''}
+            ORDER BY timestamp DESC
+            LIMIT ?
+        """
+        params.append(limit)
+
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [self._row_to_threat(row) for row in rows]
+
+    async def get_threat(self, threat_id: str) -> Optional[Threat]:
+        """Get a specific threat by ID"""
+        query = "SELECT * FROM threats WHERE id = ?"
+        async with self.db.execute(query, (threat_id,)) as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return self._row_to_threat(row)
+            return None
+
+    async def upsert_threat(self, threat: Threat):
+        """Update or insert a threat"""
+        query = """
+            INSERT OR REPLACE INTO threats
+            (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        await self._execute_with_retry(query, (
+            threat.id,
+            threat.timestamp,
+            threat.type,
+            threat.severity,
+            threat.deviceId,
+            threat.flowId,
+            threat.description,
+            threat.recommendation,
+            1 if threat.dismissed else 0
+        ))
+        await self._ensure_connection()
+        await self.db.commit()
 
     async def dismiss_threat(self, threat_id: str) -> bool:
         """Dismiss a threat"""

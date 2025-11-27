@@ -11,7 +11,7 @@ from io import StringIO
 import logging
 
 from fastapi import (
-    FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+    FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -28,6 +28,12 @@ from models.types import (
 )
 from models.requests import DeviceUpdateRequest
 from utils.config import config
+from utils.validators import (
+    LimitQuery, OffsetQuery, HoursQuery, IPQuery, StatusQuery,
+    ThreatLevelQuery, DeviceIdPath, FlowIdPath, ThreatIdPath,
+    validate_time_range, validate_min_bytes, validate_string_param
+)
+from utils.error_handler import handle_endpoint_error
 
 # Configure logging
 logging.basicConfig(
@@ -46,6 +52,24 @@ advanced_analytics: Optional[AdvancedAnalyticsService] = None
 
 # WebSocket connections for real-time updates
 active_connections: List[WebSocket] = []
+
+# Callback for device updates
+async def on_device_update(device: Device):
+    """Callback when device is created or updated"""
+    await notify_clients({
+        "type": "device_update",
+        "device": device.dict()
+    })
+
+
+# Callback for threat updates
+async def on_threat_update(threat: Threat):
+    """Callback when threat is created"""
+    await notify_clients({
+        "type": "threat_update",
+        "threat": threat.dict()
+    })
+
 
 # Error messages
 ERR_STORAGE_NOT_INIT = "Storage service not initialized"
@@ -83,9 +107,9 @@ async def lifespan(app: FastAPI):
     storage = StorageService(db_path=config.db_path)
     await storage.initialize()
 
-    # Initialize services
-    device_service = DeviceFingerprintingService(storage)
-    threat_service = ThreatDetectionService(storage)
+    # Initialize services with WebSocket callbacks
+    device_service = DeviceFingerprintingService(storage, on_device_update=on_device_update)
+    threat_service = ThreatDetectionService(storage, on_threat_update=on_threat_update)
     analytics = AnalyticsService(storage)
     global advanced_analytics
     advanced_analytics = AdvancedAnalyticsService(storage)
@@ -116,7 +140,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup
     logger.info("Shutting down NetInsight Backend...")
-    
+
     # Cancel cleanup task
     if 'cleanup_task' in locals():
         cleanup_task.cancel()
@@ -124,7 +148,7 @@ async def lifespan(app: FastAPI):
             await cleanup_task
         except asyncio.CancelledError:
             pass
-    
+
     # Stop packet capture
     if packet_capture:
         await packet_capture.stop()
@@ -133,7 +157,7 @@ async def lifespan(app: FastAPI):
         await capture_task
     except asyncio.CancelledError:
         pass
-    
+
     # Close storage
     await storage.close()
 
@@ -162,22 +186,65 @@ app.add_middleware(
 
 
 async def notify_clients(data: dict):
-    """Notify all connected WebSocket clients of updates"""
+    """Notify all connected WebSocket clients of updates with retry logic"""
     if not active_connections:
         return
 
     disconnected = []
+    failed_connections = []
+
     for connection in active_connections:
         try:
-            await connection.send_json(data)
-        except Exception as e:
-            logger.warning(f"Failed to send to client: {e}")
+            # Attempt to send with timeout
+            await asyncio.wait_for(
+                connection.send_json(data),
+                timeout=5.0  # 5 second timeout
+            )
+        except asyncio.TimeoutError:
+            logger.warning("WebSocket send timeout - connection may be slow")
+            failed_connections.append(connection)
+        except (ConnectionError, RuntimeError) as e:
+            # Permanent connection errors - remove immediately
+            logger.debug(f"Permanent WebSocket error: {e}")
             disconnected.append(connection)
+        except Exception as e:
+            # Other errors - try to classify
+            error_str = str(e).lower()
+            if any(keyword in error_str for keyword in [
+                'closed', 'disconnect', 'broken', 'reset'
+            ]):
+                # Connection is definitely closed
+                logger.debug(f"WebSocket connection closed: {e}")
+                disconnected.append(connection)
+            else:
+                # Unknown error - log and mark for retry
+                logger.warning(f"Unknown WebSocket error: {e}")
+                failed_connections.append(connection)
 
-    # Remove disconnected clients
+    # Remove permanently disconnected clients
     for conn in disconnected:
         if conn in active_connections:
             active_connections.remove(conn)
+            logger.info(f"Removed disconnected WebSocket client. "
+                       f"Remaining: {len(active_connections)}")
+
+    # Retry failed connections once (for transient errors)
+    if failed_connections:
+        await asyncio.sleep(0.1)  # Brief delay before retry
+        for connection in failed_connections[:]:  # Copy list to avoid modification during iteration
+            try:
+                await asyncio.wait_for(
+                    connection.send_json(data),
+                    timeout=2.0
+                )
+                failed_connections.remove(connection)
+            except Exception as e:
+                # Retry also failed - treat as permanent
+                logger.warning(f"WebSocket retry failed: {e}")
+                if connection in active_connections:
+                    active_connections.remove(connection)
+                    logger.info(f"Removed WebSocket client after failed retry. "
+                               f"Remaining: {len(active_connections)}")
 
 
 # API Routes
@@ -249,15 +316,24 @@ async def get_devices():
             status_code=503,
             detail=ERR_STORAGE_NOT_INIT
         )
-    return await storage.get_devices()
+    
+    return await handle_endpoint_error(
+        lambda: storage.get_devices(),
+        "Failed to retrieve devices"
+    )
 
 
 @app.get("/api/devices/{device_id}", response_model=Device)
-async def get_device(device_id: str):
+async def get_device(device_id: str = DeviceIdPath()):
     """Get specific device details"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
-    device = await storage.get_device(device_id)
+    
+    device = await handle_endpoint_error(
+        lambda: storage.get_device(device_id),
+        f"Failed to retrieve device {device_id}"
+    )
+    
     if not device:
         raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
     return device
@@ -265,42 +341,58 @@ async def get_device(device_id: str):
 
 @app.get("/api/flows", response_model=List[NetworkFlow])
 async def get_flows(
-    limit: int = 100,
-    offset: int = 0,
-    device_id: Optional[str] = None,
-    status: Optional[str] = None,
-    protocol: Optional[str] = None,
-    start_time: Optional[int] = None,
-    end_time: Optional[int] = None,
-    source_ip: Optional[str] = None,
-    dest_ip: Optional[str] = None,
-    threat_level: Optional[str] = None,
-    min_bytes: Optional[int] = None
+    limit: int = LimitQuery(100, 1000),
+    offset: int = OffsetQuery(0),
+    device_id: Optional[str] = Query(None, min_length=1, max_length=100),
+    status: Optional[str] = StatusQuery(),
+    protocol: Optional[str] = Query(None, min_length=1, max_length=20),
+    start_time: Optional[int] = Query(None, ge=0),
+    end_time: Optional[int] = Query(None, ge=0),
+    source_ip: Optional[str] = IPQuery("Source IP address"),
+    dest_ip: Optional[str] = IPQuery("Destination IP address"),
+    threat_level: Optional[str] = ThreatLevelQuery(),
+    min_bytes: Optional[int] = Query(None, ge=0)
 ):
     """Get network flows with advanced filtering options"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
-    return await storage.get_flows(
-        limit=limit,
-        offset=offset,
-        device_id=device_id,
-        status=status,
-        protocol=protocol,
-        start_time=start_time,
-        end_time=end_time,
-        source_ip=source_ip,
-        dest_ip=dest_ip,
-        threat_level=threat_level,
-        min_bytes=min_bytes
+
+    # Validate time range
+    start_time, end_time = validate_time_range(start_time, end_time)
+
+    # Validate min_bytes if provided
+    if min_bytes is not None:
+        min_bytes = validate_min_bytes(min_bytes)
+
+    return await handle_endpoint_error(
+        lambda: storage.get_flows(
+            limit=limit,
+            offset=offset,
+            device_id=device_id,
+            status=status,
+            protocol=protocol,
+            start_time=start_time,
+            end_time=end_time,
+            source_ip=source_ip,
+            dest_ip=dest_ip,
+            threat_level=threat_level,
+            min_bytes=min_bytes
+        ),
+        "Failed to retrieve flows"
     )
 
 
 @app.get("/api/flows/{flow_id}", response_model=NetworkFlow)
-async def get_flow(flow_id: str):
+async def get_flow(flow_id: str = FlowIdPath()):
     """Get specific flow details"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
-    flow = await storage.get_flow(flow_id)
+    
+    flow = await handle_endpoint_error(
+        lambda: storage.get_flow(flow_id),
+        f"Failed to retrieve flow {flow_id}"
+    )
+    
     if not flow:
         raise HTTPException(status_code=404, detail=ERR_FLOW_NOT_FOUND)
     return flow
@@ -315,24 +407,47 @@ async def get_threats(active_only: bool = True):
 
 
 @app.post("/api/threats/{threat_id}/dismiss")
-async def dismiss_threat(threat_id: str):
+async def dismiss_threat(threat_id: str = ThreatIdPath()):
     """Dismiss a threat alert"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
-    success = await storage.dismiss_threat(threat_id)
-    if not success:
+    
+    threat = await handle_endpoint_error(
+        lambda: storage.get_threat(threat_id),
+        f"Failed to retrieve threat {threat_id}"
+    )
+    
+    if not threat:
         raise HTTPException(status_code=404, detail=ERR_THREAT_NOT_FOUND)
+    
+    threat.dismissed = True
+    
+    await handle_endpoint_error(
+        lambda: storage.upsert_threat(threat),
+        f"Failed to dismiss threat {threat_id}"
+    )
+    
+    # Notify WebSocket clients of threat update
+    try:
+        await on_threat_update(threat)
+    except Exception as e:
+        logger.warning(f"Failed to notify WebSocket clients: {e}")
+    
     return {"status": "dismissed", "threat_id": threat_id}
 
 
 @app.get("/api/analytics", response_model=List[AnalyticsData])
-async def get_analytics(hours: int = 24):
+async def get_analytics(hours: int = HoursQuery(24, 720)):
     """Get analytics data for specified time range"""
     if not analytics:
         raise HTTPException(
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
-    return await analytics.get_analytics_data(hours_back=hours)
+    
+    return await handle_endpoint_error(
+        lambda: analytics.get_analytics_data(hours_back=hours),
+        "Failed to retrieve analytics data"
+    )
 
 
 @app.get("/api/protocols", response_model=List[ProtocolStats])
@@ -342,7 +457,11 @@ async def get_protocol_stats():
         raise HTTPException(
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
-    return await analytics.get_protocol_stats()
+    
+    return await handle_endpoint_error(
+        lambda: analytics.get_protocol_stats(),
+        "Failed to retrieve protocol statistics"
+    )
 
 
 @app.get("/api/stats/summary")
@@ -352,64 +471,115 @@ async def get_summary_stats():
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    return await advanced_analytics.get_summary_stats()
+    
+    return await handle_endpoint_error(
+        lambda: advanced_analytics.get_summary_stats(),
+        "Failed to retrieve summary statistics"
+    )
 
 
 @app.get("/api/stats/geographic")
-async def get_geographic_stats(hours: int = 24):
+async def get_geographic_stats(hours: int = HoursQuery(24, 720)):
     """Get geographic distribution of connections"""
     if not advanced_analytics:
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    return await advanced_analytics.get_geographic_distribution(hours_back=hours)
+    
+    return await handle_endpoint_error(
+        lambda: advanced_analytics.get_geographic_distribution(
+            hours_back=hours
+        ),
+        "Failed to retrieve geographic statistics"
+    )
 
 
 @app.get("/api/stats/top/domains")
-async def get_top_domains(limit: int = 20, hours: int = 24):
+async def get_top_domains(
+    limit: int = LimitQuery(20, 100),
+    hours: int = HoursQuery(24, 720)
+):
     """Get top domains by traffic"""
     if not advanced_analytics:
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    return await advanced_analytics.get_top_domains(limit=limit, hours_back=hours)
+    
+    return await handle_endpoint_error(
+        lambda: advanced_analytics.get_top_domains(
+            limit=limit, hours_back=hours
+        ),
+        "Failed to retrieve top domains"
+    )
 
 
 @app.get("/api/stats/top/devices")
-async def get_top_devices(limit: int = 10, hours: int = 24, sort_by: str = "bytes"):
+async def get_top_devices(
+    limit: int = LimitQuery(10, 100),
+    hours: int = HoursQuery(24, 720),
+    sort_by: str = Query("bytes", regex="^(bytes|connections|threats)$")
+):
     """Get top devices by traffic"""
     if not advanced_analytics:
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    return await advanced_analytics.get_top_devices(limit=limit, hours_back=hours, sort_by=sort_by)
+    
+    return await handle_endpoint_error(
+        lambda: advanced_analytics.get_top_devices(
+            limit=limit, hours_back=hours, sort_by=sort_by
+        ),
+        "Failed to retrieve top devices"
+    )
 
 
 @app.get("/api/stats/bandwidth")
-async def get_bandwidth_timeline(hours: int = 24, interval_minutes: int = 5):
+async def get_bandwidth_timeline(
+    hours: int = HoursQuery(24, 720),
+    interval_minutes: int = Query(5, ge=1, le=1440)
+):
     """Get bandwidth usage timeline"""
     if not advanced_analytics:
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    return await advanced_analytics.get_bandwidth_timeline(hours_back=hours, interval_minutes=interval_minutes)
+    
+    return await handle_endpoint_error(
+        lambda: advanced_analytics.get_bandwidth_timeline(
+            hours_back=hours, interval_minutes=interval_minutes
+        ),
+        "Failed to retrieve bandwidth timeline"
+    )
 
 
 @app.get("/api/devices/{device_id}/analytics")
-async def get_device_analytics(device_id: str, hours: int = 24):
+async def get_device_analytics(
+    device_id: str = DeviceIdPath(),
+    hours: int = HoursQuery(24, 720)
+):
     """Get detailed analytics for a specific device"""
     if not advanced_analytics:
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    result = await advanced_analytics.get_device_analytics(device_id, hours_back=hours)
+    
+    result = await handle_endpoint_error(
+        lambda: advanced_analytics.get_device_analytics(
+            device_id, hours_back=hours
+        ),
+        f"Failed to retrieve analytics for device {device_id}"
+    )
+    
     if not result:
         raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
     return result
 
 
 @app.patch("/api/devices/{device_id}")
-async def update_device(device_id: str, update: DeviceUpdateRequest):
+async def update_device(
+    device_id: str = DeviceIdPath(),
+    update: DeviceUpdateRequest = ...
+):
     """Update device information (name, notes, type)"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
@@ -417,6 +587,19 @@ async def update_device(device_id: str, update: DeviceUpdateRequest):
     device = await storage.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
+
+    # Validate update fields
+    if update.name is not None:
+        update.name = validate_string_param(update.name, "name", max_length=200)
+    if update.notes is not None:
+        update.notes = validate_string_param(update.notes, "notes", max_length=1000)
+    if update.type is not None:
+        valid_types = ['smartphone', 'laptop', 'desktop', 'tablet', 'iot', 'server', 'unknown']
+        if update.type not in valid_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"type must be one of {valid_types}, got {update.type}"
+            )
 
     # Update fields if provided
     if update.name is not None:
@@ -431,18 +614,25 @@ async def update_device(device_id: str, update: DeviceUpdateRequest):
         device.behavioral = behavioral
 
     await storage.upsert_device(device)
+
+    # Notify WebSocket clients of device update
+    await on_device_update(device)
+
     return device
 
 
 @app.get("/api/search")
 async def search(
-    q: str,
-    type: str = "all",
-    limit: int = 50
+    q: str = Query(..., min_length=1, max_length=200),
+    type: str = Query("all", regex="^(all|devices|flows|threats)$"),
+    limit: int = LimitQuery(50, 200)
 ):
     """Search across devices, flows, and threats"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
+
+    # Validate and sanitize query
+    q = validate_string_param(q, "query", min_length=1, max_length=200)
 
     results = {
         "query": q,
@@ -459,25 +649,27 @@ async def search(
         results["flows"] = await storage.search_flows(q, limit)
 
     if type in ["all", "threats"]:
-        threats = await storage.get_threats(active_only=False)
-        results["threats"] = [
-            t for t in threats
-            if q.lower() in t.description.lower() or q.lower() in t.type.lower()
-        ][:limit]
+        results["threats"] = await handle_endpoint_error(
+            lambda: storage.search_threats(q, limit, active_only=False),
+            "Failed to search threats"
+        )
 
     return results
 
 
 @app.get("/api/export/flows")
 async def export_flows(
-    format: str = "json",
-    start_time: Optional[int] = None,
-    end_time: Optional[int] = None,
-    device_id: Optional[str] = None
+    format: str = Query("json", regex="^(json|csv)$"),
+    start_time: Optional[int] = Query(None, ge=0),
+    end_time: Optional[int] = Query(None, ge=0),
+    device_id: Optional[str] = Query(None, min_length=1, max_length=100)
 ):
     """Export flows as JSON or CSV"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
+
+    # Validate time range
+    start_time, end_time = validate_time_range(start_time, end_time)
 
     flows = await storage.get_flows(
         limit=10000,
@@ -550,8 +742,16 @@ async def stop_capture():
         raise HTTPException(
             status_code=503, detail=ERR_CAPTURE_NOT_INIT
         )
-    await packet_capture.stop()
-    return {"status": "stopped"}
+    
+    try:
+        await packet_capture.stop()
+        return {"status": "stopped"}
+    except Exception as e:
+        logger.error(f"Failed to stop capture: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to stop packet capture: {str(e)}"
+        )
 
 
 @app.get("/api/capture/status")
@@ -568,16 +768,28 @@ async def capture_status():
 
 
 @app.post("/api/maintenance/cleanup")
-async def trigger_cleanup(days: Optional[int] = None):
+async def trigger_cleanup(
+    days: Optional[int] = Query(None, ge=1, le=365)
+):
     """Manually trigger data cleanup"""
     if not storage:
         raise HTTPException(
             status_code=503,
             detail="Storage service not initialized"
         )
-    
+
     retention_days = days or config.data_retention_days
-    result = await storage.cleanup_old_data(days=retention_days)
+    if retention_days < 1 or retention_days > 365:
+        raise HTTPException(
+            status_code=400,
+            detail="retention_days must be between 1 and 365"
+        )
+    
+    result = await handle_endpoint_error(
+        lambda: storage.cleanup_old_data(days=retention_days),
+        "Failed to cleanup old data"
+    )
+    
     return {
         "status": "success",
         "retention_days": retention_days,
