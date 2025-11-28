@@ -21,6 +21,12 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run src/**/*.integration.{test,spec}.{ts,tsx}",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "test:all": "npm run test:run && npm run test:e2e",
     "validate:env": "node scripts/validate-env.js"
   },
   "dependencies": {
@@ -90,10 +96,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.8",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^22.10.5",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react-swc": "^4.2.2",

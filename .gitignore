@@ -66,3 +66,10 @@ cython_debug/
 *.spec
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Playwright E2E Tests
+tests/e2e/screenshots/
+tests/e2e/videos/
+tests/e2e/test-results/
+tests/e2e/playwright-report/
+playwright/.cache/

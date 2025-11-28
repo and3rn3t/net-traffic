@@ -1,0 +1,10 @@
+# Test artifacts
+screenshots/
+videos/
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Playwright binaries
+playwright/
+

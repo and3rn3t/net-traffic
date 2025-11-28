@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: netinsight-backend
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      - NETWORK_INTERFACE=${NETWORK_INTERFACE:-eth0}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DB_PATH=/app/data/netinsight.db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000}
+      - DEBUG=${DEBUG:-false}
+      - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
+    volumes:
+      - backend-data:/app/data
+      # Optional: Mount host network interface for packet capture
+      # Uncomment if you want to capture from host network
+      # - /proc/net:/proc/net:ro
+    networks:
+      - netinsight-network
+    # Packet capture requires special privileges
+    # For production, you may want to remove these and handle differently
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    # Run as root for packet capture (required for Scapy)
+    # For better security, consider using capabilities instead
+    privileged: false
+    # If packet capture doesn't work, try setting to true
+    # privileged: true
+    healthcheck:
+      test:
+        ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Web Application
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Build-time environment variables for Vite
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+        - VITE_USE_REAL_API=${VITE_USE_REAL_API:-true}
+    container_name: netinsight-frontend
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    networks:
+      - netinsight-network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
+    driver: local
+    name: netinsight-backend-data
+
+networks:
+  netinsight-network:
+    driver: bridge
+    name: netinsight-network

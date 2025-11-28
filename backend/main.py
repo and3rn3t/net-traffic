@@ -16,6 +16,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from utils.rate_limit import RateLimitMiddleware
+from utils.request_logging import RequestLoggingMiddleware
 
 from services.packet_capture import PacketCaptureService
 from services.device_fingerprinting import DeviceFingerprintingService
@@ -169,6 +170,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Request logging (first, to capture all requests)
+app.add_middleware(
+    RequestLoggingMiddleware,
+    log_excluded_paths=False  # Set to True to log health checks at DEBUG level
+)
+
 # Rate limiting (before CORS)
 app.add_middleware(
     RateLimitMiddleware,
@@ -231,7 +238,8 @@ async def notify_clients(data: dict):
     # Retry failed connections once (for transient errors)
     if failed_connections:
         await asyncio.sleep(0.1)  # Brief delay before retry
-        for connection in failed_connections[:]:  # Copy list to avoid modification during iteration
+        # Copy list to avoid modification during iteration
+        for connection in failed_connections[:]:
             try:
                 await asyncio.wait_for(
                     connection.send_json(data),
@@ -255,7 +263,10 @@ async def root():
         "service": "NetInsight Backend",
         "version": "1.0.0",
         "status": "running",
-        "packet_capture": "active" if packet_capture and packet_capture.is_running() else "inactive"
+        "packet_capture": (
+            "active" if packet_capture and packet_capture.is_running()
+            else "inactive"
+        )
     }
 
 
@@ -316,7 +327,7 @@ async def get_devices():
             status_code=503,
             detail=ERR_STORAGE_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: storage.get_devices(),
         "Failed to retrieve devices"
@@ -328,12 +339,12 @@ async def get_device(device_id: str = DeviceIdPath()):
     """Get specific device details"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
-    
+
     device = await handle_endpoint_error(
         lambda: storage.get_device(device_id),
         f"Failed to retrieve device {device_id}"
     )
-    
+
     if not device:
         raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
     return device
@@ -387,12 +398,12 @@ async def get_flow(flow_id: str = FlowIdPath()):
     """Get specific flow details"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
-    
+
     flow = await handle_endpoint_error(
         lambda: storage.get_flow(flow_id),
         f"Failed to retrieve flow {flow_id}"
     )
-    
+
     if not flow:
         raise HTTPException(status_code=404, detail=ERR_FLOW_NOT_FOUND)
     return flow
@@ -411,28 +422,28 @@ async def dismiss_threat(threat_id: str = ThreatIdPath()):
     """Dismiss a threat alert"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
-    
+
     threat = await handle_endpoint_error(
         lambda: storage.get_threat(threat_id),
         f"Failed to retrieve threat {threat_id}"
     )
-    
+
     if not threat:
         raise HTTPException(status_code=404, detail=ERR_THREAT_NOT_FOUND)
-    
+
     threat.dismissed = True
-    
+
     await handle_endpoint_error(
         lambda: storage.upsert_threat(threat),
         f"Failed to dismiss threat {threat_id}"
     )
-    
+
     # Notify WebSocket clients of threat update
     try:
         await on_threat_update(threat)
     except Exception as e:
         logger.warning(f"Failed to notify WebSocket clients: {e}")
-    
+
     return {"status": "dismissed", "threat_id": threat_id}
 
 
@@ -443,7 +454,7 @@ async def get_analytics(hours: int = HoursQuery(24, 720)):
         raise HTTPException(
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: analytics.get_analytics_data(hours_back=hours),
         "Failed to retrieve analytics data"
@@ -457,7 +468,7 @@ async def get_protocol_stats():
         raise HTTPException(
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: analytics.get_protocol_stats(),
         "Failed to retrieve protocol statistics"
@@ -471,7 +482,7 @@ async def get_summary_stats():
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: advanced_analytics.get_summary_stats(),
         "Failed to retrieve summary statistics"
@@ -485,7 +496,7 @@ async def get_geographic_stats(hours: int = HoursQuery(24, 720)):
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: advanced_analytics.get_geographic_distribution(
             hours_back=hours
@@ -504,7 +515,7 @@ async def get_top_domains(
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: advanced_analytics.get_top_domains(
             limit=limit, hours_back=hours
@@ -524,7 +535,7 @@ async def get_top_devices(
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: advanced_analytics.get_top_devices(
             limit=limit, hours_back=hours, sort_by=sort_by
@@ -543,7 +554,7 @@ async def get_bandwidth_timeline(
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    
+
     return await handle_endpoint_error(
         lambda: advanced_analytics.get_bandwidth_timeline(
             hours_back=hours, interval_minutes=interval_minutes
@@ -562,14 +573,14 @@ async def get_device_analytics(
         raise HTTPException(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
-    
+
     result = await handle_endpoint_error(
         lambda: advanced_analytics.get_device_analytics(
             device_id, hours_back=hours
         ),
         f"Failed to retrieve analytics for device {device_id}"
     )
-    
+
     if not result:
         raise HTTPException(status_code=404, detail=ERR_DEVICE_NOT_FOUND)
     return result
@@ -711,7 +722,12 @@ async def export_flows(
         return Response(
             content=output.getvalue(),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=flows_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+            headers={
+                "Content-Disposition": (
+                    f"attachment; "
+                    f"filename=flows_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                )
+            }
         )
     else:
         # JSON format
@@ -742,7 +758,7 @@ async def stop_capture():
         raise HTTPException(
             status_code=503, detail=ERR_CAPTURE_NOT_INIT
         )
-    
+
     try:
         await packet_capture.stop()
         return {"status": "stopped"}
@@ -784,12 +800,12 @@ async def trigger_cleanup(
             status_code=400,
             detail="retention_days must be between 1 and 365"
         )
-    
+
     result = await handle_endpoint_error(
         lambda: storage.cleanup_old_data(days=retention_days),
         "Failed to cleanup old data"
     )
-    
+
     return {
         "status": "success",
         "retention_days": retention_days,

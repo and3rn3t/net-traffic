@@ -3,9 +3,9 @@
  * Configures testing environment and global mocks
  */
 
-import { expect, afterEach, vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
+import '@testing-library/jest-dom/vitest';
 
 // Set environment variables for tests
 // This ensures USE_REAL_API is true in tests that need it
@@ -21,9 +21,6 @@ if (!import.meta.env.VITE_USE_REAL_API) {
     configurable: true,
   });
 }
-
-// Extend Vitest's expect with jest-dom matchers
-expect.extend(matchers);
 
 // Cleanup after each test
 afterEach(() => {
