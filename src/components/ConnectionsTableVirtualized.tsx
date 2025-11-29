@@ -3,6 +3,7 @@
  * Uses react-window for efficient rendering of 1000+ items
  */
 import { memo, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { NetworkFlow } from '@/lib/types';
@@ -123,12 +124,7 @@ export function ConnectionsTableVirtualized({
         <ScrollArea className={`h-[${height}px]`}>
           <div className="space-y-2 p-2">
             {flows.map((flow, index) => (
-              <FlowRow
-                key={flow.id || index}
-                index={index}
-                style={{}}
-                data={listData}
-              />
+              <FlowRow key={flow.id || index} index={index} style={{}} data={listData} />
             ))}
           </div>
         </ScrollArea>
