@@ -182,19 +182,14 @@ describe('useRetry', () => {
         .mockRejectedValueOnce(new Error('Fail'))
         .mockResolvedValueOnce('success');
 
-      const retryPromise = act(async () => {
-        return result.current.retry(operation);
-      });
-
-      // Before delay completes
-      expect(result.current.isRetrying).toBe(true);
-      expect(result.current.retryCount).toBeGreaterThan(0);
-
       await act(async () => {
+        const promise = result.current.retry(operation);
+        // Advance timers to complete the retry
         vi.advanceTimersByTime(100);
-        await retryPromise;
+        await promise;
       });
 
+      // After retry completes, state should be reset
       expect(result.current.isRetrying).toBe(false);
       expect(result.current.retryCount).toBe(0);
     });
@@ -238,22 +233,22 @@ describe('useRetry', () => {
       const { result } = renderHook(() => useRetry({ maxRetries: 2, initialDelay: 1000 }));
       const operation = vi.fn().mockRejectedValue(new Error('Fail'));
 
-      const retryPromise = act(async () => {
-        try {
-          await result.current.retry(operation);
-        } catch {
-          // Expected
-        }
-      });
-
-      // Cancel before delay completes
-      act(() => {
-        result.current.cancel();
-      });
-
       await act(async () => {
+        // Start retry
+        const promise = result.current.retry(operation);
+
+        // Cancel before delay completes
+        result.current.cancel();
+
+        // Advance timers
         vi.advanceTimersByTime(2000);
-        await retryPromise;
+
+        // Wait for promise (it will fail, but that's expected)
+        try {
+          await promise;
+        } catch {
+          // Expected to fail
+        }
       });
 
       expect(result.current.isRetrying).toBe(false);

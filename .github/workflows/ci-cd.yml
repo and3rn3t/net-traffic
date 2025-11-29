@@ -32,6 +32,38 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      - name: Run unit tests
+        run: npm run test:run
+        env:
+          VITE_USE_REAL_API: 'false'
+        continue-on-error: false
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          VITE_USE_REAL_API: 'false'
+        continue-on-error: false
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+          VITE_USE_REAL_API: 'false'
+        continue-on-error: false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+
   deploy:
     runs-on: ubuntu-latest
     name: Build & Deploy
