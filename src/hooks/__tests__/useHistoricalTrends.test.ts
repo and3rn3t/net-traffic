@@ -94,7 +94,7 @@ describe('useHistoricalTrends', () => {
       });
 
       act(() => {
-        result.current.updateTimeRange('24h');
+        _result.current.updateTimeRange('24h');
       });
 
       await waitFor(() => {
@@ -102,7 +102,7 @@ describe('useHistoricalTrends', () => {
       });
 
       act(() => {
-        result.current.updateTimeRange('7d');
+        _result.current.updateTimeRange('7d');
       });
 
       await waitFor(() => {
@@ -110,7 +110,7 @@ describe('useHistoricalTrends', () => {
       });
 
       act(() => {
-        result.current.updateTimeRange('30d');
+        _result.current.updateTimeRange('30d');
       });
 
       await waitFor(() => {

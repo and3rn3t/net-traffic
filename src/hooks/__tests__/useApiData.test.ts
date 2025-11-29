@@ -466,6 +466,8 @@ describe('useApiData', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: false,
+        active_flows: 0,
+        active_devices: 0,
       };
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);

@@ -206,6 +206,15 @@ describe('useFlowFilters', () => {
         minBytes: null,
         deviceId: null,
         timeRangePreset: null,
+        countries: [],
+        cities: [],
+        applications: [],
+        minRtt: null,
+        maxRtt: null,
+        maxJitter: null,
+        maxRetransmissions: null,
+        sni: '',
+        connectionStates: [],
       };
 
       act(() => {

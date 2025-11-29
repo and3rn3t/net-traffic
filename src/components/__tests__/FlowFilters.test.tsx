@@ -3,7 +3,7 @@
  * Tests filter UI, preset saving/loading, and filter interactions
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FlowFiltersComponent, FlowFilters } from '@/components/FlowFilters';
@@ -14,20 +14,31 @@ vi.mock('@phosphor-icons/react', () => ({
   X: () => <div data-testid="x-icon">X</div>,
 }));
 
+const createDefaultFilters = (): FlowFilters => ({
+  protocols: [],
+  status: null,
+  threatLevel: null,
+  sourceIp: '',
+  destIp: '',
+  startTime: null,
+  endTime: null,
+  minBytes: null,
+  deviceId: null,
+  timeRangePreset: null,
+  countries: [],
+  cities: [],
+  applications: [],
+  minRtt: null,
+  maxRtt: null,
+  maxJitter: null,
+  maxRetransmissions: null,
+  sni: '',
+  connectionStates: [],
+});
+
 const renderFlowFilters = (props = {}) => {
   const defaultProps = {
-    filters: {
-      protocols: [],
-      status: null,
-      threatLevel: null,
-      sourceIp: '',
-      destIp: '',
-      startTime: null,
-      endTime: null,
-      minBytes: null,
-      deviceId: null,
-      timeRangePreset: null,
-    } as FlowFilters,
+    filters: createDefaultFilters(),
     onFiltersChange: vi.fn(),
     onApply: vi.fn(),
     onClear: vi.fn(),
@@ -54,16 +65,9 @@ describe('FlowFiltersComponent', () => {
 
     it('should show active filter count badge', () => {
       const filters: FlowFilters = {
+        ...createDefaultFilters(),
         protocols: ['TCP', 'UDP'],
         status: 'active',
-        threatLevel: null,
-        sourceIp: '',
-        destIp: '',
-        startTime: null,
-        endTime: null,
-        minBytes: null,
-        deviceId: null,
-        timeRangePreset: null,
       };
       renderFlowFilters({ filters });
       expect(screen.getByText('2')).toBeInTheDocument(); // 2 active filters
@@ -191,16 +195,11 @@ describe('FlowFiltersComponent', () => {
       const onClear = vi.fn();
       const onFiltersChange = vi.fn();
       const filters: FlowFilters = {
+        ...createDefaultFilters(),
         protocols: ['TCP'],
         status: 'active',
         threatLevel: 'high',
         sourceIp: '192.168.1.1',
-        destIp: '',
-        startTime: null,
-        endTime: null,
-        minBytes: null,
-        deviceId: null,
-        timeRangePreset: null,
       };
 
       renderFlowFilters({ filters, onClear, onFiltersChange });
@@ -308,16 +307,12 @@ describe('FlowFiltersComponent', () => {
   describe('Active Filter Count', () => {
     it('should calculate active filter count correctly', () => {
       const filters: FlowFilters = {
+        ...createDefaultFilters(),
         protocols: ['TCP', 'UDP'],
         status: 'active',
         threatLevel: 'high',
         sourceIp: '192.168.1.1',
-        destIp: '',
-        startTime: null,
-        endTime: null,
         minBytes: 1000,
-        deviceId: null,
-        timeRangePreset: null,
       };
 
       renderFlowFilters({ filters });
