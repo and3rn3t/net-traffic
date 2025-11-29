@@ -17,6 +17,10 @@ export default defineConfig({
     createIconImportProxy() as PluginOption,
     sparkPlugin() as PluginOption,
   ],
+  server: {
+    port: 5173,
+    strictPort: false, // Allow fallback if port is in use (but prefer 5173)
+  },
   resolve: {
     alias: {
       '@': resolve(projectRoot, 'src'),

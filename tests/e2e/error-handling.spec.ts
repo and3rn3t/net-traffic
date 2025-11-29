@@ -43,8 +43,11 @@ test.describe('Error Handling', () => {
     }
 
     // Either error is shown OR app gracefully handles it
-    const isFunctional = await page.locator('main, [role="main"]').first().isVisible();
-    expect(errorShown || isFunctional).toBeTruthy();
+    const appLoaded = await page
+      .locator('text=/NetInsight/i')
+      .first()
+      .isVisible({ timeout: 10000 });
+    expect(errorShown || appLoaded).toBeTruthy();
   });
 
   test('should handle 500 server errors', async ({ page }) => {
@@ -60,9 +63,12 @@ test.describe('Error Handling', () => {
     await waitForAppReady(page);
     await waitForDataLoad(page);
 
-    // App should handle error gracefully
-    const isFunctional = await page.locator('main, [role="main"]').first().isVisible();
-    expect(isFunctional).toBeTruthy();
+    // App should handle error gracefully - verify app still loads
+    const appLoaded = await page
+      .locator('text=/NetInsight/i')
+      .first()
+      .isVisible({ timeout: 10000 });
+    expect(appLoaded).toBeTruthy();
   });
 
   test('should handle network timeout', async ({ page }) => {
@@ -77,9 +83,12 @@ test.describe('Error Handling', () => {
     await waitForAppReady(page);
     await waitForDataLoad(page);
 
-    // App should handle timeout
-    const isFunctional = await page.locator('main, [role="main"]').first().isVisible();
-    expect(isFunctional).toBeTruthy();
+    // App should handle timeout - verify app still loads
+    const appLoaded = await page
+      .locator('text=/NetInsight/i')
+      .first()
+      .isVisible({ timeout: 10000 });
+    expect(appLoaded).toBeTruthy();
   });
 
   test('should show offline indicator when backend is unavailable', async ({ page }) => {

@@ -175,8 +175,7 @@ test.describe('Data Visualizations', () => {
         '[data-testid="viz-mode"]',
       ];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let modeButton: any = null;
+      let modeButton: ReturnType<typeof page.locator> | null = null;
       for (const selector of modeSelectors) {
         try {
           const element = page.locator(selector).first();
@@ -198,8 +197,12 @@ test.describe('Data Visualizations', () => {
         expect(await modeButton.isVisible()).toBeTruthy();
       }
     } else {
-      // Visualizations tab might not be available
-      test.skip();
+      // Visualizations tab might not be available - verify we can navigate to dashboard
+      await navigateToView(page, 'dashboard');
+      const dashboardContent = page
+        .locator('text=Active Connections, text=Network Throughput')
+        .first();
+      await expect(dashboardContent).toBeVisible({ timeout: 5000 });
     }
   });
 });

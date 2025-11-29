@@ -9,11 +9,16 @@ import { Page, expect } from '@playwright/test';
  * Wait for the application to be ready
  */
 export async function waitForAppReady(page: Page) {
-  // Wait for the main app container to be visible
-  await page.waitForSelector('[data-testid="app"]', { timeout: 10000 }).catch(() => {
-    // Fallback: wait for any visible content
-    return page.waitForLoadState('networkidle');
-  });
+  // Wait for network to be idle
+  await page.waitForLoadState('networkidle', { timeout: 15000 });
+
+  // Wait for any app content to appear (flexible selectors)
+  await Promise.race([
+    page.waitForSelector('text=NetInsight', { timeout: 10000 }).catch(() => {}),
+    page.waitForSelector('h1', { timeout: 10000 }).catch(() => {}),
+    page.waitForSelector('.container', { timeout: 10000 }).catch(() => {}),
+    page.waitForTimeout(2000), // Max wait
+  ]);
 
   // Wait for initial data to load
   await page.waitForTimeout(1000);
@@ -24,17 +29,130 @@ export async function waitForAppReady(page: Page) {
  */
 export async function navigateToView(
   page: Page,
-  viewName: 'dashboard' | 'analytics' | 'devices' | 'threats'
+  viewName:
+    | 'dashboard'
+    | 'analytics'
+    | 'devices'
+    | 'threats'
+    | 'insights'
+    | 'advanced'
+    | 'visualizations'
 ) {
-  const viewMap = {
-    dashboard: 'Dashboard',
-    analytics: 'Analytics',
-    devices: 'Devices',
-    threats: 'Threats',
+  // Map view names to their tab values and labels
+  const viewMap: Record<string, { value: string; label: string }> = {
+    dashboard: { value: 'dashboard', label: 'Dashboard' },
+    analytics: { value: 'analytics', label: 'Analytics' },
+    devices: { value: 'devices', label: 'Devices' },
+    threats: { value: 'threats', label: 'Threats' },
+    insights: { value: 'insights', label: 'Insights' },
+    advanced: { value: 'advanced', label: 'Advanced' },
+    visualizations: { value: 'visualizations', label: 'Visualizations' },
   };
 
-  await page.click(`text=${viewMap[viewName]}`);
-  await page.waitForTimeout(500); // Wait for view to switch
+  const view = viewMap[viewName];
+  if (!view) {
+    throw new Error(`Unknown view name: ${viewName}`);
+  }
+
+  // Wait for app to fully load first
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+
+  // Wait for loading indicator to disappear
+  try {
+    await page.waitForSelector('text=Connecting to backend...', {
+      state: 'hidden',
+      timeout: 10000,
+    });
+  } catch {
+    // Loading indicator might not exist, that's fine
+  }
+
+  // Wait for the main app structure to be visible (header with NetInsight title)
+  await Promise.race([
+    page.locator('h1:has-text("NetInsight")').first().waitFor({ state: 'visible', timeout: 15000 }),
+    page
+      .getByText(/NetInsight/i)
+      .first()
+      .waitFor({ state: 'visible', timeout: 15000 }),
+  ]).catch(() => {
+    // If neither found, just continue - app might be in a different state
+  });
+  await page.waitForTimeout(1000);
+
+  // Wait for tabs to be rendered - try to find the tabs container first
+  let tabsReady = false;
+  const tabsSelectors = ['[data-slot="tabs-list"]', '[data-slot="tabs"]', '[role="tablist"]'];
+
+  for (const selector of tabsSelectors) {
+    try {
+      const tabsContainer = page.locator(selector).first();
+      if (await tabsContainer.isVisible({ timeout: 5000 }).catch(() => false)) {
+        tabsReady = true;
+        break;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  // If tabs container not found, wait a bit more and try again
+  if (!tabsReady) {
+    await page.waitForTimeout(2000);
+  }
+
+  // Try multiple strategies to find and click the tab
+  let tabElement = null;
+
+  // Strategy 1: Use role="tab" - Radix UI exposes this (most reliable)
+  try {
+    tabElement = page.getByRole('tab', { name: new RegExp(view.label, 'i') });
+    await tabElement.waitFor({ state: 'visible', timeout: 10000 });
+  } catch {
+    // Strategy 2: Find by data-slot and value attribute
+    try {
+      tabElement = page.locator(`[data-slot="tabs-trigger"][value="${view.value}"]`).first();
+      await tabElement.waitFor({ state: 'visible', timeout: 10000 });
+    } catch {
+      // Strategy 3: Find button with text within tabs list
+      try {
+        const tabsList = page.locator('[data-slot="tabs-list"]').first();
+        tabElement = tabsList.locator(`button:has-text("${view.label}")`).first();
+        await tabElement.waitFor({ state: 'visible', timeout: 10000 });
+      } catch {
+        // Strategy 4: Find any button with the text
+        tabElement = page.locator(`button:has-text("${view.label}")`).first();
+        await tabElement.waitFor({ state: 'visible', timeout: 10000 });
+      }
+    }
+  }
+
+  // Click the found tab
+  if (tabElement) {
+    await tabElement.scrollIntoViewIfNeeded();
+    await tabElement.click({ timeout: 10000 });
+    // Wait for tab content to switch and tab to become active
+    await page.waitForTimeout(500);
+
+    // Verify the tab became active
+    try {
+      const activeTab = page.getByRole('tab', { name: new RegExp(view.label, 'i') });
+      await activeTab.waitFor({ state: 'visible', timeout: 5000 });
+      // Wait for data-state="active" attribute
+      let attempts = 0;
+      while (attempts < 10) {
+        const dataState = await activeTab.getAttribute('data-state');
+        if (dataState === 'active') {
+          break;
+        }
+        await page.waitForTimeout(200);
+        attempts++;
+      }
+    } catch {
+      // Tab might already be active or attribute might not be set yet, continue
+    }
+  } else {
+    throw new Error(`Could not find tab for view: ${view.label}. Tabs may not be rendered yet.`);
+  }
 }
 
 /**
@@ -42,7 +160,12 @@ export async function navigateToView(
  */
 export async function waitForDataLoad(page: Page) {
   // Wait for loading indicators to disappear
-  const loadingSelectors = ['[data-testid="loading"]', 'text=Loading...', '[aria-busy="true"]'];
+  const loadingSelectors = [
+    '[data-testid="loading"]',
+    'text=Loading...',
+    '[aria-busy="true"]',
+    'text=Connecting to backend...',
+  ];
 
   for (const selector of loadingSelectors) {
     try {
@@ -52,8 +175,15 @@ export async function waitForDataLoad(page: Page) {
     }
   }
 
-  // Wait a bit more for data to render
-  await page.waitForTimeout(500);
+  // Wait for network to be idle (indicates data has loaded)
+  try {
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
+  } catch {
+    // If network never becomes idle, just continue
+  }
+
+  // Wait a bit more for React to render data
+  await page.waitForTimeout(1000);
 }
 
 /**
@@ -78,7 +208,7 @@ export async function waitForToast(page: Page, text?: string, timeout = 5000) {
 /**
  * Mock API responses for testing
  */
-export async function mockApiResponse(page: Page, url: string, response: any) {
+export async function mockApiResponse(page: Page, url: string, response: unknown) {
   await page.route(url, route => {
     route.fulfill({
       status: 200,

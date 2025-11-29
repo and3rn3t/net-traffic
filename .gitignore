@@ -68,8 +68,11 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Playwright E2E Tests
+test-results/
+playwright-report/
+playwright/.cache/
+# Legacy paths (if tests were configured to output here)
 tests/e2e/screenshots/
 tests/e2e/videos/
 tests/e2e/test-results/
 tests/e2e/playwright-report/
-playwright/.cache/

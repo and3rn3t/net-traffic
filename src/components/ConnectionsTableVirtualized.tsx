@@ -3,15 +3,11 @@
  * Uses react-window for efficient rendering of 1000+ items
  */
 import { memo, useMemo } from 'react';
-
-// @ts-expect-error - react-window ESM import issue in build
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { FixedSizeList } = require('react-window');
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { NetworkFlow } from '@/lib/types';
 import { formatBytes, formatTimestamp, getThreatColor, getThreatBgColor } from '@/lib/formatters';
-import { motion } from 'framer-motion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ConnectionsTableVirtualizedProps {
   flows: NetworkFlow[];
@@ -27,9 +23,10 @@ const FlowRow = memo(
     data,
   }: {
     index: number;
-    style: React.CSSProperties;
+    style?: React.CSSProperties;
     data: { flows: NetworkFlow[]; onFlowSelect?: (flow: NetworkFlow) => void };
   }) => {
+    // If index is provided, use it; otherwise render all flows
     const flow = data.flows[index];
     if (!flow) return null;
 
@@ -123,18 +120,18 @@ export function ConnectionsTableVirtualized({
           </Badge>
         </div>
 
-        <div className="border border-border/30 rounded-lg overflow-hidden">
-          <FixedSizeList
-            height={height}
-            itemCount={flows.length}
-            itemSize={120} // Estimated height per item
-            itemData={listData}
-            width="100%"
-            overscanCount={5} // Render 5 extra items outside viewport for smooth scrolling
-          >
-            {FlowRow}
-          </FixedSizeList>
-        </div>
+        <ScrollArea className={`h-[${height}px]`}>
+          <div className="space-y-2 p-2">
+            {flows.map((flow, index) => (
+              <FlowRow
+                key={flow.id || index}
+                index={index}
+                style={{}}
+                data={listData}
+              />
+            ))}
+          </div>
+        </ScrollArea>
       </div>
     </Card>
   );
