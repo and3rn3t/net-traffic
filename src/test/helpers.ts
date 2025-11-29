@@ -32,3 +32,43 @@ export function createDefaultFlowFilters(): FlowFilters {
     connectionStates: [],
   };
 }
+
+/**
+ * List of all API client methods that should be mocked in tests
+ * Use this as a reference when creating apiClient mocks
+ */
+export const API_CLIENT_METHODS = [
+  'healthCheck',
+  'getDevices',
+  'getDevice',
+  'getFlows',
+  'getFlow',
+  'getThreats',
+  'dismissThreat',
+  'getAnalytics',
+  'getProtocolStats',
+  'getCaptureStatus',
+  'startCapture',
+  'stopCapture',
+  'getSummaryStats',
+  'getGeographicStats',
+  'getTopDomains',
+  'getTopDevices',
+  'getBandwidthTimeline',
+  'getRttTrends',
+  'getJitterAnalysis',
+  'getRetransmissionReport',
+  'getConnectionQualitySummary',
+  'getApplicationBreakdown',
+  'getApplicationTrends',
+  'getDeviceApplicationProfile',
+  'getDeviceAnalytics',
+  'updateDevice',
+  'search',
+  'exportFlows',
+  'getMaintenanceStats',
+  'runCleanup',
+  'connectWebSocket',
+  'on',
+  'off',
+] as const;

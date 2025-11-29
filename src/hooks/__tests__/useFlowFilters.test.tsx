@@ -16,7 +16,39 @@ import type { FlowFilters } from '@/components/FlowFilters';
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
   apiClient: {
+    healthCheck: vi.fn(),
+    getDevices: vi.fn(),
+    getDevice: vi.fn(),
     getFlows: vi.fn(),
+    getFlow: vi.fn(),
+    getThreats: vi.fn(),
+    dismissThreat: vi.fn(),
+    getAnalytics: vi.fn(),
+    getProtocolStats: vi.fn(),
+    getCaptureStatus: vi.fn(),
+    startCapture: vi.fn(),
+    stopCapture: vi.fn(),
+    getSummaryStats: vi.fn(),
+    getGeographicStats: vi.fn(),
+    getTopDomains: vi.fn(),
+    getTopDevices: vi.fn(),
+    getBandwidthTimeline: vi.fn(),
+    getRttTrends: vi.fn(),
+    getJitterAnalysis: vi.fn(),
+    getRetransmissionReport: vi.fn(),
+    getConnectionQualitySummary: vi.fn(),
+    getApplicationBreakdown: vi.fn(),
+    getApplicationTrends: vi.fn(),
+    getDeviceApplicationProfile: vi.fn(),
+    getDeviceAnalytics: vi.fn(),
+    updateDevice: vi.fn(),
+    search: vi.fn(),
+    exportFlows: vi.fn(),
+    getMaintenanceStats: vi.fn(),
+    runCleanup: vi.fn(),
+    connectWebSocket: vi.fn(() => () => {}),
+    on: vi.fn(),
+    off: vi.fn(),
   },
 }));
 
@@ -45,18 +77,7 @@ describe('useFlowFilters', () => {
     it('should initialize with default empty filters', () => {
       const { result } = renderHook(() => useFlowFilters(), { wrapper });
 
-      expect(result.current.filters).toEqual({
-        protocols: [],
-        status: null,
-        threatLevel: null,
-        sourceIp: '',
-        destIp: '',
-        startTime: null,
-        endTime: null,
-        minBytes: null,
-        deviceId: null,
-        timeRangePreset: null,
-      });
+      expect(result.current.filters).toEqual(createDefaultFlowFilters());
     });
 
     it('should initialize with empty saved presets', () => {
@@ -157,18 +178,7 @@ describe('useFlowFilters', () => {
         result.current.clearFilters();
       });
 
-      expect(result.current.filters).toEqual({
-        protocols: [],
-        status: null,
-        threatLevel: null,
-        sourceIp: '',
-        destIp: '',
-        startTime: null,
-        endTime: null,
-        minBytes: null,
-        deviceId: null,
-        timeRangePreset: null,
-      });
+      expect(result.current.filters).toEqual(createDefaultFlowFilters());
     });
   });
 
