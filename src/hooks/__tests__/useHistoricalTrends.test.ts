@@ -326,15 +326,24 @@ describe('useHistoricalTrends', () => {
     it('should update time range', () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
 
-      // Ensure hook is initialized
-      expect(result.current).toBeDefined();
-      expect(result.current.updateTimeRange).toBeDefined();
-
+      // Wait for hook to initialize
       act(() => {
-        result.current.updateTimeRange('7d');
+        // Hook should be initialized immediately
+        if (!result.current) {
+          throw new Error('Hook not initialized');
+        }
       });
 
-      expect(result.current.timeRange).toBe('7d');
+      expect(result.current).toBeDefined();
+      expect(result.current?.updateTimeRange).toBeDefined();
+
+      act(() => {
+        if (result.current?.updateTimeRange) {
+          result.current.updateTimeRange('7d');
+        }
+      });
+
+      expect(result.current?.timeRange).toBe('7d');
     });
 
     it('should fetch data when time range is updated with autoFetch enabled', async () => {
@@ -361,12 +370,21 @@ describe('useHistoricalTrends', () => {
     it('should not fetch data when time range is updated with autoFetch disabled', async () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
 
-      // Ensure hook is initialized
+      // Wait for hook to initialize
+      act(() => {
+        // Hook should be initialized immediately
+        if (!result.current) {
+          throw new Error('Hook not initialized');
+        }
+      });
+
       expect(result.current).toBeDefined();
-      expect(result.current.updateTimeRange).toBeDefined();
+      expect(result.current?.updateTimeRange).toBeDefined();
 
       act(() => {
-        result.current.updateTimeRange('7d');
+        if (result.current?.updateTimeRange) {
+          result.current.updateTimeRange('7d');
+        }
       });
 
       await act(async () => {

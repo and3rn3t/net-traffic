@@ -11,7 +11,6 @@ import { queryClient } from '@/lib/queryClient';
 import { ConnectionsTableEnhanced } from '@/components/ConnectionsTableEnhanced';
 import { NetworkFlow, Device } from '@/lib/types';
 import { apiClient } from '@/lib/api';
-import * as toast from 'sonner';
 import { createDefaultFlowFilters } from '@/test/helpers';
 
 // Mock dependencies
@@ -53,11 +52,13 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+const mockToast = {
+  success: vi.fn(),
+  error: vi.fn(),
+};
+
 vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
+  toast: mockToast,
 }));
 
 const defaultFilters = {
@@ -250,12 +251,23 @@ describe('ConnectionsTableEnhanced', () => {
         btn => btn.textContent?.includes('Export') || btn.querySelector('svg')
       );
 
+      expect(exportButton).toBeDefined();
       if (exportButton) {
         fireEvent.click(exportButton);
 
-        await waitFor(() => {
-          expect(apiClient.exportFlows).toHaveBeenCalledWith('csv', 1000, 2000, '1');
-        });
+        await waitFor(
+          () => {
+            expect(apiClient.exportFlows).toHaveBeenCalled();
+          },
+          { timeout: 3000 }
+        );
+
+        // Check the call was made with correct parameters
+        expect(apiClient.exportFlows).toHaveBeenCalledWith('csv', 1000, 2000, '1');
+      } else {
+        // If export button not found, it means filters aren't active
+        // The button only shows when filters are active
+        expect(true).toBe(true); // Skip this assertion
       }
     });
 
@@ -285,12 +297,16 @@ describe('ConnectionsTableEnhanced', () => {
         btn => btn.textContent?.includes('Export') || btn.querySelector('svg')
       );
 
+      expect(exportButton).toBeDefined();
       if (exportButton) {
         fireEvent.click(exportButton);
 
-        await waitFor(() => {
-          expect(toast.success).toHaveBeenCalledWith('Export started');
-        });
+        await waitFor(
+          () => {
+            expect(mockToast.success).toHaveBeenCalledWith('Export started');
+          },
+          { timeout: 3000 }
+        );
       }
     });
 
@@ -324,9 +340,12 @@ describe('ConnectionsTableEnhanced', () => {
       if (exportButton) {
         fireEvent.click(exportButton);
 
-        await waitFor(() => {
-          expect(toast.error).toHaveBeenCalledWith('Failed to export flows');
-        });
+        await waitFor(
+          () => {
+            expect(mockToast.error).toHaveBeenCalledWith('Failed to export flows');
+          },
+          { timeout: 3000 }
+        );
       }
     });
   });

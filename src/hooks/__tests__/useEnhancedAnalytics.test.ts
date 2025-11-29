@@ -156,9 +156,11 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchSummaryStats();
 
-      expect(apiClient.getSummaryStats).toHaveBeenCalled();
-      expect(result.current.summaryStats).toEqual(mockSummaryStats);
-      expect(result.current.error).toBeNull();
+      await waitFor(() => {
+        expect(apiClient.getSummaryStats).toHaveBeenCalled();
+        expect(result.current.summaryStats).toEqual(mockSummaryStats);
+        expect(result.current.error).toBeNull();
+      });
     });
 
     it('should handle fetch errors', async () => {
@@ -207,6 +209,9 @@ describe('useEnhancedAnalytics', () => {
 
       await waitFor(() => {
         expect(apiClient.getTopDomains).toHaveBeenCalledWith(20, 24);
+      });
+
+      await waitFor(() => {
         expect(result.current.topDomains).toEqual(mockTopDomains);
       });
     });

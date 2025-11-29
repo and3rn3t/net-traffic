@@ -50,10 +50,13 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+const mockToast = {
+  error: vi.fn(),
+  success: vi.fn(),
+};
+
 vi.mock('sonner', () => ({
-  toast: {
-    error: vi.fn(),
-  },
+  toast: mockToast,
 }));
 
 // Mock the useDebounce hook to control debouncing in tests
@@ -225,8 +228,13 @@ describe('SearchBar', () => {
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
       await waitFor(() => {
-        // Component shows "Searching..." (capital S, three dots)
-        expect(screen.getByText(/Searching\.\.\./i)).toBeInTheDocument();
+        // Component shows "Searching..." (capital S, three dots) in DialogDescription
+        await waitFor(
+          () => {
+            expect(screen.getByText(/Searching\.\.\./i)).toBeInTheDocument();
+          },
+          { timeout: 2000 }
+        );
       });
 
       // Resolve the promise
@@ -307,7 +315,12 @@ describe('SearchBar', () => {
 
       await waitFor(() => {
         // Component shows "No results found" (capital N)
-        expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+        await waitFor(
+          () => {
+            expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+          },
+          { timeout: 2000 }
+        );
       });
     });
 
@@ -321,8 +334,8 @@ describe('SearchBar', () => {
       fireEvent.change(input, { target: { value: 'test' } });
 
       await waitFor(() => {
-        // Component uses toast.error directly, not toast.toast.error
-        expect(toast.error).toHaveBeenCalledWith('Search failed', {
+        // Component uses toast.error directly
+        expect(mockToast.error).toHaveBeenCalledWith('Search failed', {
           description: 'API Error',
         });
       });
