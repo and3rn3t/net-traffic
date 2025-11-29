@@ -34,11 +34,16 @@ interface DataExporterEnhancedProps {
 
 export function DataExporterEnhanced({ flows, devices, threats }: DataExporterEnhancedProps) {
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [exportConfig, setExportConfig] = useState({
-    format: 'csv' as 'csv' | 'json',
+  const [exportConfig, setExportConfig] = useState<{
+    format: 'csv' | 'json';
+    startTime: string;
+    endTime: string;
+    deviceId: string | null;
+  }>({
+    format: 'csv',
     startTime: '',
     endTime: '',
-    deviceId: '',
+    deviceId: null,
   });
   const [isExporting, setIsExporting] = useState(false);
   const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
@@ -476,8 +481,10 @@ End of Report
             <div className="space-y-2">
               <Label htmlFor="device-filter">Device Filter (Optional)</Label>
               <Select
-                value={exportConfig.deviceId || 'all'}
-                onValueChange={value => setExportConfig({ ...exportConfig, deviceId: value === 'all' ? null : value })}
+                value={exportConfig.deviceId ?? 'all'}
+                onValueChange={value =>
+                  setExportConfig({ ...exportConfig, deviceId: value === 'all' ? null : value })
+                }
               >
                 <SelectTrigger id="device-filter">
                   <SelectValue placeholder="All devices" />
