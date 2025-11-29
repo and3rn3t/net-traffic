@@ -177,9 +177,7 @@ describe('API Integration Tests', () => {
     });
 
     it('should handle 404 errors', async () => {
-      vi.mocked(apiClient.healthCheck).mockRejectedValue(
-        new Error('HTTP 404: Not Found')
-      );
+      vi.mocked(apiClient.healthCheck).mockRejectedValue(new Error('HTTP 404: Not Found'));
 
       render(
         <QueryClientProvider client={queryClient}>
@@ -209,9 +207,7 @@ describe('API Integration Tests', () => {
     });
 
     it('should handle network errors', async () => {
-      vi.mocked(apiClient.healthCheck).mockRejectedValue(
-        new Error('Failed to fetch')
-      );
+      vi.mocked(apiClient.healthCheck).mockRejectedValue(new Error('Failed to fetch'));
 
       render(
         <QueryClientProvider client={queryClient}>
@@ -225,4 +221,3 @@ describe('API Integration Tests', () => {
     });
   });
 });
-
