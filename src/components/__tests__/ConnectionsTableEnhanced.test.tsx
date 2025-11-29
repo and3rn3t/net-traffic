@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
@@ -49,13 +50,18 @@ vi.mock('@/hooks/useFlowFilters', () => ({
     applyFilters: vi.fn(),
     savePreset: vi.fn(),
     loadPreset: vi.fn(),
+    deletePreset: vi.fn(),
+    refresh: vi.fn(),
   })),
 }));
 
-const renderConnectionsTable = (props = {}) => {
+const renderConnectionsTable = (
+  props: Partial<React.ComponentProps<typeof ConnectionsTableEnhanced>> = {}
+) => {
+  const defaultProps = { flows: [] as NetworkFlow[] };
   return render(
     <QueryClientProvider client={queryClient}>
-      <ConnectionsTableEnhanced {...props} />
+      <ConnectionsTableEnhanced {...defaultProps} {...props} />
     </QueryClientProvider>
   );
 };
@@ -70,12 +76,16 @@ const mockFlow: NetworkFlow = {
   timestamp: Date.now(),
   bytesIn: 1000,
   bytesOut: 500,
+  packetsIn: 10,
+  packetsOut: 5,
+  duration: 1000,
   status: 'active',
   threatLevel: 'safe',
   domain: 'example.com',
+  deviceId: '1',
 };
 
-const mockDevice: Device = {
+const _mockDevice: Device = {
   id: '1',
   name: 'Test Device',
   ip: '192.168.1.1',
@@ -188,6 +198,8 @@ describe('ConnectionsTableEnhanced', () => {
         applyFilters: vi.fn(),
         savePreset: vi.fn(),
         loadPreset: vi.fn(),
+        deletePreset: vi.fn(),
+        refresh: vi.fn(),
       });
 
       renderConnectionsTable({ flows: [mockFlow], useApiFilters: true });
@@ -232,6 +244,8 @@ describe('ConnectionsTableEnhanced', () => {
         applyFilters: vi.fn(),
         savePreset: vi.fn(),
         loadPreset: vi.fn(),
+        deletePreset: vi.fn(),
+        refresh: vi.fn(),
       });
 
       renderConnectionsTable({ flows: [mockFlow], useApiFilters: true });
@@ -277,6 +291,8 @@ describe('ConnectionsTableEnhanced', () => {
         applyFilters: vi.fn(),
         savePreset: vi.fn(),
         loadPreset: vi.fn(),
+        deletePreset: vi.fn(),
+        refresh: vi.fn(),
       });
 
       renderConnectionsTable({ flows: [mockFlow], useApiFilters: true });

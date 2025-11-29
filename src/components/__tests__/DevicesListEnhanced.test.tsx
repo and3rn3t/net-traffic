@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
@@ -26,10 +27,13 @@ vi.mock('sonner', () => ({
   },
 }));
 
-const renderDevicesList = (props = {}) => {
+const renderDevicesList = (
+  props: Partial<React.ComponentProps<typeof DevicesListEnhanced>> = {}
+) => {
+  const defaultProps = { devices: [] as Device[] };
   return render(
     <QueryClientProvider client={queryClient}>
-      <DevicesListEnhanced {...props} />
+      <DevicesListEnhanced {...defaultProps} {...props} />
     </QueryClientProvider>
   );
 };
