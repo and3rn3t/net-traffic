@@ -13,4 +13,6 @@ pycountry==23.12.11
 netifaces==0.11.0
 psutil==5.9.6
 aiofiles==23.2.1
+geoip2==4.7.0
+maxminddb==2.2.0
 

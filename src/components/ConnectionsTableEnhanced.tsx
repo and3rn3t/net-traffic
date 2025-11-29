@@ -12,6 +12,7 @@ import { Download } from '@phosphor-icons/react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import { ConnectionsTableVirtualized } from './ConnectionsTableVirtualized';
+import { FlowDetailView } from './FlowDetailView';
 
 interface ConnectionsTableEnhancedProps {
   flows: NetworkFlow[];
@@ -71,6 +72,14 @@ export function ConnectionsTableEnhanced({
   };
 
   const activeCount = displayFlows.filter(f => f.status === 'active').length;
+  const [selectedFlow, setSelectedFlow] = useState<NetworkFlow | null>(null);
+  const [detailViewOpen, setDetailViewOpen] = useState(false);
+
+  const handleFlowClick = (flow: NetworkFlow) => {
+    setSelectedFlow(flow);
+    setDetailViewOpen(true);
+    onFlowSelect?.(flow);
+  };
 
   return (
     <Card className="p-4 border border-border/50">
@@ -167,21 +176,37 @@ export function ConnectionsTableEnhanced({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.02 }}
-                    onClick={() => onFlowSelect?.(flow)}
+                    onClick={() => handleFlowClick(flow)}
                     className="p-3 rounded-lg border border-border/30 hover:border-accent/50 hover:bg-accent/5 cursor-pointer transition-all"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="outline" className="text-xs font-mono">
                             {flow.protocol}
                           </Badge>
+                          {flow.application && (
+                            <Badge variant="secondary" className="text-xs">
+                              {flow.application}
+                            </Badge>
+                          )}
                           {flow.status === 'active' && (
                             <span className="w-2 h-2 bg-success rounded-full animate-pulse-glow" />
                           )}
+                          {flow.connectionState && (
+                            <Badge variant="outline" className="text-xs">
+                              {flow.connectionState}
+                            </Badge>
+                          )}
                           <span className="text-xs text-muted-foreground font-mono truncate">
-                            {flow.domain || flow.destIp}
+                            {flow.sni || flow.domain || flow.destIp}
                           </span>
+                          {flow.country && (
+                            <Badge variant="outline" className="text-xs">
+                              {flow.country}
+                              {flow.city && `, ${flow.city}`}
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-4 text-xs font-mono text-muted-foreground">
@@ -194,13 +219,44 @@ export function ConnectionsTableEnhanced({
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-3 text-xs">
+                        <div className="flex items-center gap-3 text-xs flex-wrap">
                           <span className="text-muted-foreground">
                             ↓ {formatBytes(flow.bytesIn)}
                           </span>
                           <span className="text-muted-foreground">
                             ↑ {formatBytes(flow.bytesOut)}
                           </span>
+                          {flow.rtt && (
+                            <span className="text-muted-foreground" title="Round-trip time">
+                              RTT: {flow.rtt}ms
+                            </span>
+                          )}
+                          {flow.retransmissions !== undefined && flow.retransmissions > 0 && (
+                            <span className="text-warning" title="Retransmissions">
+                              ⚠ {flow.retransmissions}
+                            </span>
+                          )}
+                          {flow.tcpFlags && flow.tcpFlags.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              {flow.tcpFlags.map(flag => (
+                                <Badge
+                                  key={flag}
+                                  variant="outline"
+                                  className={`text-xs ${
+                                    flag === 'RST'
+                                      ? 'border-destructive text-destructive'
+                                      : flag === 'SYN'
+                                        ? 'border-primary text-primary'
+                                        : flag === 'ACK'
+                                          ? 'border-success text-success'
+                                          : ''
+                                  }`}
+                                >
+                                  {flag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                           <span className="text-muted-foreground font-mono">
                             {formatTimestamp(flow.timestamp)}
                           </span>
@@ -217,6 +273,13 @@ export function ConnectionsTableEnhanced({
             </div>
           </ScrollArea>
         )}
+
+        {/* Flow Detail View */}
+        <FlowDetailView
+          flow={selectedFlow}
+          open={detailViewOpen}
+          onOpenChange={setDetailViewOpen}
+        />
       </div>
     </Card>
   );

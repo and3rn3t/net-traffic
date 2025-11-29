@@ -7,9 +7,8 @@ import logging
 import asyncio
 from typing import List, Optional
 from datetime import datetime, timedelta
-import os
 
-from models.types import NetworkFlow, Device, Threat, AnalyticsData
+from models.types import NetworkFlow, Device, Threat
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,6 @@ class StorageService:
 
     async def _connect_with_retry(self):
         """Connect to database with retry logic"""
-        last_error = None
         for attempt in range(self._max_retries):
             try:
                 self.db = await asyncio.wait_for(
@@ -65,7 +63,6 @@ class StorageService:
                 logger.info(f"Database connected: {self.db_path}")
                 return
             except Exception as e:
-                last_error = e
                 if attempt < self._max_retries - 1:
                     delay = self._retry_delay * (2 ** attempt)  # Exponential backoff
                     logger.warning(
@@ -75,7 +72,8 @@ class StorageService:
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        f"Failed to connect to database after {self._max_retries} attempts: {e}"
+                        f"Failed to connect to database after "
+                        f"{self._max_retries} attempts: {e}"
                     )
                     raise
 
@@ -127,12 +125,17 @@ class StorageService:
                 mac TEXT NOT NULL,
                 type TEXT NOT NULL,
                 vendor TEXT NOT NULL,
+                os TEXT,
                 first_seen INTEGER NOT NULL,
                 last_seen INTEGER NOT NULL,
                 bytes_total INTEGER NOT NULL DEFAULT 0,
                 connections_count INTEGER NOT NULL DEFAULT 0,
                 threat_score REAL NOT NULL DEFAULT 0,
                 behavioral TEXT NOT NULL DEFAULT '{}',
+                ipv6_support INTEGER DEFAULT 0,
+                avg_rtt REAL,
+                connection_quality TEXT,
+                applications TEXT,
                 UNIQUE(mac)
             )
         """)
@@ -153,9 +156,24 @@ class StorageService:
                 duration INTEGER NOT NULL,
                 status TEXT NOT NULL,
                 country TEXT,
+                city TEXT,
+                asn INTEGER,
                 domain TEXT,
+                sni TEXT,
                 threat_level TEXT NOT NULL,
                 device_id TEXT NOT NULL,
+                tcp_flags TEXT,
+                ttl INTEGER,
+                connection_state TEXT,
+                rtt INTEGER,
+                retransmissions INTEGER,
+                jitter REAL,
+                application TEXT,
+                user_agent TEXT,
+                http_method TEXT,
+                url TEXT,
+                dns_query_type TEXT,
+                dns_response_code TEXT,
                 FOREIGN KEY (device_id) REFERENCES devices(id)
             )
         """)
@@ -179,59 +197,59 @@ class StorageService:
         # Create indexes for performance optimization
         # Flow indexes
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_timestamp 
+            CREATE INDEX IF NOT EXISTS idx_flows_timestamp
             ON flows(timestamp DESC)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_device 
+            CREATE INDEX IF NOT EXISTS idx_flows_device
             ON flows(device_id)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_status 
+            CREATE INDEX IF NOT EXISTS idx_flows_status
             ON flows(status)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_source_ip 
+            CREATE INDEX IF NOT EXISTS idx_flows_source_ip
             ON flows(source_ip)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_dest_ip 
+            CREATE INDEX IF NOT EXISTS idx_flows_dest_ip
             ON flows(dest_ip)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_flows_domain 
+            CREATE INDEX IF NOT EXISTS idx_flows_domain
             ON flows(domain)
         """)
-        
+
         # Device indexes for search
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_devices_name 
+            CREATE INDEX IF NOT EXISTS idx_devices_name
             ON devices(name)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_devices_ip 
+            CREATE INDEX IF NOT EXISTS idx_devices_ip
             ON devices(ip)
         """)
-        
+
         # Threat indexes
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_threats_dismissed 
+            CREATE INDEX IF NOT EXISTS idx_threats_dismissed
             ON threats(dismissed)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_threats_timestamp 
+            CREATE INDEX IF NOT EXISTS idx_threats_timestamp
             ON threats(timestamp DESC)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_threats_type 
+            CREATE INDEX IF NOT EXISTS idx_threats_type
             ON threats(type)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_threats_description 
+            CREATE INDEX IF NOT EXISTS idx_threats_description
             ON threats(description)
         """)
         await self.db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_threats_severity 
+            CREATE INDEX IF NOT EXISTS idx_threats_severity
             ON threats(severity)
         """)
 
@@ -335,15 +353,20 @@ class StorageService:
 
     async def upsert_device(self, device: Device):
         """Insert or update device"""
+        # Convert applications list to comma-separated string
+        applications_str = ",".join(device.applications) if device.applications else None
+
         await self._execute_with_retry("""
             INSERT OR REPLACE INTO devices
-            (id, name, ip, mac, type, vendor, first_seen, last_seen, bytes_total,
-             connections_count, threat_score, behavioral)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, name, ip, mac, type, vendor, os, first_seen, last_seen, bytes_total,
+             connections_count, threat_score, behavioral, ipv6_support, avg_rtt,
+             connection_quality, applications)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             device.id, device.name, device.ip, device.mac, device.type, device.vendor,
-            device.firstSeen, device.lastSeen, device.bytesTotal, device.connectionsCount,
-            device.threatScore, json.dumps(device.behavioral)
+            device.os, device.firstSeen, device.lastSeen, device.bytesTotal, device.connectionsCount,
+            device.threatScore, json.dumps(device.behavioral),
+            1 if device.ipv6Support else 0, device.avgRtt, device.connectionQuality, applications_str
         ))
         await self._ensure_connection()
         await self.db.commit()
@@ -357,17 +380,25 @@ class StorageService:
     # Flow methods
     async def add_flow(self, flow: NetworkFlow):
         """Add network flow"""
+        # Convert TCP flags list to comma-separated string
+        tcp_flags_str = ",".join(flow.tcpFlags) if flow.tcpFlags else None
+
         await self._execute_with_retry("""
             INSERT OR REPLACE INTO flows
             (id, timestamp, source_ip, source_port, dest_ip, dest_port, protocol,
              bytes_in, bytes_out, packets_in, packets_out, duration, status,
-             country, domain, threat_level, device_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             country, city, asn, domain, sni, threat_level, device_id,
+             tcp_flags, ttl, connection_state, rtt, retransmissions, jitter,
+             application, user_agent, http_method, url, dns_query_type, dns_response_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
             flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
             flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
-            flow.country, flow.domain, flow.threatLevel, flow.deviceId
+            flow.country, flow.city, flow.asn, flow.domain, flow.sni, flow.threatLevel, flow.deviceId,
+            tcp_flags_str, flow.ttl, flow.connectionState, flow.rtt, flow.retransmissions, flow.jitter,
+            flow.application, flow.userAgent, flow.httpMethod, flow.url, flow.dnsQueryType, flow.dnsResponseCode
         ))
         await self._ensure_connection()
         await self.db.commit()
@@ -377,8 +408,18 @@ class StorageService:
                        start_time: Optional[int] = None, end_time: Optional[int] = None,
                        source_ip: Optional[str] = None, dest_ip: Optional[str] = None,
                        threat_level: Optional[str] = None, min_bytes: Optional[int] = None,
-                       offset: int = 0) -> List[NetworkFlow]:
-        """Get flows with advanced filters"""
+                       offset: int = 0,
+                       # New enhanced filters
+                       country: Optional[str] = None,
+                       city: Optional[str] = None,
+                       application: Optional[str] = None,
+                       min_rtt: Optional[int] = None,
+                       max_rtt: Optional[int] = None,
+                       max_jitter: Optional[float] = None,
+                       max_retransmissions: Optional[int] = None,
+                       sni: Optional[str] = None,
+                       connection_state: Optional[str] = None) -> List[NetworkFlow]:
+        """Get flows with advanced filters including enhanced data fields"""
         query = "SELECT * FROM flows WHERE 1=1"
         params = []
 
@@ -417,6 +458,43 @@ class StorageService:
         if min_bytes:
             query += " AND (bytes_in + bytes_out) >= ?"
             params.append(min_bytes)
+
+        # New enhanced filters
+        if country:
+            query += " AND country = ?"
+            params.append(country)
+
+        if city:
+            query += " AND city LIKE ?"
+            params.append(f"%{city}%")
+
+        if application:
+            query += " AND application = ?"
+            params.append(application)
+
+        if min_rtt is not None:
+            query += " AND rtt >= ?"
+            params.append(min_rtt)
+
+        if max_rtt is not None:
+            query += " AND rtt <= ?"
+            params.append(max_rtt)
+
+        if max_jitter is not None:
+            query += " AND jitter <= ?"
+            params.append(max_jitter)
+
+        if max_retransmissions is not None:
+            query += " AND retransmissions <= ?"
+            params.append(max_retransmissions)
+
+        if sni:
+            query += " AND sni LIKE ?"
+            params.append(f"%{sni}%")
+
+        if connection_state:
+            query += " AND connection_state = ?"
+            params.append(connection_state)
 
         query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -502,7 +580,7 @@ class StorageService:
     ) -> List[Threat]:
         """Search threats by type, description, or severity using database queries"""
         search_pattern = f"%{query_text}%"
-        
+
         # Build query with search conditions
         where_clauses = [
             "type LIKE ?",
@@ -510,11 +588,11 @@ class StorageService:
             "severity LIKE ?"
         ]
         params = [search_pattern, search_pattern, search_pattern]
-        
+
         # Add dismissed filter if needed
         if active_only:
             where_clauses.append("dismissed = 0")
-        
+
         query = f"""
             SELECT * FROM threats
             WHERE ({' OR '.join(where_clauses[:3])})
@@ -569,6 +647,11 @@ class StorageService:
     # Helper methods
     def _row_to_device(self, row) -> Device:
         """Convert database row to Device model"""
+        # Parse applications from comma-separated string
+        applications = None
+        if row["applications"]:
+            applications = [a.strip() for a in row["applications"].split(",") if a.strip()]
+
         return Device(
             id=row["id"],
             name=row["name"],
@@ -576,16 +659,26 @@ class StorageService:
             mac=row["mac"],
             type=row["type"],
             vendor=row["vendor"],
+            os=row["os"],
             firstSeen=row["first_seen"],
             lastSeen=row["last_seen"],
             bytesTotal=row["bytes_total"],
             connectionsCount=row["connections_count"],
             threatScore=row["threat_score"],
-            behavioral=json.loads(row["behavioral"])
+            behavioral=json.loads(row["behavioral"]),
+            ipv6Support=bool(row["ipv6_support"]) if row["ipv6_support"] is not None else None,
+            avgRtt=row["avg_rtt"],
+            connectionQuality=row["connection_quality"],
+            applications=applications
         )
 
     def _row_to_flow(self, row) -> NetworkFlow:
         """Convert database row to NetworkFlow model"""
+        # Parse TCP flags from comma-separated string
+        tcp_flags = None
+        if row["tcp_flags"]:
+            tcp_flags = [f.strip() for f in row["tcp_flags"].split(",") if f.strip()]
+
         return NetworkFlow(
             id=row["id"],
             timestamp=row["timestamp"],
@@ -601,9 +694,24 @@ class StorageService:
             duration=row["duration"],
             status=row["status"],
             country=row["country"],
+            city=row["city"],
+            asn=row["asn"],
             domain=row["domain"],
+            sni=row["sni"],
             threatLevel=row["threat_level"],
-            deviceId=row["device_id"]
+            deviceId=row["device_id"],
+            tcpFlags=tcp_flags,
+            ttl=row["ttl"],
+            connectionState=row["connection_state"],
+            rtt=row["rtt"],
+            retransmissions=row["retransmissions"],
+            jitter=row["jitter"],
+            application=row["application"],
+            userAgent=row["user_agent"],
+            httpMethod=row["http_method"],
+            url=row["url"],
+            dnsQueryType=row["dns_query_type"],
+            dnsResponseCode=row["dns_response_code"]
         )
 
     def _row_to_threat(self, row) -> Threat:

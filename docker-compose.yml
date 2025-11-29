@@ -6,6 +6,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    image: netinsight-backend:latest
+    platform: linux/arm64
     container_name: netinsight-backend
     restart: unless-stopped
     ports:
@@ -49,10 +53,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
       args:
         # Build-time environment variables for Vite
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
         - VITE_USE_REAL_API=${VITE_USE_REAL_API:-true}
+    image: netinsight-frontend:latest
+    platform: linux/arm64
     container_name: netinsight-frontend
     restart: unless-stopped
     ports:

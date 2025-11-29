@@ -34,6 +34,16 @@ export interface FlowFilters {
   minBytes: number | null;
   deviceId: string | null;
   timeRangePreset: '1h' | '24h' | '7d' | '30d' | 'custom' | null;
+  // New enhanced filters
+  countries: string[];
+  cities: string[];
+  applications: string[];
+  minRtt: number | null;
+  maxRtt: number | null;
+  maxJitter: number | null;
+  maxRetransmissions: number | null;
+  sni: string;
+  connectionStates: string[];
 }
 
 interface FlowFiltersProps {
@@ -161,6 +171,16 @@ export function FlowFiltersComponent({
     if (localFilters.startTime || localFilters.endTime) count++;
     if (localFilters.minBytes) count++;
     if (localFilters.deviceId) count++;
+    // New enhanced filters
+    if (localFilters.countries.length > 0) count++;
+    if (localFilters.cities.length > 0) count++;
+    if (localFilters.applications.length > 0) count++;
+    if (localFilters.minRtt !== null) count++;
+    if (localFilters.maxRtt !== null) count++;
+    if (localFilters.maxJitter !== null) count++;
+    if (localFilters.maxRetransmissions !== null) count++;
+    if (localFilters.sni) count++;
+    if (localFilters.connectionStates.length > 0) count++;
     return count;
   };
 
@@ -176,6 +196,16 @@ export function FlowFiltersComponent({
       minBytes: null,
       deviceId: null,
       timeRangePreset: null,
+      // New enhanced filters
+      countries: [],
+      cities: [],
+      applications: [],
+      minRtt: null,
+      maxRtt: null,
+      maxJitter: null,
+      maxRetransmissions: null,
+      sni: '',
+      connectionStates: [],
     };
     setLocalFilters(clearedFilters);
     onFiltersChange(clearedFilters);
@@ -477,6 +507,194 @@ export function FlowFiltersComponent({
               <p className="text-xs text-muted-foreground">
                 Filter flows with total bytes (in + out) greater than this value
               </p>
+            </div>
+          </Card>
+
+          {/* Enhanced Filters Section */}
+          <Separator />
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-primary">Enhanced Filters</Label>
+            <p className="text-xs text-muted-foreground">
+              Filter using newly captured network data
+            </p>
+          </div>
+
+          {/* Geographic Filters */}
+          <Card className="p-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Geographic</Label>
+              <div className="space-y-2">
+                <div>
+                  <Label htmlFor="country" className="text-xs text-muted-foreground">
+                    Country Code (e.g., US, GB)
+                  </Label>
+                  <Input
+                    id="country"
+                    placeholder="US, GB, DE..."
+                    value={localFilters.countries.join(',')}
+                    onChange={e =>
+                      updateFilters({
+                        countries: e.target.value
+                          .split(',')
+                          .map(c => c.trim().toUpperCase())
+                          .filter(c => c.length === 2),
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="city" className="text-xs text-muted-foreground">
+                    City
+                  </Label>
+                  <Input
+                    id="city"
+                    placeholder="New York, London..."
+                    value={localFilters.cities.join(',')}
+                    onChange={e =>
+                      updateFilters({
+                        cities: e.target.value
+                          .split(',')
+                          .map(c => c.trim())
+                          .filter(c => c.length > 0),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Application Filter */}
+          <Card className="p-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Application</Label>
+              <Input
+                placeholder="HTTP, HTTPS, SSH, DNS..."
+                value={localFilters.applications.join(',')}
+                onChange={e =>
+                  updateFilters({
+                    applications: e.target.value
+                      .split(',')
+                      .map(a => a.trim())
+                      .filter(a => a.length > 0),
+                  })
+                }
+              />
+              <p className="text-xs text-muted-foreground">Comma-separated list of applications</p>
+            </div>
+          </Card>
+
+          {/* Network Quality Filters */}
+          <Card className="p-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Network Quality</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="min-rtt" className="text-xs text-muted-foreground">
+                    Min RTT (ms)
+                  </Label>
+                  <Input
+                    id="min-rtt"
+                    type="number"
+                    placeholder="0"
+                    value={localFilters.minRtt || ''}
+                    onChange={e =>
+                      updateFilters({
+                        minRtt: e.target.value ? parseInt(e.target.value, 10) : null,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="max-rtt" className="text-xs text-muted-foreground">
+                    Max RTT (ms)
+                  </Label>
+                  <Input
+                    id="max-rtt"
+                    type="number"
+                    placeholder="1000"
+                    value={localFilters.maxRtt || ''}
+                    onChange={e =>
+                      updateFilters({
+                        maxRtt: e.target.value ? parseInt(e.target.value, 10) : null,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="max-jitter" className="text-xs text-muted-foreground">
+                    Max Jitter (ms)
+                  </Label>
+                  <Input
+                    id="max-jitter"
+                    type="number"
+                    step="0.1"
+                    placeholder="100"
+                    value={localFilters.maxJitter || ''}
+                    onChange={e =>
+                      updateFilters({
+                        maxJitter: e.target.value ? parseFloat(e.target.value) : null,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="max-retrans" className="text-xs text-muted-foreground">
+                    Max Retransmissions
+                  </Label>
+                  <Input
+                    id="max-retrans"
+                    type="number"
+                    placeholder="10"
+                    value={localFilters.maxRetransmissions || ''}
+                    onChange={e =>
+                      updateFilters({
+                        maxRetransmissions: e.target.value ? parseInt(e.target.value, 10) : null,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* SNI & Connection State */}
+          <Card className="p-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Connection Details</Label>
+              <div className="space-y-2">
+                <div>
+                  <Label htmlFor="sni" className="text-xs text-muted-foreground">
+                    SNI (Server Name Indication)
+                  </Label>
+                  <Input
+                    id="sni"
+                    placeholder="example.com"
+                    value={localFilters.sni}
+                    onChange={e => updateFilters({ sni: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="connection-state" className="text-xs text-muted-foreground">
+                    Connection State
+                  </Label>
+                  <Input
+                    id="connection-state"
+                    placeholder="ESTABLISHED, SYN_SENT..."
+                    value={localFilters.connectionStates.join(',')}
+                    onChange={e =>
+                      updateFilters({
+                        connectionStates: e.target.value
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(s => s.length > 0),
+                      })
+                    }
+                  />
+                </div>
+              </div>
             </div>
           </Card>
 

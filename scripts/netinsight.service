@@ -1,0 +1,25 @@
+[Unit]
+Description=NetInsight Container Service
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/pi/net-traffic
+ExecStart=/home/pi/net-traffic/scripts/raspberry-pi-start.sh
+ExecStop=/usr/bin/docker compose -f /home/pi/net-traffic/docker-compose.yml down
+StandardOutput=journal
+StandardError=journal
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+# Environment variables
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+[Install]
+WantedBy=multi-user.target
+

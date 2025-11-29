@@ -24,6 +24,9 @@ from services.threat_detection import ThreatDetectionService
 from services.storage import StorageService
 from services.analytics import AnalyticsService
 from services.advanced_analytics import AdvancedAnalyticsService
+from services.geolocation import GeolocationService
+from services.network_quality_analytics import NetworkQualityAnalyticsService
+from services.application_analytics import ApplicationAnalyticsService
 from models.types import (
     NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
 )
@@ -50,6 +53,9 @@ threat_service: Optional[ThreatDetectionService] = None
 storage: Optional[StorageService] = None
 analytics: Optional[AnalyticsService] = None
 advanced_analytics: Optional[AdvancedAnalyticsService] = None
+geolocation_service: Optional[GeolocationService] = None
+network_quality_analytics: Optional[NetworkQualityAnalyticsService] = None
+application_analytics: Optional[ApplicationAnalyticsService] = None
 
 # WebSocket connections for real-time updates
 active_connections: List[WebSocket] = []
@@ -115,12 +121,22 @@ async def lifespan(app: FastAPI):
     global advanced_analytics
     advanced_analytics = AdvancedAnalyticsService(storage)
 
+    # Initialize geolocation service
+    global geolocation_service
+    geolocation_service = GeolocationService()  # Will auto-detect database location
+
+    # Initialize new analytics services
+    global network_quality_analytics, application_analytics
+    network_quality_analytics = NetworkQualityAnalyticsService(storage)
+    application_analytics = ApplicationAnalyticsService(storage)
+
     # Initialize packet capture
     packet_capture = PacketCaptureService(
         interface=config.network_interface,
         device_service=device_service,
         threat_service=threat_service,
         storage=storage,
+        geolocation_service=geolocation_service,
         on_flow_update=notify_clients
     )
 
@@ -141,14 +157,13 @@ async def lifespan(app: FastAPI):
 
     # Cleanup
     logger.info("Shutting down NetInsight Backend...")
-
-    # Cancel cleanup task
-    if 'cleanup_task' in locals():
-        cleanup_task.cancel()
-        try:
-            await cleanup_task
-        except asyncio.CancelledError:
-            pass
+    if packet_capture:
+        await packet_capture.stop()
+    if storage:
+        await storage.close()
+    if geolocation_service:
+        geolocation_service.close()
+    logger.info("NetInsight Backend stopped")
 
     # Stop packet capture
     if packet_capture:
@@ -362,7 +377,17 @@ async def get_flows(
     source_ip: Optional[str] = IPQuery("Source IP address"),
     dest_ip: Optional[str] = IPQuery("Destination IP address"),
     threat_level: Optional[str] = ThreatLevelQuery(),
-    min_bytes: Optional[int] = Query(None, ge=0)
+    min_bytes: Optional[int] = Query(None, ge=0),
+    # New enhanced filters
+    country: Optional[str] = Query(None, min_length=2, max_length=2, description="Filter by country code (e.g., US, GB)"),
+    city: Optional[str] = Query(None, min_length=1, max_length=100, description="Filter by city name"),
+    application: Optional[str] = Query(None, min_length=1, max_length=50, description="Filter by application (HTTP, HTTPS, SSH, etc.)"),
+    min_rtt: Optional[int] = Query(None, ge=0, description="Minimum RTT in milliseconds"),
+    max_rtt: Optional[int] = Query(None, ge=0, description="Maximum RTT in milliseconds"),
+    max_jitter: Optional[float] = Query(None, ge=0, description="Maximum jitter in milliseconds"),
+    max_retransmissions: Optional[int] = Query(None, ge=0, description="Maximum retransmission count"),
+    sni: Optional[str] = Query(None, min_length=1, max_length=255, description="Filter by Server Name Indication"),
+    connection_state: Optional[str] = Query(None, description="Filter by connection state (ESTABLISHED, SYN_SENT, etc.)")
 ):
     """Get network flows with advanced filtering options"""
     if not storage:
@@ -387,7 +412,16 @@ async def get_flows(
             source_ip=source_ip,
             dest_ip=dest_ip,
             threat_level=threat_level,
-            min_bytes=min_bytes
+            min_bytes=min_bytes,
+            country=country,
+            city=city,
+            application=application,
+            min_rtt=min_rtt,
+            max_rtt=max_rtt,
+            max_jitter=max_jitter,
+            max_retransmissions=max_retransmissions,
+            sni=sni,
+            connection_state=connection_state
         ),
         "Failed to retrieve flows"
     )
@@ -563,6 +597,117 @@ async def get_bandwidth_timeline(
     )
 
 
+# Network Quality Analytics Endpoints
+@app.get("/api/analytics/rtt-trends")
+async def get_rtt_trends(
+    hours: int = HoursQuery(24, 720),
+    device_id: Optional[str] = Query(None),
+    country: Optional[str] = Query(None),
+    interval_minutes: int = Query(15, ge=1, le=1440)
+):
+    """Get RTT (Round-Trip Time) trends over time"""
+    if not network_quality_analytics:
+        raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
+
+    return await handle_endpoint_error(
+        lambda: network_quality_analytics.get_rtt_trends(hours, device_id, country, interval_minutes),
+        "Failed to retrieve RTT trends"
+    )
+
+
+@app.get("/api/analytics/jitter")
+async def get_jitter_analysis(
+    hours: int = HoursQuery(24, 720),
+    device_id: Optional[str] = Query(None)
+):
+    """Get jitter analysis statistics"""
+    if not network_quality_analytics:
+        raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
+
+    return await handle_endpoint_error(
+        lambda: network_quality_analytics.get_jitter_analysis(hours, device_id),
+        "Failed to retrieve jitter analysis"
+    )
+
+
+@app.get("/api/analytics/retransmissions")
+async def get_retransmission_report(
+    hours: int = HoursQuery(24, 720),
+    device_id: Optional[str] = Query(None)
+):
+    """Get retransmission statistics report"""
+    if not network_quality_analytics:
+        raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
+
+    return await handle_endpoint_error(
+        lambda: network_quality_analytics.get_retransmission_report(hours, device_id),
+        "Failed to retrieve retransmission report"
+    )
+
+
+@app.get("/api/analytics/connection-quality")
+async def get_connection_quality_summary(
+    hours: int = HoursQuery(24, 720),
+    device_id: Optional[str] = Query(None)
+):
+    """Get overall connection quality summary"""
+    if not network_quality_analytics:
+        raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
+
+    return await handle_endpoint_error(
+        lambda: network_quality_analytics.get_connection_quality_summary(hours, device_id),
+        "Failed to retrieve connection quality summary"
+    )
+
+
+# Application Analytics Endpoints
+@app.get("/api/analytics/applications")
+async def get_application_breakdown(
+    hours: int = HoursQuery(24, 720),
+    device_id: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100)
+):
+    """Get top applications by traffic"""
+    if not application_analytics:
+        raise HTTPException(status_code=503, detail="Application analytics not initialized")
+
+    return await handle_endpoint_error(
+        lambda: application_analytics.get_application_breakdown(hours, device_id, limit),
+        "Failed to retrieve application breakdown"
+    )
+
+
+@app.get("/api/analytics/applications/trends")
+async def get_application_trends(
+    hours: int = HoursQuery(24, 720),
+    application: Optional[str] = Query(None),
+    interval_minutes: int = Query(15, ge=1, le=1440)
+):
+    """Get application usage trends over time"""
+    if not application_analytics:
+        raise HTTPException(status_code=503, detail="Application analytics not initialized")
+
+    return await handle_endpoint_error(
+        lambda: application_analytics.get_application_trends(hours, application, interval_minutes),
+        "Failed to retrieve application trends"
+    )
+
+
+@app.get("/api/analytics/devices/{device_id}/applications")
+async def get_device_application_profile(
+    device_id: str = DeviceIdPath(),
+    hours: int = HoursQuery(24, 720)
+):
+    """Get application usage profile for a specific device"""
+    if not application_analytics:
+        raise HTTPException(status_code=503, detail="Application analytics not initialized")
+
+    return await handle_endpoint_error(
+        lambda: application_analytics.get_device_application_profile(device_id, hours),
+        "Failed to retrieve device application profile"
+    )
+
+
 @app.get("/api/devices/{device_id}/analytics")
 async def get_device_analytics(
     device_id: str = DeviceIdPath(),
@@ -714,9 +859,24 @@ async def export_flows(
                 "duration": flow.duration,
                 "status": flow.status,
                 "country": flow.country or "",
+                "city": flow.city or "",
+                "asn": flow.asn or "",
                 "domain": flow.domain or "",
+                "sni": flow.sni or "",
                 "threat_level": flow.threatLevel,
-                "device_id": flow.deviceId
+                "device_id": flow.deviceId,
+                "tcp_flags": ",".join(flow.tcpFlags) if flow.tcpFlags else "",
+                "ttl": flow.ttl or "",
+                "connection_state": flow.connectionState or "",
+                "rtt": flow.rtt or "",
+                "retransmissions": flow.retransmissions or "",
+                "jitter": flow.jitter or "",
+                "application": flow.application or "",
+                "user_agent": flow.userAgent or "",
+                "http_method": flow.httpMethod or "",
+                "url": flow.url or "",
+                "dns_query_type": flow.dnsQueryType or "",
+                "dns_response_code": flow.dnsResponseCode or ""
             })
 
         return Response(

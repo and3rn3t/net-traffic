@@ -13,9 +13,28 @@ export interface NetworkFlow {
   duration: number;
   status: 'active' | 'closed';
   country?: string;
+  city?: string;
+  asn?: number;
   domain?: string;
+  sni?: string;
   threatLevel: 'safe' | 'low' | 'medium' | 'high' | 'critical';
   deviceId: string;
+  // TCP layer details
+  tcpFlags?: string[];
+  ttl?: number;
+  connectionState?: string;
+  // Network quality metrics
+  rtt?: number;
+  retransmissions?: number;
+  jitter?: number;
+  // Application layer
+  application?: string;
+  userAgent?: string;
+  httpMethod?: string;
+  url?: string;
+  // DNS details
+  dnsQueryType?: string;
+  dnsResponseCode?: string;
 }
 
 export interface Device {
@@ -25,6 +44,7 @@ export interface Device {
   mac: string;
   type: 'smartphone' | 'laptop' | 'desktop' | 'tablet' | 'iot' | 'server' | 'unknown';
   vendor: string;
+  os?: string;
   firstSeen: number;
   lastSeen: number;
   bytesTotal: number;
@@ -35,7 +55,13 @@ export interface Device {
     commonPorts: number[];
     commonDomains: string[];
     anomalyCount: number;
+    applications?: string[];
   };
+  // Enhanced fields
+  ipv6Support?: boolean;
+  avgRtt?: number;
+  connectionQuality?: 'good' | 'fair' | 'poor';
+  applications?: string[];
 }
 
 export interface Threat {

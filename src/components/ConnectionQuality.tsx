@@ -24,15 +24,21 @@ export const ConnectionQuality = memo(function ConnectionQuality({
         return sum + (totalPackets > 0 ? totalBytes / totalPackets : 0);
       }, 0) / (flows.length || 1);
 
-    const retransmissionRate =
-      (flows.reduce((sum, f) => {
-        const expectedPackets = f.packetsIn + f.packetsOut;
-        const actualEfficiency =
-          expectedPackets > 0 ? (f.bytesIn + f.bytesOut) / expectedPackets : 1;
-        return sum + (actualEfficiency < 1000 ? 1 : 0);
-      }, 0) /
-        (flows.length || 1)) *
-      100;
+    // Use real retransmission data if available, otherwise estimate
+    const retransmissionRate = flows.some(f => f.retransmissions !== undefined)
+      ? flows.reduce((sum, f) => {
+          const totalPackets = f.packetsIn + f.packetsOut;
+          const retrans = f.retransmissions || 0;
+          return sum + (totalPackets > 0 ? (retrans / totalPackets) * 100 : 0);
+        }, 0) / (flows.length || 1)
+      : (flows.reduce((sum, f) => {
+          const expectedPackets = f.packetsIn + f.packetsOut;
+          const actualEfficiency =
+            expectedPackets > 0 ? (f.bytesIn + f.bytesOut) / expectedPackets : 1;
+          return sum + (actualEfficiency < 1000 ? 1 : 0);
+        }, 0) /
+          (flows.length || 1)) *
+        100;
 
     const protocolEfficiency = flows.reduce(
       (acc, f) => {
@@ -48,14 +54,35 @@ export const ConnectionQuality = memo(function ConnectionQuality({
       {} as Record<string, { total: number; efficient: number }>
     );
 
+    // Calculate average RTT if available
+    const avgRtt =
+      flows.filter(f => f.rtt !== undefined).reduce((sum, f) => sum + (f.rtt || 0), 0) /
+      (flows.filter(f => f.rtt !== undefined).length || 1);
+
+    // Calculate average jitter if available
+    const avgJitter =
+      flows.filter(f => f.jitter !== undefined).reduce((sum, f) => sum + (f.jitter || 0), 0) /
+      (flows.filter(f => f.jitter !== undefined).length || 1);
+
+    // Enhanced quality score using real metrics
+    const rttScore =
+      avgRtt > 0
+        ? Math.max(0, 30 - avgRtt / 100) // Lower RTT = better score
+        : 20; // Default if no RTT data
+    const jitterScore =
+      avgJitter > 0
+        ? Math.max(0, 20 - avgJitter / 10) // Lower jitter = better score
+        : 15; // Default if no jitter data
+
     const qualityScore = Math.max(
       0,
       Math.min(
         100,
-        (activeFlows.length / flows.length) * 30 +
-          (Math.min(avgDuration / 1000, 60) / 60) * 20 +
-          (100 - retransmissionRate) * 0.3 +
-          (avgPacketSize > 500 ? 20 : (avgPacketSize / 500) * 20)
+        (activeFlows.length / (flows.length || 1)) * 20 +
+          (Math.min(avgDuration / 1000, 60) / 60) * 15 +
+          Math.max(0, (100 - parseFloat(retransmissionRate.toString())) * 0.25) +
+          rttScore +
+          jitterScore
       )
     );
 
@@ -76,6 +103,8 @@ export const ConnectionQuality = memo(function ConnectionQuality({
       connectionStability: connectionStability.toFixed(1),
       avgBandwidthUtilization: Math.round(avgBandwidthUtilization),
       protocolEfficiency,
+      avgRtt: avgRtt,
+      avgJitter: avgJitter,
     };
   }, [flows]);
 
@@ -173,7 +202,7 @@ export const ConnectionQuality = memo(function ConnectionQuality({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Connection Stability</p>
             <p className="text-xl font-bold">{metrics.connectionStability}%</p>
@@ -199,6 +228,18 @@ export const ConnectionQuality = memo(function ConnectionQuality({
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Retransmission Rate</p>
             <p className="text-xl font-bold">{metrics.retransmissionRate}%</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Avg RTT</p>
+            <p className="text-xl font-bold">{avgRtt > 0 ? `${avgRtt.toFixed(0)}ms` : 'N/A'}</p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Avg Jitter</p>
+            <p className="text-xl font-bold">
+              {avgJitter > 0 ? `${avgJitter.toFixed(1)}ms` : 'N/A'}
+            </p>
           </div>
 
           <div className="space-y-2">

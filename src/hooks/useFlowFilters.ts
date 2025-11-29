@@ -32,6 +32,16 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
     minBytes: null,
     deviceId: null,
     timeRangePreset: null,
+    // New enhanced filters
+    countries: [],
+    cities: [],
+    applications: [],
+    minRtt: null,
+    maxRtt: null,
+    maxJitter: null,
+    maxRetransmissions: null,
+    sni: '',
+    connectionStates: [],
   });
 
   const [savedPresets, setSavedPresets] = useState<SavedPreset[]>([]);
@@ -88,6 +98,15 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
         threatLevel?: string;
         minBytes?: number;
         deviceId?: string;
+        country?: string;
+        city?: string;
+        application?: string;
+        minRtt?: number;
+        maxRtt?: number;
+        maxJitter?: number;
+        maxRetransmissions?: number;
+        sni?: string;
+        connectionState?: string;
       } = {
         limit,
         offset: 0,
@@ -129,6 +148,35 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
 
       if (f.deviceId) {
         params.deviceId = f.deviceId;
+      }
+
+      // New enhanced filters - use first value from arrays for now
+      if (f.countries.length > 0) {
+        params.country = f.countries[0];
+      }
+      if (f.cities.length > 0) {
+        params.city = f.cities[0];
+      }
+      if (f.applications.length > 0) {
+        params.application = f.applications[0];
+      }
+      if (f.minRtt !== null) {
+        params.minRtt = f.minRtt;
+      }
+      if (f.maxRtt !== null) {
+        params.maxRtt = f.maxRtt;
+      }
+      if (f.maxJitter !== null) {
+        params.maxJitter = f.maxJitter;
+      }
+      if (f.maxRetransmissions !== null) {
+        params.maxRetransmissions = f.maxRetransmissions;
+      }
+      if (f.sni) {
+        params.sni = f.sni;
+      }
+      if (f.connectionStates.length > 0) {
+        params.connectionState = f.connectionStates[0];
       }
 
       return params;
@@ -182,7 +230,19 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
         params.sourceIp,
         params.destIp,
         params.threatLevel,
-        params.minBytes
+        params.minBytes,
+        // New enhanced filters - use first value from arrays
+        debouncedFilters.countries.length > 0 ? debouncedFilters.countries[0] : undefined,
+        debouncedFilters.cities.length > 0 ? debouncedFilters.cities[0] : undefined,
+        debouncedFilters.applications.length > 0 ? debouncedFilters.applications[0] : undefined,
+        debouncedFilters.minRtt ?? undefined,
+        debouncedFilters.maxRtt ?? undefined,
+        debouncedFilters.maxJitter ?? undefined,
+        debouncedFilters.maxRetransmissions ?? undefined,
+        debouncedFilters.sni || undefined,
+        debouncedFilters.connectionStates.length > 0
+          ? debouncedFilters.connectionStates[0]
+          : undefined
       );
     }
 
@@ -241,6 +301,16 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
       minBytes: null,
       deviceId: null,
       timeRangePreset: null,
+      // New enhanced filters
+      countries: [],
+      cities: [],
+      applications: [],
+      minRtt: null,
+      maxRtt: null,
+      maxJitter: null,
+      maxRetransmissions: null,
+      sni: '',
+      connectionStates: [],
     };
     setFilters(cleared);
   }, []);

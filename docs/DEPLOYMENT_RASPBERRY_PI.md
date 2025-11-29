@@ -2,6 +2,10 @@
 
 This guide walks you through setting up the NetInsight backend on a Raspberry Pi 5 to capture and analyze network traffic.
 
+> **🚀 Quick Start**: For a faster setup, see the [Raspberry Pi 5 Quick Start Guide](./RASPBERRY_PI5_QUICK_START.md)
+>
+> **✅ Checklist**: Use the [Installation Checklist](./RASPBERRY_PI5_CHECKLIST.md) to verify all components are in place
+
 ## Prerequisites
 
 ### Hardware Requirements
@@ -184,7 +188,141 @@ Test the API:
 curl http://localhost:8000/api/health
 ```
 
-## Running as a Service
+## Docker Deployment (Recommended)
+
+### Prerequisites
+
+```bash
+# Install Docker and Docker Compose
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker pi
+newgrp docker
+
+# Install Docker Compose (if not included)
+sudo apt install -y docker-compose-plugin
+```
+
+### Setup Docker Deployment
+
+1. **Clone or copy the project to your Raspberry Pi:**
+
+```bash
+cd ~
+git clone <your-repo-url> net-traffic
+cd net-traffic
+```
+
+2. **Make startup scripts executable:**
+
+```bash
+chmod +x scripts/raspberry-pi-start.sh
+chmod +x scripts/raspberry-pi-update.sh
+```
+
+3. **Configure environment variables (optional):**
+
+Create a `.env` file in the project root:
+
+```bash
+nano .env
+```
+
+Add any custom configuration:
+
+```env
+NETWORK_INTERFACE=eth0
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+4. **Start the containers:**
+
+```bash
+./scripts/raspberry-pi-start.sh
+```
+
+This script will:
+
+- Build optimized ARM64 images
+- Pull latest base images
+- Start all containers
+- Configure automatic restarts
+
+### Automatic Startup on Boot
+
+To automatically start NetInsight on boot and pull latest images:
+
+1. **Copy the systemd service file:**
+
+```bash
+sudo cp scripts/netinsight.service /etc/systemd/system/
+```
+
+2. **Update the service file with your actual paths:**
+
+```bash
+sudo nano /etc/systemd/system/netinsight.service
+```
+
+Update the `WorkingDirectory` and paths to match your installation location.
+
+3. **Enable and start the service:**
+
+```bash
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Enable service to start on boot
+sudo systemctl enable netinsight
+
+# Start the service
+sudo systemctl start netinsight
+
+# Check status
+sudo systemctl status netinsight
+
+# View logs
+sudo journalctl -u netinsight -f
+```
+
+### Updating to Latest Images
+
+The containers are configured to always pull the latest images. To manually update:
+
+```bash
+./scripts/raspberry-pi-update.sh
+```
+
+This will:
+
+- Pull latest code (if using git)
+- Rebuild images with latest base images
+- Restart containers
+
+### Container Management
+
+```bash
+# View running containers
+docker compose ps
+
+# View logs
+docker compose logs -f
+
+# View logs for specific service
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Stop containers
+docker compose down
+
+# Restart containers
+docker compose restart
+
+# Rebuild and restart
+docker compose up -d --build
+```
+
+## Running as a Service (Non-Docker)
 
 ### Create Systemd Service
 

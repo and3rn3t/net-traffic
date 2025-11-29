@@ -176,6 +176,7 @@ Comprehensive documentation is available in the project:
 
 ### For Users
 
+- **[Raspberry Pi 5 Quick Start](./docs/RASPBERRY_PI5_QUICK_START.md)** - ⚡ Get started in 15 minutes!
 - **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - Complete user guide with getting started, features, and troubleshooting
 
 ### For Developers

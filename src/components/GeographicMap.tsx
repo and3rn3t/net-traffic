@@ -11,6 +11,8 @@ interface ConnectionPoint {
   x: number;
   y: number;
   country: string;
+  city?: string;
+  asn?: number;
   count: number;
   threatLevel: string;
   pulsePhase: number;
@@ -22,18 +24,32 @@ export function GeographicMap({ flows }: GeographicMapProps) {
   const [points, setPoints] = useState<ConnectionPoint[]>([]);
 
   useEffect(() => {
-    const countryMap = new Map<string, { count: number; threatLevel: string }>();
+    const countryMap = new Map<
+      string,
+      {
+        count: number;
+        threatLevel: string;
+        city?: string;
+        asn?: number;
+      }
+    >();
 
     flows.forEach(flow => {
       if (flow.country) {
-        const existing = countryMap.get(flow.country);
+        const key = flow.city ? `${flow.country}-${flow.city}` : flow.country;
+        const existing = countryMap.get(key);
         if (existing) {
           existing.count++;
           if (flow.threatLevel === 'high' || flow.threatLevel === 'critical') {
             existing.threatLevel = flow.threatLevel;
           }
         } else {
-          countryMap.set(flow.country, { count: 1, threatLevel: flow.threatLevel });
+          countryMap.set(key, {
+            count: 1,
+            threatLevel: flow.threatLevel,
+            city: flow.city,
+            asn: flow.asn,
+          });
         }
       }
     });
@@ -62,12 +78,16 @@ export function GeographicMap({ flows }: GeographicMapProps) {
     };
 
     const newPoints: ConnectionPoint[] = [];
-    countryMap.forEach((data, country) => {
+    countryMap.forEach((data, key) => {
+      // Extract country from key (format: "COUNTRY" or "COUNTRY-CITY")
+      const country = key.split('-')[0];
       const { x, y } = getCoordinates(country);
       newPoints.push({
         x,
         y,
         country,
+        city: data.city,
+        asn: data.asn,
         count: data.count,
         threatLevel: data.threatLevel,
         pulsePhase: Math.random() * Math.PI * 2,

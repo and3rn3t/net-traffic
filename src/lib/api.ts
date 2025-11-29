@@ -151,7 +151,17 @@ export class ApiClient {
     sourceIp?: string,
     destIp?: string,
     threatLevel?: string,
-    minBytes?: number
+    minBytes?: number,
+    // New enhanced filters
+    country?: string,
+    city?: string,
+    application?: string,
+    minRtt?: number,
+    maxRtt?: number,
+    maxJitter?: number,
+    maxRetransmissions?: number,
+    sni?: string,
+    connectionState?: string
   ): Promise<any[]> {
     const params = new URLSearchParams({
       limit: limit.toString(),
@@ -166,6 +176,17 @@ export class ApiClient {
     if (destIp) params.append('dest_ip', destIp);
     if (threatLevel) params.append('threat_level', threatLevel);
     if (minBytes) params.append('min_bytes', minBytes.toString());
+    // New enhanced filters
+    if (country) params.append('country', country);
+    if (city) params.append('city', city);
+    if (application) params.append('application', application);
+    if (minRtt !== undefined) params.append('min_rtt', minRtt.toString());
+    if (maxRtt !== undefined) params.append('max_rtt', maxRtt.toString());
+    if (maxJitter !== undefined) params.append('max_jitter', maxJitter.toString());
+    if (maxRetransmissions !== undefined)
+      params.append('max_retransmissions', maxRetransmissions.toString());
+    if (sni) params.append('sni', sni);
+    if (connectionState) params.append('connection_state', connectionState);
 
     return this.request(`/api/flows?${params.toString()}`);
   }

@@ -1,8 +1,9 @@
 # Frontend Dockerfile for NetInsight
 # Multi-stage build: build stage and nginx serving stage
+# Optimized for ARM64 (Raspberry Pi)
 
 # Stage 1: Build the application
-FROM node:20-alpine as builder
+FROM --platform=linux/arm64 node:20-alpine as builder
 
 WORKDIR /app
 
@@ -27,7 +28,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Serve with nginx
-FROM nginx:alpine
+FROM --platform=linux/arm64 nginx:alpine
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html

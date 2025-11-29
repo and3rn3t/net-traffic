@@ -70,7 +70,16 @@ These files capture point-in-time completion notes and can be treated as histori
 ## 🚀 Deployment
 
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - General deployment instructions
-- **[DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md)** - Raspberry Pi 5 deployment guide
+- **[RASPBERRY_PI5_QUICK_START.md](./RASPBERRY_PI5_QUICK_START.md)** - ⚡ Quick start guide for Raspberry Pi 5 (15 minutes)
+- **[DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md)** - Comprehensive Raspberry Pi 5 deployment guide
+- **[RASPBERRY_PI5_CHECKLIST.md](./RASPBERRY_PI5_CHECKLIST.md)** - Installation checklist for Raspberry Pi 5
+- **[RASPBERRY_PI_OPTIMIZATION.md](./RASPBERRY_PI_OPTIMIZATION.md)** - Container optimization details for Raspberry Pi
+- **[DOCKER_SETUP.md](./DOCKER_SETUP.md)** - Docker setup and configuration guide
+
+## 📡 Network Analysis
+
+- **[NETWORK_TRAFFIC_ANALYSIS.md](./NETWORK_TRAFFIC_ANALYSIS.md)** - Comprehensive analysis of what can be extracted from network traffic
+- **[TRAFFIC_EXTRACTION_SUMMARY.md](./TRAFFIC_EXTRACTION_SUMMARY.md)** - Quick summary of current vs. available data extraction
 
 ## 🔒 Security
 
@@ -115,9 +124,11 @@ These files capture point-in-time completion notes and can be treated as histori
 
 ### For Deployment
 
-1. Read [DEPLOYMENT.md](./DEPLOYMENT.md)
-2. For Raspberry Pi: [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md)
-3. Review [SECURITY.md](./SECURITY.md)
+1. **Raspberry Pi 5**: Start with [RASPBERRY_PI5_QUICK_START.md](./RASPBERRY_PI5_QUICK_START.md) for quick setup
+2. **Raspberry Pi 5**: Use [RASPBERRY_PI5_CHECKLIST.md](./RASPBERRY_PI5_CHECKLIST.md) to verify installation
+3. **Raspberry Pi 5**: See [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md) for detailed guide
+4. **General**: Read [DEPLOYMENT.md](./DEPLOYMENT.md) for other platforms
+5. **Security**: Review [SECURITY.md](./SECURITY.md) for best practices
 
 ### For Planning
 
