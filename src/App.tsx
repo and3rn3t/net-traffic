@@ -13,6 +13,7 @@ import {
   Sparkle,
   Circle,
   WifiSlash,
+  Database,
 } from '@phosphor-icons/react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
@@ -48,6 +49,9 @@ import { SecurityPosture } from '@/components/SecurityPosture';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { NetworkQualityDashboard } from '@/components/NetworkQualityDashboard';
+import { ApplicationUsageDashboard } from '@/components/ApplicationUsageDashboard';
+import { MaintenancePanel } from '@/components/MaintenancePanel';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useApiData } from '@/hooks/useApiData';
 import { toast } from 'sonner';
@@ -295,6 +299,10 @@ function App() {
               <TrendUp size={16} />
               Analytics
             </TabsTrigger>
+            <TabsTrigger value="maintenance" className="gap-2">
+              <Database size={16} />
+              Maintenance
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
@@ -530,6 +538,13 @@ function App() {
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
+            {/* New Enhanced Analytics Dashboards */}
+            <div className="space-y-6">
+              <NetworkQualityDashboard hours={24} />
+              <ApplicationUsageDashboard hours={24} />
+            </div>
+
+            {/* Existing Analytics Components */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TrafficChart data={analyticsData} />
               <ProtocolBreakdown data={protocolStats} />
@@ -558,6 +573,16 @@ function App() {
               devices={devices}
               useApiFilters={USE_REAL_API && isConnected}
             />
+          </TabsContent>
+
+          <TabsContent value="maintenance" className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">System Maintenance</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Manage database storage, cleanup old data, and view system statistics
+              </p>
+            </div>
+            <MaintenancePanel />
           </TabsContent>
         </Tabs>
       </div>

@@ -27,10 +27,11 @@ import {
 } from '@/components/ui/select';
 import { Device } from '@/lib/types';
 import { formatBytes, formatTimestamp, getDeviceIcon } from '@/lib/formatters';
-import { PencilSimple, Check, X } from '@phosphor-icons/react';
+import { PencilSimple, Check, X, ChartLineUp } from '@phosphor-icons/react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { DeviceAnalyticsView } from './DeviceAnalyticsView';
 
 interface DevicesListEnhancedProps {
   devices: Device[];
@@ -60,6 +61,8 @@ export function DevicesListEnhanced({
     notes: '',
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [analyticsDevice, setAnalyticsDevice] = useState<Device | null>(null);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
   const handleEditClick = (device: Device) => {
@@ -163,11 +166,27 @@ export function DevicesListEnhanced({
                             <Badge variant="outline" className="text-xs">
                               {device.type}
                             </Badge>
+                            {USE_REAL_API && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                onClick={() => {
+                                  setAnalyticsDevice(device);
+                                  setAnalyticsOpen(true);
+                                  onDeviceSelect?.(device);
+                                }}
+                                title="View Analytics"
+                              >
+                                <ChartLineUp size={14} />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 p-0"
                               onClick={() => handleEditClick(device)}
+                              title="Edit Device"
                             >
                               <PencilSimple size={14} />
                             </Button>
@@ -285,6 +304,13 @@ export function DevicesListEnhanced({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Device Analytics View */}
+      <DeviceAnalyticsView
+        device={analyticsDevice}
+        open={analyticsOpen}
+        onOpenChange={setAnalyticsOpen}
+      />
     </>
   );
 }

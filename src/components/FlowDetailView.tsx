@@ -1,5 +1,7 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { NetworkFlow } from '@/lib/types';
+import { apiClient } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +20,7 @@ import {
   Network,
   Clock,
   ArrowRight,
-  Activity,
+  Pulse,
   Lock,
   Code,
 } from '@phosphor-icons/react';
@@ -52,7 +54,55 @@ export const FlowDetailView = memo(function FlowDetailView({
   open,
   onOpenChange,
 }: FlowDetailViewProps) {
-  if (!flow) return null;
+  const [fetchedFlow, setFetchedFlow] = useState<NetworkFlow | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+
+  // Fetch fresh flow data from API when opened
+  useEffect(() => {
+    if (!flow || !open || !USE_REAL_API) {
+      setFetchedFlow(flow);
+      return;
+    }
+
+    const fetchFlow = async () => {
+      setIsLoading(true);
+      try {
+        const freshFlow = await apiClient.getFlow(flow.id);
+        setFetchedFlow(freshFlow);
+      } catch (error) {
+        console.error('Failed to fetch flow details:', error);
+        // Fallback to prop flow if API fails
+        setFetchedFlow(flow);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFlow();
+  }, [flow, open, USE_REAL_API]);
+
+  // Use fetched flow if available, otherwise use prop flow
+  const displayFlow = fetchedFlow || flow;
+
+  if (!displayFlow) return null;
+
+  if (isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Flow Details</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const getThreatColor = (level: string) => {
     switch (level) {
@@ -68,6 +118,9 @@ export const FlowDetailView = memo(function FlowDetailView({
         return 'text-success';
     }
   };
+
+  // Use displayFlow instead of flow throughout
+  const flow = displayFlow;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,7 +140,7 @@ export const FlowDetailView = memo(function FlowDetailView({
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Activity size={16} />
+                <Pulse size={16} />
                 Basic Information
               </CardTitle>
             </CardHeader>
@@ -203,7 +256,7 @@ export const FlowDetailView = memo(function FlowDetailView({
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Activity size={16} />
+                <Pulse size={16} />
                 Traffic Statistics
               </CardTitle>
             </CardHeader>
