@@ -11,7 +11,39 @@ import { apiClient } from '@/lib/api';
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
   apiClient: {
+    healthCheck: vi.fn(),
+    getDevices: vi.fn(),
+    getDevice: vi.fn(),
+    getFlows: vi.fn(),
+    getFlow: vi.fn(),
+    getThreats: vi.fn(),
+    dismissThreat: vi.fn(),
     getAnalytics: vi.fn(),
+    getProtocolStats: vi.fn(),
+    getCaptureStatus: vi.fn(),
+    startCapture: vi.fn(),
+    stopCapture: vi.fn(),
+    getSummaryStats: vi.fn(),
+    getGeographicStats: vi.fn(),
+    getTopDomains: vi.fn(),
+    getTopDevices: vi.fn(),
+    getBandwidthTimeline: vi.fn(),
+    getRttTrends: vi.fn(),
+    getJitterAnalysis: vi.fn(),
+    getRetransmissionReport: vi.fn(),
+    getConnectionQualitySummary: vi.fn(),
+    getApplicationBreakdown: vi.fn(),
+    getApplicationTrends: vi.fn(),
+    getDeviceApplicationProfile: vi.fn(),
+    getDeviceAnalytics: vi.fn(),
+    updateDevice: vi.fn(),
+    search: vi.fn(),
+    exportFlows: vi.fn(),
+    getMaintenanceStats: vi.fn(),
+    runCleanup: vi.fn(),
+    connectWebSocket: vi.fn(() => () => {}),
+    on: vi.fn(),
+    off: vi.fn(),
   },
 }));
 
@@ -20,6 +52,8 @@ describe('useHistoricalTrends', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2024-01-01T12:00:00Z'));
+    // Set default mock return value
+    vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
   });
 
   afterEach(() => {

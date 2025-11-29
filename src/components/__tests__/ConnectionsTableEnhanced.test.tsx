@@ -102,7 +102,10 @@ vi.mock('@/hooks/useFlowFilters', () => ({
 const renderConnectionsTable = (
   props: Partial<React.ComponentProps<typeof ConnectionsTableEnhanced>> = {}
 ) => {
-  const defaultProps = { flows: [] as NetworkFlow[] };
+  const defaultProps = {
+    flows: [] as NetworkFlow[],
+    useApiFilters: false, // Use local flows for testing
+  };
   return render(
     <QueryClientProvider client={queryClient}>
       <ConnectionsTableEnhanced {...defaultProps} {...props} />
