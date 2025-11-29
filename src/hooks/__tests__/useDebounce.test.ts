@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 describe('useDebounce', () => {
@@ -41,14 +41,13 @@ describe('useDebounce', () => {
 
     rerender({ value: 'updated', delay: 500 });
 
-    // Fast-forward time and wait for state update
-    await act(async () => {
-      await vi.runAllTimersAsync();
+    // Fast-forward time - state should update immediately
+    act(() => {
+      vi.advanceTimersByTime(500);
     });
 
-    await waitFor(() => {
-      expect(result.current).toBe('updated');
-    });
+    // Value should be updated after timer advances
+    expect(result.current).toBe('updated');
   });
 
   it('should cancel previous timeout when value changes quickly', async () => {
@@ -58,22 +57,21 @@ describe('useDebounce', () => {
 
     rerender({ value: 'first', delay: 500 });
     await act(async () => {
-      await vi.runOnlyPendingTimersAsync(); // Advance partway
+      vi.advanceTimersByTime(300); // Advance partway
     });
 
     rerender({ value: 'second', delay: 500 });
-    await act(async () => {
-      await vi.runOnlyPendingTimersAsync(); // Advance partway again
+    act(() => {
+      vi.advanceTimersByTime(300); // Advance partway again
     });
 
     rerender({ value: 'third', delay: 500 });
-    await act(async () => {
-      await vi.runAllTimersAsync(); // Complete the delay
+    act(() => {
+      vi.advanceTimersByTime(500); // Complete the delay
     });
 
-    await waitFor(() => {
-      expect(result.current).toBe('third'); // Should only be the last value
-    });
+    // Value should be updated after timer advances
+    expect(result.current).toBe('third'); // Should only be the last value
   });
 
   it('should work with different delay values', async () => {
@@ -82,13 +80,12 @@ describe('useDebounce', () => {
     });
 
     rerender({ value: 'updated', delay: 100 });
-    await act(async () => {
-      await vi.runAllTimersAsync();
+    act(() => {
+      vi.advanceTimersByTime(100);
     });
 
-    await waitFor(() => {
-      expect(result.current).toBe('updated');
-    });
+    // Value should be updated after timer advances
+    expect(result.current).toBe('updated');
   });
 
   it('should handle number values', async () => {
@@ -97,13 +94,12 @@ describe('useDebounce', () => {
     });
 
     rerender({ value: 42, delay: 500 });
-    await act(async () => {
-      await vi.runAllTimersAsync();
+    act(() => {
+      vi.advanceTimersByTime(500);
     });
 
-    await waitFor(() => {
-      expect(result.current).toBe(42);
-    });
+    // Value should be updated after timer advances
+    expect(result.current).toBe(42);
   });
 
   it('should handle object values', async () => {
@@ -115,13 +111,12 @@ describe('useDebounce', () => {
     });
 
     rerender({ value: updated, delay: 500 });
-    await act(async () => {
-      await vi.runAllTimersAsync();
+    act(() => {
+      vi.advanceTimersByTime(500);
     });
 
-    await waitFor(() => {
-      expect(result.current).toBe(updated);
-    });
+    // Value should be updated after timer advances
+    expect(result.current).toBe(updated);
   });
 
   it('should cleanup timeout on unmount', () => {

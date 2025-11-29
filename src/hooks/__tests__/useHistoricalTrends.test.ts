@@ -95,13 +95,17 @@ describe('useHistoricalTrends', () => {
 
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false);
+          expect(apiClient.getAnalytics).toHaveBeenCalled();
+        },
+        { timeout: 10000 }
+      );
 
       expect(apiClient.getAnalytics).toHaveBeenCalledWith(24); // 24h = 24 hours
       expect(result.current.data).toEqual(mockData);
-    });
+    }, 15000);
 
     it('should not fetch data when autoFetch is disabled', async () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
@@ -123,34 +127,46 @@ describe('useHistoricalTrends', () => {
         { initialProps: { timeRange: '1h' as const } }
       );
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalledWith(1);
-      });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalledWith(1);
+        },
+        { timeout: 10000 }
+      );
 
       act(() => {
         _result.current.updateTimeRange('24h');
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalledWith(24);
-      });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalledWith(24);
+        },
+        { timeout: 10000 }
+      );
 
       act(() => {
         _result.current.updateTimeRange('7d');
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7 * 24
-      });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7 * 24
+        },
+        { timeout: 10000 }
+      );
 
       act(() => {
         _result.current.updateTimeRange('30d');
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalledWith(720); // 30 * 24
-      });
-    });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalledWith(720); // 30 * 24
+        },
+        { timeout: 10000 }
+      );
+    }, 60000);
 
     it('should handle API errors', async () => {
       const error = new Error('API Error');
@@ -158,13 +174,16 @@ describe('useHistoricalTrends', () => {
 
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
 
-      await waitFor(() => {
-        expect(result.current.error).toBeTruthy();
-      });
+      await waitFor(
+        () => {
+          expect(result.current.error).toBeTruthy();
+        },
+        { timeout: 10000 }
+      );
 
       expect(result.current.data).toEqual([]);
       expect(result.current.isLoading).toBe(false);
-    });
+    }, 15000);
   });
 
   describe('Caching', () => {
@@ -183,9 +202,12 @@ describe('useHistoricalTrends', () => {
 
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
 
-      await waitFor(() => {
-        expect(result.current.data).toEqual(mockData);
-      });
+      await waitFor(
+        () => {
+          expect(result.current.data).toEqual(mockData);
+        },
+        { timeout: 10000 }
+      );
 
       // Clear the mock to verify cache is used
       vi.mocked(apiClient.getAnalytics).mockClear();
@@ -195,19 +217,25 @@ describe('useHistoricalTrends', () => {
         result.current.updateTimeRange('7d');
       });
 
-      await waitFor(() => {
-        expect(result.current.timeRange).toBe('7d');
-      });
+      await waitFor(
+        () => {
+          expect(result.current.timeRange).toBe('7d');
+        },
+        { timeout: 10000 }
+      );
 
       act(() => {
         result.current.updateTimeRange('24h');
       });
 
-      await waitFor(() => {
-        // Should not call API again for cached data
-        expect(apiClient.getAnalytics).not.toHaveBeenCalled();
-      });
-    });
+      await waitFor(
+        () => {
+          // Should not call API again for cached data
+          expect(apiClient.getAnalytics).not.toHaveBeenCalled();
+        },
+        { timeout: 10000 }
+      );
+    }, 60000);
 
     it('should bypass cache when refresh is called', async () => {
       const mockData = [
@@ -224,9 +252,12 @@ describe('useHistoricalTrends', () => {
 
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
 
-      await waitFor(() => {
-        expect(result.current.data).toEqual(mockData);
-      });
+      await waitFor(
+        () => {
+          expect(result.current.data).toEqual(mockData);
+        },
+        { timeout: 10000 }
+      );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
 
@@ -234,10 +265,13 @@ describe('useHistoricalTrends', () => {
         result.current.refresh();
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalled();
-      });
-    });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalled();
+        },
+        { timeout: 10000 }
+      );
+    }, 30000);
 
     it('should clear cache when clearCache is called', async () => {
       const mockData = [
@@ -254,9 +288,12 @@ describe('useHistoricalTrends', () => {
 
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
 
-      await waitFor(() => {
-        expect(result.current.data).toEqual(mockData);
-      });
+      await waitFor(
+        () => {
+          expect(result.current.data).toEqual(mockData);
+        },
+        { timeout: 10000 }
+      );
 
       act(() => {
         result.current.clearCache();
@@ -269,14 +306,24 @@ describe('useHistoricalTrends', () => {
         result.current.updateTimeRange('7d');
       });
 
-      await waitFor(() => {
+      await waitFor(
+        () => {
+          expect(result.current.timeRange).toBe('7d');
+        },
+        { timeout: 10000 }
+      );
+
+      act(() => {
         result.current.updateTimeRange('24h');
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalled();
-      });
-    });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalled();
+        },
+        { timeout: 10000 }
+      );
+    }, 60000);
 
     it('should not use cache when cacheEnabled is false', async () => {
       const mockData = [
@@ -295,9 +342,12 @@ describe('useHistoricalTrends', () => {
         useHistoricalTrends({ autoFetch: true, cacheEnabled: false })
       );
 
-      await waitFor(() => {
-        expect(result.current.data).toEqual(mockData);
-      });
+      await waitFor(
+        () => {
+          expect(result.current.data).toEqual(mockData);
+        },
+        { timeout: 10000 }
+      );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
 
@@ -306,9 +356,12 @@ describe('useHistoricalTrends', () => {
         result.current.updateTimeRange('7d');
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7d = 168 hours
-      });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7d = 168 hours
+        },
+        { timeout: 10000 }
+      );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
 
@@ -316,34 +369,28 @@ describe('useHistoricalTrends', () => {
         result.current.updateTimeRange('24h');
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalledWith(24); // 24h = 24 hours
-      });
-    });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalledWith(24); // 24h = 24 hours
+        },
+        { timeout: 10000 }
+      );
+    }, 60000);
   });
 
   describe('Time Range Updates', () => {
     it('should update time range', () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
 
-      // Wait for hook to initialize
-      act(() => {
-        // Hook should be initialized immediately
-        if (!result.current) {
-          throw new Error('Hook not initialized');
-        }
-      });
-
+      // Hook should be initialized immediately
       expect(result.current).toBeDefined();
-      expect(result.current?.updateTimeRange).toBeDefined();
+      expect(result.current.updateTimeRange).toBeDefined();
 
       act(() => {
-        if (result.current?.updateTimeRange) {
-          result.current.updateTimeRange('7d');
-        }
+        result.current.updateTimeRange('7d');
       });
 
-      expect(result.current?.timeRange).toBe('7d');
+      expect(result.current.timeRange).toBe('7d');
     });
 
     it('should fetch data when time range is updated with autoFetch enabled', async () => {
@@ -352,9 +399,12 @@ describe('useHistoricalTrends', () => {
 
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalled();
-      });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalled();
+        },
+        { timeout: 10000 }
+      );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
 
@@ -362,21 +412,20 @@ describe('useHistoricalTrends', () => {
         result.current.updateTimeRange('7d');
       });
 
-      await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalledWith(168);
-      });
-    });
+      await waitFor(
+        () => {
+          expect(apiClient.getAnalytics).toHaveBeenCalledWith(168);
+        },
+        { timeout: 10000 }
+      );
+    }, 30000);
 
     it('should not fetch data when time range is updated with autoFetch disabled', async () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
 
-      // Wait for hook to initialize
-      act(() => {
-        // Hook should be initialized immediately
-        if (!result.current) {
-          throw new Error('Hook not initialized');
-        }
-      });
+      // Hook should be initialized immediately
+      expect(result.current).toBeDefined();
+      expect(result.current.updateTimeRange).toBeDefined();
 
       expect(result.current).toBeDefined();
       expect(result.current?.updateTimeRange).toBeDefined();

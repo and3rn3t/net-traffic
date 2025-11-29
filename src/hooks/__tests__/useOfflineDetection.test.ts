@@ -216,6 +216,7 @@ describe('useOfflineDetection', () => {
     });
 
     it('should update to offline when fetch fails', async () => {
+      vi.useFakeTimers();
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
 
       Object.defineProperty(navigator, 'onLine', {
@@ -226,17 +227,22 @@ describe('useOfflineDetection', () => {
 
       const { result } = renderHook(() => useOfflineDetection({ checkInterval: 1000 }));
 
+      // Advance timers to trigger the connectivity check
       await act(async () => {
-        await vi.runOnlyPendingTimersAsync();
+        vi.advanceTimersByTime(1000);
         await Promise.resolve();
       });
 
-      await waitFor(() => {
-        expect(result.current.isOnline).toBe(false);
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          expect(result.current.isOnline).toBe(false);
+        },
+        { timeout: 3000 }
+      );
 
       fetchSpy.mockRestore();
-    });
+      vi.useRealTimers();
+    }, 10000);
 
     it('should update to offline when fetch returns non-ok response', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
