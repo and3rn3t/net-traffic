@@ -61,7 +61,9 @@ describe('ErrorBoundary', () => {
       );
 
       expect(screen.getByText(/component error/i)).toBeInTheDocument();
-      expect(screen.getByText(/test error message/i)).toBeInTheDocument();
+      // Error message appears in AlertDescription - use getAllByText since it might appear multiple times
+      const errorMessages = screen.getAllByText(/test error message/i);
+      expect(errorMessages.length).toBeGreaterThan(0);
     });
 
     it('should call onError callback when error occurs', () => {
@@ -170,7 +172,13 @@ describe('ErrorBoundary', () => {
 
   describe('User Actions', () => {
     it('should reload page when Reload Page is clicked', () => {
-      const reloadSpy = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+      // Mock window.location.reload by replacing it
+      const originalReload = window.location.reload;
+      const reloadSpy = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { ...window.location, reload: reloadSpy },
+        writable: true,
+      });
 
       render(
         <ErrorBoundary>

@@ -2,7 +2,7 @@
  * Hook for graceful degradation when API is unavailable
  * Falls back to cached/mock data when backend is offline
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useOfflineDetection } from './useOfflineDetection';
 
 interface UseGracefulDegradationOptions<T> {
@@ -66,22 +66,26 @@ export function useGracefulDegradation<T>(options: UseGracefulDegradationOptions
   }, [apiData, cacheKey, isApiAvailable]);
 
   // Determine which data to use
-  const effectiveData = useCallback((): T => {
+  const data = useMemo((): T => {
     if (isApiAvailable && apiData) {
-      setIsUsingFallback(false);
       return apiData;
     }
 
     if (cachedData) {
-      setIsUsingFallback(true);
       return cachedData;
     }
 
-    setIsUsingFallback(true);
     return fallbackData;
   }, [isApiAvailable, apiData, cachedData, fallbackData]);
 
-  const data = effectiveData();
+  // Update isUsingFallback state based on data source
+  useEffect(() => {
+    if (isApiAvailable && apiData) {
+      setIsUsingFallback(false);
+    } else {
+      setIsUsingFallback(true);
+    }
+  }, [isApiAvailable, apiData, cachedData]);
 
   return {
     data,

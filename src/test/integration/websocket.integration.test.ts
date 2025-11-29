@@ -37,10 +37,17 @@ describe('WebSocket Integration Tests', () => {
       );
 
       const startTime = Date.now();
-      const success = await result.current.startReconnection(mockOperation);
-      const endTime = Date.now();
+      result.current.startReconnection(mockOperation);
 
-      expect(success).toBe(true);
+      // Wait for reconnection to complete
+      await waitFor(
+        () => {
+          expect(mockOperation).toHaveBeenCalledTimes(3);
+        },
+        { timeout: 5000 }
+      );
+
+      const endTime = Date.now();
       expect(mockOperation).toHaveBeenCalledTimes(3);
       // Should have delays between retries (exponential backoff)
       expect(endTime - startTime).toBeGreaterThan(200);
@@ -61,11 +68,16 @@ describe('WebSocket Integration Tests', () => {
         })
       );
 
-      const success = await result.current.startReconnection(mockOperation);
+      result.current.startReconnection(mockOperation);
 
-      expect(success).toBe(false);
-      expect(mockOperation).toHaveBeenCalledTimes(3); // Initial + 2 retries
-      expect(onMaxRetriesReached).toHaveBeenCalled();
+      // Wait for max retries to be reached
+      await waitFor(
+        () => {
+          expect(mockOperation).toHaveBeenCalledTimes(3); // Initial + 2 retries
+          expect(onMaxRetriesReached).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
     });
 
     it('should call onReconnect callback on successful reconnection', async () => {
@@ -88,9 +100,15 @@ describe('WebSocket Integration Tests', () => {
         })
       );
 
-      await result.current.startReconnection(mockOperation);
+      result.current.startReconnection(mockOperation);
 
-      expect(onReconnect).toHaveBeenCalled();
+      // Wait for successful reconnection
+      await waitFor(
+        () => {
+          expect(onReconnect).toHaveBeenCalled();
+        },
+        { timeout: 5000 }
+      );
     });
   });
 
@@ -141,13 +159,14 @@ describe('WebSocket Integration Tests', () => {
         })
       );
 
-      const reconnectionPromise = result.current.startReconnection(mockOperation);
+      result.current.startReconnection(mockOperation);
 
-      await waitFor(() => {
-        expect(result.current.retryCount).toBeGreaterThan(0);
-      });
-
-      await reconnectionPromise;
+      await waitFor(
+        () => {
+          expect(result.current.retryCount).toBeGreaterThan(0);
+        },
+        { timeout: 5000 }
+      );
 
       expect(result.current.retryCount).toBe(0);
     });

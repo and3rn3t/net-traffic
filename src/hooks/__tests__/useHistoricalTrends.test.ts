@@ -307,11 +307,17 @@ describe('useHistoricalTrends', () => {
       });
 
       await waitFor(() => {
+        expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7d = 168 hours
+      });
+
+      vi.mocked(apiClient.getAnalytics).mockClear();
+
+      act(() => {
         result.current.updateTimeRange('24h');
       });
 
       await waitFor(() => {
-        expect(apiClient.getAnalytics).toHaveBeenCalled();
+        expect(apiClient.getAnalytics).toHaveBeenCalledWith(24); // 24h = 24 hours
       });
     });
   });

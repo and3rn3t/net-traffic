@@ -28,12 +28,7 @@ const renderFlowFilters = (props = {}) => {
 describe('FlowFiltersComponent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2024-01-01T12:00:00Z'));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
+    // Don't use fake timers - they interfere with Sheet component animations
   });
 
   describe('Rendering', () => {

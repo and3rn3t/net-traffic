@@ -42,7 +42,7 @@ describe('useDebounce', () => {
     rerender({ value: 'updated', delay: 500 });
 
     // Fast-forward time
-    vi.advanceTimersByTime(500);
+    await vi.runAllTimersAsync();
 
     await waitFor(() => {
       expect(result.current).toBe('updated');
@@ -61,7 +61,7 @@ describe('useDebounce', () => {
     vi.advanceTimersByTime(300); // Advance partway again
 
     rerender({ value: 'third', delay: 500 });
-    vi.advanceTimersByTime(500); // Full delay
+    await vi.runAllTimersAsync(); // Complete all timers
 
     await waitFor(() => {
       expect(result.current).toBe('third'); // Should only be the last value
@@ -74,7 +74,7 @@ describe('useDebounce', () => {
     });
 
     rerender({ value: 'updated', delay: 100 });
-    vi.advanceTimersByTime(100);
+    await vi.runAllTimersAsync();
 
     await waitFor(() => {
       expect(result.current).toBe('updated');
@@ -87,7 +87,7 @@ describe('useDebounce', () => {
     });
 
     rerender({ value: 42, delay: 500 });
-    vi.advanceTimersByTime(500);
+    await vi.runAllTimersAsync();
 
     await waitFor(() => {
       expect(result.current).toBe(42);
@@ -103,7 +103,7 @@ describe('useDebounce', () => {
     });
 
     rerender({ value: updated, delay: 500 });
-    vi.advanceTimersByTime(500);
+    await vi.runAllTimersAsync();
 
     await waitFor(() => {
       expect(result.current).toBe(updated);

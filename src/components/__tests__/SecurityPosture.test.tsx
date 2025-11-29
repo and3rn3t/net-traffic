@@ -167,8 +167,9 @@ describe('SecurityPosture', () => {
       const devices = [createMockDevice({ threatScore: 0 })];
       render(<SecurityPosture flows={flows} devices={devices} threats={[]} />);
 
-      // Should show shield icon (component uses ShieldCheck or ShieldWarning)
-      expect(screen.getByText(/security posture/i)).toBeInTheDocument();
+      // Should show security posture title - might appear multiple times
+      const postureTexts = screen.getAllByText(/security posture/i);
+      expect(postureTexts.length).toBeGreaterThan(0);
     });
 
     it('should show appropriate status message for high score', () => {

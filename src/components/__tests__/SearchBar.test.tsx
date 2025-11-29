@@ -225,7 +225,7 @@ describe('SearchBar', () => {
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
       await waitFor(() => {
-        expect(screen.getByText(/searching/i)).toBeInTheDocument();
+        expect(screen.getByText(/searching\.\.\./i)).toBeInTheDocument();
       });
 
       // Resolve the promise

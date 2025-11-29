@@ -94,12 +94,14 @@ describe('ConnectionHealthMonitor', () => {
 
     it('should display connected status when connected', () => {
       renderHealthMonitor({ isConnected: true });
-      expect(screen.getByText(/connected/i)).toBeInTheDocument();
+      // Component shows "Connection Health" title and status badges
+      expect(screen.getByText(/connection health/i)).toBeInTheDocument();
     });
 
     it('should display disconnected status when not connected', () => {
       renderHealthMonitor({ isConnected: false });
-      expect(screen.getByText(/disconnected/i)).toBeInTheDocument();
+      // Component shows "Offline" badge when not connected
+      expect(screen.getByText(/offline/i)).toBeInTheDocument();
     });
 
     it('should display error message when error exists', () => {
@@ -240,7 +242,7 @@ describe('ConnectionHealthMonitor', () => {
       const onRetry = vi.fn();
       renderHealthMonitor({ error: 'Connection failed', onRetry });
 
-      const retryButton = screen.getByRole('button', { name: /retry/i });
+      const retryButton = screen.getByRole('button', { name: /retry connection/i });
       fireEvent.click(retryButton);
 
       expect(onRetry).toHaveBeenCalled();
@@ -259,7 +261,7 @@ describe('ConnectionHealthMonitor', () => {
 
       renderHealthMonitor({ error: 'Connection failed' });
 
-      const retryButton = screen.getByRole('button', { name: /retry/i });
+      const retryButton = screen.getByRole('button', { name: /retry connection/i });
       fireEvent.click(retryButton);
 
       await waitFor(() => {

@@ -58,7 +58,7 @@ describe('useRetry', () => {
 
   describe('Retry Logic', () => {
     it('should retry on failure and succeed on retry', async () => {
-      const { result } = renderHook(() => useRetry({ maxRetries: 2 }));
+      const { result } = renderHook(() => useRetry({ maxRetries: 2, initialDelay: 100 }));
       const operation = vi
         .fn()
         .mockRejectedValueOnce(new Error('First attempt failed'))
@@ -66,9 +66,10 @@ describe('useRetry', () => {
 
       let retryResult: unknown;
       await act(async () => {
-        retryResult = await result.current.retry(operation);
+        const promise = result.current.retry(operation);
         // Fast-forward timers for retry delay
-        vi.advanceTimersByTime(1000);
+        await vi.runAllTimersAsync();
+        retryResult = await promise;
       });
 
       expect(retryResult).toBe('success');
@@ -76,18 +77,19 @@ describe('useRetry', () => {
     });
 
     it('should retry up to maxRetries times', async () => {
-      const { result } = renderHook(() => useRetry({ maxRetries: 3 }));
+      const { result } = renderHook(() => useRetry({ maxRetries: 3, initialDelay: 100 }));
       const operation = vi.fn().mockRejectedValue(new Error('Always fails'));
 
       let error: unknown;
       await act(async () => {
         try {
-          await result.current.retry(operation);
+          const promise = result.current.retry(operation);
+          // Fast-forward timers for all retry delays
+          await vi.runAllTimersAsync();
+          await promise;
         } catch (err) {
           error = err;
         }
-        // Fast-forward timers for all retry delays
-        vi.advanceTimersByTime(10000);
       });
 
       expect(error).toBeDefined();
@@ -103,12 +105,12 @@ describe('useRetry', () => {
 
       await act(async () => {
         try {
-          await result.current.retry(operation);
+          const promise = result.current.retry(operation);
+          await vi.runAllTimersAsync();
+          await promise;
         } catch {
           // Expected to fail
         }
-        // Fast-forward timers
-        vi.advanceTimersByTime(1000);
       });
 
       expect(onRetry).toHaveBeenCalledTimes(2);
@@ -124,12 +126,12 @@ describe('useRetry', () => {
 
       await act(async () => {
         try {
-          await result.current.retry(operation);
+          const promise = result.current.retry(operation);
+          await vi.runAllTimersAsync();
+          await promise;
         } catch {
           // Expected to fail
         }
-        // Fast-forward timers
-        vi.advanceTimersByTime(20000);
       });
 
       expect(operation).toHaveBeenCalledTimes(3);
@@ -147,8 +149,9 @@ describe('useRetry', () => {
         .mockResolvedValueOnce('success');
 
       await act(async () => {
-        await result.current.retry(operation);
-        vi.advanceTimersByTime(2000);
+        const promise = result.current.retry(operation);
+        await vi.runAllTimersAsync();
+        await promise;
       });
 
       expect(onRetry).toHaveBeenCalledTimes(2);
@@ -163,11 +166,12 @@ describe('useRetry', () => {
 
       await act(async () => {
         try {
-          await result.current.retry(operation);
+          const promise = result.current.retry(operation);
+          await vi.runAllTimersAsync();
+          await promise;
         } catch {
           // Expected
         }
-        vi.advanceTimersByTime(5000);
       });
 
       expect(onMaxRetriesReached).toHaveBeenCalledTimes(1);
@@ -184,8 +188,7 @@ describe('useRetry', () => {
 
       await act(async () => {
         const promise = result.current.retry(operation);
-        // Advance timers to complete the retry
-        vi.advanceTimersByTime(100);
+        await vi.runAllTimersAsync();
         await promise;
       });
 
@@ -202,8 +205,9 @@ describe('useRetry', () => {
         .mockResolvedValueOnce('success');
 
       await act(async () => {
-        await result.current.retry(operation);
-        vi.advanceTimersByTime(1000);
+        const promise = result.current.retry(operation);
+        await vi.runAllTimersAsync();
+        await promise;
       });
 
       expect(result.current.isRetrying).toBe(false);
@@ -216,11 +220,12 @@ describe('useRetry', () => {
 
       await act(async () => {
         try {
-          await result.current.retry(operation);
+          const promise = result.current.retry(operation);
+          await vi.runAllTimersAsync();
+          await promise;
         } catch {
           // Expected
         }
-        vi.advanceTimersByTime(1000);
       });
 
       expect(result.current.isRetrying).toBe(false);
@@ -241,7 +246,7 @@ describe('useRetry', () => {
         result.current.cancel();
 
         // Advance timers
-        vi.advanceTimersByTime(2000);
+        await vi.runAllTimersAsync();
 
         // Wait for promise (it will fail, but that's expected)
         try {
