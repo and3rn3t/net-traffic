@@ -515,6 +515,21 @@ export class ApiClient {
     return this.request(`/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=${limit}`);
   }
 
+  // Maintenance
+  async getMaintenanceStats(): Promise<{
+    database_size?: number;
+    total_flows?: number;
+    oldest_flow_timestamp?: number;
+    retention_days?: number;
+    last_cleanup?: number;
+  }> {
+    return this.request('/api/maintenance/stats');
+  }
+
+  async runCleanup(): Promise<void> {
+    return this.request('/api/maintenance/cleanup', { method: 'POST' });
+  }
+
   // Export Flows
   async exportFlows(
     format: 'json' | 'csv' = 'json',

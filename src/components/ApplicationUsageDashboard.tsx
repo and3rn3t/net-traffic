@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Application, ChartBar, TrendingUp, DeviceMobile } from '@phosphor-icons/react';
+import { AppWindow, ChartBar, TrendUp, DeviceMobile } from '@phosphor-icons/react';
 import { apiClient } from '@/lib/api';
 import {
   BarChart,
@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatBytes } from '@/lib/utils';
+import { formatBytes } from '@/lib/formatters';
 
 interface ApplicationUsageDashboardProps {
   hours?: number;
@@ -106,7 +106,7 @@ export function ApplicationUsageDashboard({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Application size={24} />
+            <AppWindow size={24} />
             Application Usage Analytics
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -319,7 +319,7 @@ export function ApplicationUsageDashboard({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp size={20} />
+              <TrendUp size={20} />
               Application Usage Trends
             </CardTitle>
             <CardDescription>

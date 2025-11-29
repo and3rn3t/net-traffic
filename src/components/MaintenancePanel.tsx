@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Trash, Database, Alert, CheckCircle } from '@phosphor-icons/react';
+import { Trash, Database, WarningCircle, CheckCircle } from '@phosphor-icons/react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { formatBytes } from '@/lib/utils';
+import { formatBytes } from '@/lib/formatters';
 
 interface MaintenancePanelProps {
   className?: string;
@@ -143,7 +143,7 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium flex items-center gap-2">
-                      <Alert size={16} />
+                      <WarningCircle size={16} />
                       Data Cleanup
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">

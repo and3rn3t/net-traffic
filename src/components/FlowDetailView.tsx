@@ -68,7 +68,7 @@ export const FlowDetailView = memo(function FlowDetailView({
     const fetchFlow = async () => {
       setIsLoading(true);
       try {
-        const freshFlow = await apiClient.getFlow(flow.id);
+        const freshFlow = await apiClient.getFlow(currentFlow.id);
         setFetchedFlow(freshFlow);
       } catch (error) {
         console.error('Failed to fetch flow details:', error);
@@ -119,8 +119,8 @@ export const FlowDetailView = memo(function FlowDetailView({
     }
   };
 
-  // Use displayFlow instead of flow throughout
-  const flow = displayFlow;
+  // Use displayFlow throughout to avoid shadowing the prop
+  const currentFlow = displayFlow;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -131,7 +131,7 @@ export const FlowDetailView = memo(function FlowDetailView({
             Flow Details
           </DialogTitle>
           <DialogDescription>
-            Complete information for network flow {flow.id.slice(0, 8)}...
+            Complete information for network flow {currentFlow.id.slice(0, 8)}...
           </DialogDescription>
         </DialogHeader>
 
@@ -150,27 +150,29 @@ export const FlowDetailView = memo(function FlowDetailView({
                   <p className="text-xs text-muted-foreground mb-1">Protocol</p>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="font-mono">
-                      {flow.protocol}
+                      {currentFlow.protocol}
                     </Badge>
-                    {flow.application && <Badge variant="secondary">{flow.application}</Badge>}
-                    {flow.status === 'active' && (
+                    {currentFlow.application && (
+                      <Badge variant="secondary">{currentFlow.application}</Badge>
+                    )}
+                    {currentFlow.status === 'active' && (
                       <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
                     )}
                   </div>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Threat Level</p>
-                  <Badge className={getThreatColor(flow.threatLevel)}>
-                    {flow.threatLevel.toUpperCase()}
+                  <Badge className={getThreatColor(currentFlow.threatLevel)}>
+                    {currentFlow.threatLevel.toUpperCase()}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Timestamp</p>
-                  <p className="text-sm font-mono">{formatTimestamp(flow.timestamp)}</p>
+                  <p className="text-sm font-mono">{formatTimestamp(currentFlow.timestamp)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Duration</p>
-                  <p className="text-sm">{formatDuration(flow.duration)}</p>
+                  <p className="text-sm">{formatDuration(currentFlow.duration)}</p>
                 </div>
               </div>
 
@@ -182,14 +184,14 @@ export const FlowDetailView = memo(function FlowDetailView({
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Source</p>
                     <p>
-                      {flow.sourceIp}:{flow.sourcePort}
+                      {currentFlow.sourceIp}:{currentFlow.sourcePort}
                     </p>
                   </div>
                   <ArrowRight size={16} className="text-muted-foreground" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Destination</p>
                     <p>
-                      {flow.destIp}:{flow.destPort}
+                      {currentFlow.destIp}:{currentFlow.destPort}
                     </p>
                   </div>
                 </div>
@@ -198,9 +200,9 @@ export const FlowDetailView = memo(function FlowDetailView({
           </Card>
 
           {/* Network Quality */}
-          {(flow.rtt !== undefined ||
-            flow.jitter !== undefined ||
-            flow.retransmissions !== undefined) && (
+          {(currentFlow.rtt !== undefined ||
+            currentFlow.jitter !== undefined ||
+            currentFlow.retransmissions !== undefined) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -210,38 +212,42 @@ export const FlowDetailView = memo(function FlowDetailView({
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-4">
-                  {flow.rtt !== undefined && (
+                  {currentFlow.rtt !== undefined && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Round-Trip Time</p>
-                      <p className="text-lg font-semibold">{flow.rtt}ms</p>
+                      <p className="text-lg font-semibold">{currentFlow.rtt}ms</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {flow.rtt < 50
+                        {currentFlow.rtt < 50
                           ? 'Excellent'
-                          : flow.rtt < 100
+                          : currentFlow.rtt < 100
                             ? 'Good'
-                            : flow.rtt < 200
+                            : currentFlow.rtt < 200
                               ? 'Fair'
                               : 'Poor'}
                       </p>
                     </div>
                   )}
-                  {flow.jitter !== undefined && (
+                  {currentFlow.jitter !== undefined && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Jitter</p>
-                      <p className="text-lg font-semibold">{flow.jitter.toFixed(1)}ms</p>
+                      <p className="text-lg font-semibold">{currentFlow.jitter.toFixed(1)}ms</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {flow.jitter < 10 ? 'Excellent' : flow.jitter < 30 ? 'Good' : 'Fair'}
+                        {currentFlow.jitter < 10
+                          ? 'Excellent'
+                          : currentFlow.jitter < 30
+                            ? 'Good'
+                            : 'Fair'}
                       </p>
                     </div>
                   )}
-                  {flow.retransmissions !== undefined && (
+                  {currentFlow.retransmissions !== undefined && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Retransmissions</p>
-                      <p className="text-lg font-semibold">{flow.retransmissions}</p>
+                      <p className="text-lg font-semibold">{currentFlow.retransmissions}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {flow.retransmissions === 0
+                        {currentFlow.retransmissions === 0
                           ? 'None'
-                          : flow.retransmissions < 5
+                          : currentFlow.retransmissions < 5
                             ? 'Low'
                             : 'High'}
                       </p>
@@ -264,31 +270,35 @@ export const FlowDetailView = memo(function FlowDetailView({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Bytes In</p>
-                  <p className="text-sm font-semibold">{formatBytes(flow.bytesIn)}</p>
+                  <p className="text-sm font-semibold">{formatBytes(currentFlow.bytesIn)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Bytes Out</p>
-                  <p className="text-sm font-semibold">{formatBytes(flow.bytesOut)}</p>
+                  <p className="text-sm font-semibold">{formatBytes(currentFlow.bytesOut)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Packets In</p>
-                  <p className="text-sm font-semibold">{flow.packetsIn.toLocaleString()}</p>
+                  <p className="text-sm font-semibold">{currentFlow.packetsIn.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Packets Out</p>
-                  <p className="text-sm font-semibold">{flow.packetsOut.toLocaleString()}</p>
+                  <p className="text-sm font-semibold">{currentFlow.packetsOut.toLocaleString()}</p>
                 </div>
               </div>
               <Separator className="my-3" />
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">Total Traffic</p>
-                <p className="text-lg font-semibold">{formatBytes(flow.bytesIn + flow.bytesOut)}</p>
+                <p className="text-lg font-semibold">
+                  {formatBytes(currentFlow.bytesIn + currentFlow.bytesOut)}
+                </p>
               </div>
             </CardContent>
           </Card>
 
           {/* TCP Details */}
-          {(flow.tcpFlags || flow.connectionState || flow.ttl !== undefined) && (
+          {(currentFlow.tcpFlags ||
+            currentFlow.connectionState ||
+            currentFlow.ttl !== undefined) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -297,11 +307,11 @@ export const FlowDetailView = memo(function FlowDetailView({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {flow.tcpFlags && flow.tcpFlags.length > 0 && (
+                {currentFlow.tcpFlags && currentFlow.tcpFlags.length > 0 && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-2">TCP Flags</p>
                     <div className="flex flex-wrap gap-2">
-                      {flow.tcpFlags.map(flag => (
+                      {currentFlow.tcpFlags.map(flag => (
                         <Badge
                           key={flag}
                           variant="outline"
@@ -324,16 +334,16 @@ export const FlowDetailView = memo(function FlowDetailView({
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-4">
-                  {flow.connectionState && (
+                  {currentFlow.connectionState && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Connection State</p>
-                      <Badge variant="outline">{flow.connectionState}</Badge>
+                      <Badge variant="outline">{currentFlow.connectionState}</Badge>
                     </div>
                   )}
-                  {flow.ttl !== undefined && (
+                  {currentFlow.ttl !== undefined && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">TTL</p>
-                      <p className="text-sm font-mono">{flow.ttl}</p>
+                      <p className="text-sm font-mono">{currentFlow.ttl}</p>
                     </div>
                   )}
                 </div>
@@ -342,7 +352,11 @@ export const FlowDetailView = memo(function FlowDetailView({
           )}
 
           {/* Application Layer */}
-          {(flow.sni || flow.domain || flow.httpMethod || flow.url || flow.userAgent) && (
+          {(currentFlow.sni ||
+            currentFlow.domain ||
+            currentFlow.httpMethod ||
+            currentFlow.url ||
+            currentFlow.userAgent) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -351,36 +365,38 @@ export const FlowDetailView = memo(function FlowDetailView({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {flow.sni && (
+                {currentFlow.sni && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">
                       SNI (Server Name Indication)
                     </p>
-                    <p className="text-sm font-mono break-all">{flow.sni}</p>
+                    <p className="text-sm font-mono break-all">{currentFlow.sni}</p>
                   </div>
                 )}
-                {flow.domain && (
+                {currentFlow.domain && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Domain</p>
-                    <p className="text-sm font-mono break-all">{flow.domain}</p>
+                    <p className="text-sm font-mono break-all">{currentFlow.domain}</p>
                   </div>
                 )}
-                {flow.httpMethod && (
+                {currentFlow.httpMethod && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">HTTP Method</p>
-                    <Badge variant="outline">{flow.httpMethod}</Badge>
+                    <Badge variant="outline">{currentFlow.httpMethod}</Badge>
                   </div>
                 )}
-                {flow.url && (
+                {currentFlow.url && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">URL</p>
-                    <p className="text-sm font-mono break-all text-primary">{flow.url}</p>
+                    <p className="text-sm font-mono break-all text-primary">{currentFlow.url}</p>
                   </div>
                 )}
-                {flow.userAgent && (
+                {currentFlow.userAgent && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">User Agent</p>
-                    <p className="text-sm break-all text-muted-foreground">{flow.userAgent}</p>
+                    <p className="text-sm break-all text-muted-foreground">
+                      {currentFlow.userAgent}
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -388,7 +404,7 @@ export const FlowDetailView = memo(function FlowDetailView({
           )}
 
           {/* Geolocation */}
-          {(flow.country || flow.city || flow.asn) && (
+          {(currentFlow.country || currentFlow.city || currentFlow.asn) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -398,25 +414,25 @@ export const FlowDetailView = memo(function FlowDetailView({
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-4">
-                  {flow.country && (
+                  {currentFlow.country && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Country</p>
                       <div className="flex items-center gap-2">
                         <Globe size={16} />
-                        <p className="text-sm font-semibold">{flow.country}</p>
+                        <p className="text-sm font-semibold">{currentFlow.country}</p>
                       </div>
                     </div>
                   )}
-                  {flow.city && (
+                  {currentFlow.city && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">City</p>
-                      <p className="text-sm font-semibold">{flow.city}</p>
+                      <p className="text-sm font-semibold">{currentFlow.city}</p>
                     </div>
                   )}
-                  {flow.asn && (
+                  {currentFlow.asn && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">ASN</p>
-                      <p className="text-sm font-mono">{flow.asn}</p>
+                      <p className="text-sm font-mono">{currentFlow.asn}</p>
                     </div>
                   )}
                 </div>
@@ -425,7 +441,7 @@ export const FlowDetailView = memo(function FlowDetailView({
           )}
 
           {/* DNS Details */}
-          {(flow.dnsQueryType || flow.dnsResponseCode) && (
+          {(currentFlow.dnsQueryType || currentFlow.dnsResponseCode) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -435,24 +451,24 @@ export const FlowDetailView = memo(function FlowDetailView({
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                  {flow.dnsQueryType && (
+                  {currentFlow.dnsQueryType && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Query Type</p>
-                      <Badge variant="outline">{flow.dnsQueryType}</Badge>
+                      <Badge variant="outline">{currentFlow.dnsQueryType}</Badge>
                     </div>
                   )}
-                  {flow.dnsResponseCode && (
+                  {currentFlow.dnsResponseCode && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-1">Response Code</p>
                       <Badge
                         variant="outline"
                         className={
-                          flow.dnsResponseCode === 'NOERROR'
+                          currentFlow.dnsResponseCode === 'NOERROR'
                             ? 'border-success text-success'
                             : 'border-warning text-warning'
                         }
                       >
-                        {flow.dnsResponseCode}
+                        {currentFlow.dnsResponseCode}
                       </Badge>
                     </div>
                   )}

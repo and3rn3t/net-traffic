@@ -232,13 +232,15 @@ export const ConnectionQuality = memo(function ConnectionQuality({
 
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Avg RTT</p>
-            <p className="text-xl font-bold">{avgRtt > 0 ? `${avgRtt.toFixed(0)}ms` : 'N/A'}</p>
+            <p className="text-xl font-bold">
+              {metrics.avgRtt > 0 ? `${metrics.avgRtt.toFixed(0)}ms` : 'N/A'}
+            </p>
           </div>
 
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">Avg Jitter</p>
             <p className="text-xl font-bold">
-              {avgJitter > 0 ? `${avgJitter.toFixed(1)}ms` : 'N/A'}
+              {metrics.avgJitter > 0 ? `${metrics.avgJitter.toFixed(1)}ms` : 'N/A'}
             </p>
           </div>
 
