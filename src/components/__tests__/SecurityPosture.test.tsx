@@ -7,47 +7,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { SecurityPosture } from '@/components/SecurityPosture';
-import { NetworkFlow, Device, Threat } from '@/lib/types';
-
-const createMockFlow = (overrides: Partial<NetworkFlow> = {}): NetworkFlow => ({
-  id: 'flow-1',
-  timestamp: Date.now(),
-  sourceIp: '192.168.1.1',
-  sourcePort: 50000,
-  destIp: '8.8.8.8',
-  destPort: 443,
-  protocol: 'HTTPS',
-  bytesIn: 1000,
-  bytesOut: 500,
-  packetsIn: 10,
-  packetsOut: 5,
-  duration: 1000,
-  status: 'active',
-  threatLevel: 'safe',
-  deviceId: 'device-1',
-  ...overrides,
-});
-
-const createMockDevice = (overrides: Partial<Device> = {}): Device => ({
-  id: 'device-1',
-  name: 'Test Device',
-  ip: '192.168.1.1',
-  mac: '00:00:00:00:00:01',
-  type: 'desktop',
-  vendor: 'Test Vendor',
-  firstSeen: Date.now() - 86400000,
-  lastSeen: Date.now(),
-  bytesTotal: 1000000,
-  connectionsCount: 10,
-  threatScore: 5,
-  behavioral: {
-    peakHours: [9, 10, 11],
-    commonPorts: [80, 443],
-    commonDomains: ['example.com'],
-    anomalyCount: 0,
-  },
-  ...overrides,
-});
+import { Threat } from '@/lib/types';
+import { createMockNetworkFlow, createMockDevice } from '@/test/helpers';
 
 const createMockThreat = (overrides: Partial<Threat> = {}): Threat => ({
   id: 'threat-1',
@@ -72,14 +33,14 @@ describe('SecurityPosture', () => {
     });
 
     it('should display overall security score', () => {
-      const flows = [createMockFlow({ protocol: 'HTTPS' })];
+      const flows = [createMockNetworkFlow({ protocol: 'HTTPS' })];
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
       expect(screen.getByText(/overall security score/i)).toBeInTheDocument();
     });
 
     it('should display security metrics', () => {
-      const flows = [createMockFlow()];
+      const flows = [createMockNetworkFlow()];
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
       expect(screen.getAllByText(/security metrics/i).length).toBeGreaterThan(0);
@@ -95,9 +56,9 @@ describe('SecurityPosture', () => {
   describe('Security Score Calculation', () => {
     it('should calculate high score for encrypted traffic', () => {
       const flows = [
-        createMockFlow({ protocol: 'HTTPS' }),
-        createMockFlow({ protocol: 'HTTPS' }),
-        createMockFlow({ protocol: 'SSH' }),
+        createMockNetworkFlow({ protocol: 'HTTPS' }),
+        createMockNetworkFlow({ protocol: 'HTTPS' }),
+        createMockNetworkFlow({ protocol: 'SSH' }),
       ];
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
@@ -107,9 +68,9 @@ describe('SecurityPosture', () => {
 
     it('should calculate low score for unencrypted traffic', () => {
       const flows = [
-        createMockFlow({ protocol: 'HTTP' }),
-        createMockFlow({ protocol: 'HTTP' }),
-        createMockFlow({ protocol: 'HTTP' }),
+        createMockNetworkFlow({ protocol: 'HTTP' }),
+        createMockNetworkFlow({ protocol: 'HTTP' }),
+        createMockNetworkFlow({ protocol: 'HTTP' }),
       ];
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
@@ -118,9 +79,9 @@ describe('SecurityPosture', () => {
 
     it('should calculate score based on threat levels', () => {
       const flows = [
-        createMockFlow({ threatLevel: 'high' }),
-        createMockFlow({ threatLevel: 'critical' }),
-        createMockFlow({ threatLevel: 'safe' }),
+        createMockNetworkFlow({ threatLevel: 'high' }),
+        createMockNetworkFlow({ threatLevel: 'critical' }),
+        createMockNetworkFlow({ threatLevel: 'safe' }),
       ];
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
@@ -152,7 +113,7 @@ describe('SecurityPosture', () => {
 
     it('should calculate connection diversity score', () => {
       const flows = Array.from({ length: 50 }, (_, i) =>
-        createMockFlow({ destIp: `192.168.1.${i}` })
+        createMockNetworkFlow({ destIp: `192.168.1.${i}` })
       );
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
@@ -174,7 +135,7 @@ describe('SecurityPosture', () => {
   describe('Score Display', () => {
     it('should display grade A for score >= 90', () => {
       // Create flows that result in high score
-      const flows = Array.from({ length: 10 }, () => createMockFlow({ protocol: 'HTTPS' }));
+      const flows = Array.from({ length: 10 }, () => createMockNetworkFlow({ protocol: 'HTTPS' }));
       const devices = [createMockDevice({ threatScore: 0 })];
       render(<SecurityPosture flows={flows} devices={devices} threats={[]} />);
 
@@ -184,14 +145,14 @@ describe('SecurityPosture', () => {
     });
 
     it('should display overall score percentage', () => {
-      render(<SecurityPosture flows={[createMockFlow()]} devices={[]} threats={[]} />);
+      render(<SecurityPosture flows={[createMockNetworkFlow()]} devices={[]} threats={[]} />);
 
       // Should display score in format like "85/100" or percentage
       expect(screen.getByText(/\d+\/100/)).toBeInTheDocument();
     });
 
     it('should display score color based on value', () => {
-      const flows = [createMockFlow({ protocol: 'HTTPS' })];
+      const flows = [createMockNetworkFlow({ protocol: 'HTTPS' })];
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
       // Score should be displayed with appropriate styling
@@ -202,7 +163,7 @@ describe('SecurityPosture', () => {
 
   describe('Status Indicators', () => {
     it('should show shield check icon for high score', () => {
-      const flows = Array.from({ length: 10 }, () => createMockFlow({ protocol: 'HTTPS' }));
+      const flows = Array.from({ length: 10 }, () => createMockNetworkFlow({ protocol: 'HTTPS' }));
       const devices = [createMockDevice({ threatScore: 0 })];
       render(<SecurityPosture flows={flows} devices={devices} threats={[]} />);
 
@@ -211,7 +172,7 @@ describe('SecurityPosture', () => {
     });
 
     it('should show appropriate status message for high score', () => {
-      const flows = Array.from({ length: 10 }, () => createMockFlow({ protocol: 'HTTPS' }));
+      const flows = Array.from({ length: 10 }, () => createMockNetworkFlow({ protocol: 'HTTPS' }));
       const devices = [createMockDevice({ threatScore: 0 })];
       const { container } = render(
         <SecurityPosture flows={flows} devices={devices} threats={[]} />
@@ -228,7 +189,10 @@ describe('SecurityPosture', () => {
     });
 
     it('should show warning for moderate score', () => {
-      const flows = [createMockFlow({ protocol: 'HTTP' }), createMockFlow({ protocol: 'HTTPS' })];
+      const flows = [
+        createMockNetworkFlow({ protocol: 'HTTP' }),
+        createMockNetworkFlow({ protocol: 'HTTPS' }),
+      ];
       const threats = [createMockThreat({ dismissed: false })];
       render(<SecurityPosture flows={flows} devices={[]} threats={threats} />);
 
@@ -237,7 +201,7 @@ describe('SecurityPosture', () => {
     });
 
     it('should show error for low score', () => {
-      const flows = Array.from({ length: 10 }, () => createMockFlow({ protocol: 'HTTP' }));
+      const flows = Array.from({ length: 10 }, () => createMockNetworkFlow({ protocol: 'HTTP' }));
       const threats = Array.from({ length: 5 }, (_, i) =>
         createMockThreat({ id: `threat-${i}`, dismissed: false })
       );
@@ -257,13 +221,13 @@ describe('SecurityPosture', () => {
     });
 
     it('should handle empty devices', () => {
-      render(<SecurityPosture flows={[createMockFlow()]} devices={[]} threats={[]} />);
+      render(<SecurityPosture flows={[createMockNetworkFlow()]} devices={[]} threats={[]} />);
 
       expect(screen.getByText(/device health/i)).toBeInTheDocument();
     });
 
     it('should handle empty threats', () => {
-      render(<SecurityPosture flows={[createMockFlow()]} devices={[]} threats={[]} />);
+      render(<SecurityPosture flows={[createMockNetworkFlow()]} devices={[]} threats={[]} />);
 
       expect(screen.getByText(/threat response/i)).toBeInTheDocument();
     });
@@ -273,28 +237,28 @@ describe('SecurityPosture', () => {
         createMockThreat({ dismissed: true }),
         createMockThreat({ dismissed: true }),
       ];
-      render(<SecurityPosture flows={[createMockFlow()]} devices={[]} threats={threats} />);
+      render(<SecurityPosture flows={[createMockNetworkFlow()]} devices={[]} threats={threats} />);
 
       expect(screen.getByText(/0 unaddressed threat/i)).toBeInTheDocument();
     });
 
     it('should handle single threat correctly', () => {
       const threats = [createMockThreat({ dismissed: false })];
-      render(<SecurityPosture flows={[createMockFlow()]} devices={[]} threats={threats} />);
+      render(<SecurityPosture flows={[createMockNetworkFlow()]} devices={[]} threats={threats} />);
 
       expect(screen.getByText(/1 unaddressed threat$/)).toBeInTheDocument();
     });
 
     it('should handle very high threat scores', () => {
       const devices = [createMockDevice({ threatScore: 95 })];
-      render(<SecurityPosture flows={[createMockFlow()]} devices={devices} threats={[]} />);
+      render(<SecurityPosture flows={[createMockNetworkFlow()]} devices={devices} threats={[]} />);
 
       expect(screen.getByText(/device health/i)).toBeInTheDocument();
     });
 
     it('should handle many unique destinations', () => {
       const flows = Array.from({ length: 200 }, (_, i) =>
-        createMockFlow({ destIp: `192.168.1.${i}` })
+        createMockNetworkFlow({ destIp: `192.168.1.${i}` })
       );
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
@@ -304,7 +268,7 @@ describe('SecurityPosture', () => {
 
   describe('Metric Status', () => {
     it('should show pass status for high scores', () => {
-      const flows = Array.from({ length: 10 }, () => createMockFlow({ protocol: 'HTTPS' }));
+      const flows = Array.from({ length: 10 }, () => createMockNetworkFlow({ protocol: 'HTTPS' }));
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
       // Metrics with pass status should be displayed
@@ -312,14 +276,17 @@ describe('SecurityPosture', () => {
     });
 
     it('should show warning status for moderate scores', () => {
-      const flows = [createMockFlow({ protocol: 'HTTPS' }), createMockFlow({ protocol: 'HTTP' })];
+      const flows = [
+        createMockNetworkFlow({ protocol: 'HTTPS' }),
+        createMockNetworkFlow({ protocol: 'HTTP' }),
+      ];
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
       expect(screen.getByText(/traffic encryption/i)).toBeInTheDocument();
     });
 
     it('should show fail status for low scores', () => {
-      const flows = Array.from({ length: 10 }, () => createMockFlow({ protocol: 'HTTP' }));
+      const flows = Array.from({ length: 10 }, () => createMockNetworkFlow({ protocol: 'HTTP' }));
       render(<SecurityPosture flows={flows} devices={[]} threats={[]} />);
 
       expect(screen.getByText(/traffic encryption/i)).toBeInTheDocument();

@@ -390,14 +390,14 @@ export function FlowFiltersComponent({
             <div className="space-y-3">
               <Label className="text-sm font-semibold">Status</Label>
               <Select
-                value={localFilters.status || ''}
-                onValueChange={value => updateFilters({ status: value || null })}
+                value={localFilters.status || 'all'}
+                onValueChange={value => updateFilters({ status: value === 'all' ? null : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   {STATUS_OPTIONS.map(status => (
                     <SelectItem key={status.value} value={status.value}>
                       {status.label}
@@ -413,14 +413,16 @@ export function FlowFiltersComponent({
             <div className="space-y-3">
               <Label className="text-sm font-semibold">Threat Level</Label>
               <Select
-                value={localFilters.threatLevel || ''}
-                onValueChange={value => updateFilters({ threatLevel: value || null })}
+                value={localFilters.threatLevel || 'all'}
+                onValueChange={value =>
+                  updateFilters({ threatLevel: value === 'all' ? null : value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All threat levels" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Threat Levels</SelectItem>
+                  <SelectItem value="all">All Threat Levels</SelectItem>
                   {THREAT_LEVELS.map(level => (
                     <SelectItem key={level.value} value={level.value}>
                       {level.label}
@@ -468,14 +470,16 @@ export function FlowFiltersComponent({
               <div className="space-y-3">
                 <Label className="text-sm font-semibold">Device</Label>
                 <Select
-                  value={localFilters.deviceId || ''}
-                  onValueChange={value => updateFilters({ deviceId: value || null })}
+                  value={localFilters.deviceId || 'all'}
+                  onValueChange={value =>
+                    updateFilters({ deviceId: value === 'all' ? null : value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="All devices" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Devices</SelectItem>
+                    <SelectItem value="all">All Devices</SelectItem>
                     {devices.map(device => (
                       <SelectItem key={device.id} value={device.id}>
                         {device.name || device.id}

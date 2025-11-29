@@ -476,14 +476,14 @@ End of Report
             <div className="space-y-2">
               <Label htmlFor="device-filter">Device Filter (Optional)</Label>
               <Select
-                value={exportConfig.deviceId}
-                onValueChange={value => setExportConfig({ ...exportConfig, deviceId: value })}
+                value={exportConfig.deviceId || 'all'}
+                onValueChange={value => setExportConfig({ ...exportConfig, deviceId: value === 'all' ? null : value })}
               >
                 <SelectTrigger id="device-filter">
                   <SelectValue placeholder="All devices" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All devices</SelectItem>
+                  <SelectItem value="all">All devices</SelectItem>
                   {devices.map(device => (
                     <SelectItem key={device.id} value={device.id}>
                       {device.name} ({device.ip})

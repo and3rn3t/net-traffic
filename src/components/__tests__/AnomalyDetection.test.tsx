@@ -7,47 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { AnomalyDetection } from '@/components/AnomalyDetection';
-import { NetworkFlow, Device } from '@/lib/types';
-
-const createMockFlow = (overrides: Partial<NetworkFlow> = {}): NetworkFlow => ({
-  id: 'flow-1',
-  timestamp: Date.now(),
-  sourceIp: '192.168.1.1',
-  sourcePort: 50000,
-  destIp: '8.8.8.8',
-  destPort: 443,
-  protocol: 'HTTPS',
-  bytesIn: 1000,
-  bytesOut: 500,
-  packetsIn: 10,
-  packetsOut: 5,
-  duration: 1000,
-  status: 'active',
-  threatLevel: 'safe',
-  deviceId: 'device-1',
-  ...overrides,
-});
-
-const createMockDevice = (overrides: Partial<Device> = {}): Device => ({
-  id: 'device-1',
-  name: 'Test Device',
-  ip: '192.168.1.1',
-  mac: '00:00:00:00:00:01',
-  type: 'desktop',
-  vendor: 'Test Vendor',
-  firstSeen: Date.now() - 86400000,
-  lastSeen: Date.now(),
-  bytesTotal: 1000000,
-  connectionsCount: 10,
-  threatScore: 5,
-  behavioral: {
-    peakHours: [9, 10, 11],
-    commonPorts: [80, 443],
-    commonDomains: ['example.com'],
-    anomalyCount: 0,
-  },
-  ...overrides,
-});
+import { createMockNetworkFlow, createMockDevice } from '@/test/helpers';
 
 describe('AnomalyDetection', () => {
   describe('Rendering', () => {
@@ -59,7 +19,7 @@ describe('AnomalyDetection', () => {
     });
 
     it('should display no anomalies message when no anomalies detected', () => {
-      const flows = [createMockFlow()];
+      const flows = [createMockNetworkFlow()];
       const devices = [createMockDevice()];
       render(<AnomalyDetection flows={flows} devices={devices} />);
 
@@ -72,7 +32,7 @@ describe('AnomalyDetection', () => {
     it('should display anomalies when detected', () => {
       const device = createMockDevice({ id: 'device-1', name: 'High Traffic Device' });
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           bytesIn: 100000000, // High traffic
@@ -91,7 +51,7 @@ describe('AnomalyDetection', () => {
       const device = createMockDevice({ id: 'device-1', name: 'High Traffic Device' });
       // Create flows where one device has much higher traffic than average
       const normalFlows = Array.from({ length: 10 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-normal-${i}`,
           deviceId: 'device-2',
           bytesIn: 1000,
@@ -99,7 +59,7 @@ describe('AnomalyDetection', () => {
         })
       );
       const highTrafficFlows = Array.from({ length: 10 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-high-${i}`,
           deviceId: 'device-1',
           bytesIn: 100000000, // Very high
@@ -121,7 +81,7 @@ describe('AnomalyDetection', () => {
       nightTime.setHours(3, 0, 0, 0); // 3 AM
 
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           timestamp: nightTime.getTime() + i * 1000,
         })
@@ -135,7 +95,7 @@ describe('AnomalyDetection', () => {
 
     it('should detect potential port scanning', () => {
       const flows = Array.from({ length: 30 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           packetsOut: 200, // High packet count
           bytesOut: 5000, // Low data transfer
@@ -149,7 +109,7 @@ describe('AnomalyDetection', () => {
 
     it('should detect large data upload (exfiltration)', () => {
       const flows = [
-        createMockFlow({
+        createMockNetworkFlow({
           bytesOut: 20000000, // 20MB out
           bytesIn: 1000000, // 1MB in (5:1 ratio)
         }),
@@ -163,7 +123,7 @@ describe('AnomalyDetection', () => {
 
     it('should detect repetitive connection patterns', () => {
       const flows = Array.from({ length: 60 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           destIp: '192.168.1.100', // Same destination
@@ -181,7 +141,7 @@ describe('AnomalyDetection', () => {
     it('should display high severity for critical anomalies', () => {
       const device = createMockDevice({ id: 'device-1' });
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           bytesIn: 1000000000, // Very high traffic
@@ -197,7 +157,7 @@ describe('AnomalyDetection', () => {
     it('should display medium severity for moderate anomalies', () => {
       const device = createMockDevice({ id: 'device-1' });
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           bytesIn: 50000000, // Moderate high traffic
@@ -212,7 +172,7 @@ describe('AnomalyDetection', () => {
 
     it('should display low severity for minor anomalies', () => {
       const flows = Array.from({ length: 60 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           destIp: '192.168.1.100',
@@ -229,7 +189,7 @@ describe('AnomalyDetection', () => {
     it('should display anomaly score', () => {
       const device = createMockDevice({ id: 'device-1' });
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           bytesIn: 100000000,
@@ -248,14 +208,14 @@ describe('AnomalyDetection', () => {
       const device = createMockDevice({ id: 'device-1' });
       const flows = [
         ...Array.from({ length: 100 }, (_, i) =>
-          createMockFlow({
+          createMockNetworkFlow({
             id: `flow-high-${i}`,
             deviceId: 'device-1',
             bytesIn: 100000000,
           })
         ),
         ...Array.from({ length: 30 }, (_, i) =>
-          createMockFlow({
+          createMockNetworkFlow({
             id: `flow-scan-${i}`,
             packetsOut: 200,
             bytesOut: 5000,
@@ -274,7 +234,7 @@ describe('AnomalyDetection', () => {
       const device1 = createMockDevice({ id: 'device-1', name: 'Device One' });
       const device2 = createMockDevice({ id: 'device-2', name: 'Device Two' });
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: i < 50 ? 'device-1' : 'device-2',
           bytesIn: 100000000,
@@ -298,7 +258,7 @@ describe('AnomalyDetection', () => {
         createMockDevice({ id: `device-${i}`, name: `Device ${i}` })
       );
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: `device-${i % 5}`,
           bytesIn: 100000000,
@@ -323,7 +283,7 @@ describe('AnomalyDetection', () => {
     });
 
     it('should handle empty devices', () => {
-      render(<AnomalyDetection flows={[createMockFlow()]} devices={[]} />);
+      render(<AnomalyDetection flows={[createMockNetworkFlow()]} devices={[]} />);
 
       // Should still render, but may not show device names
       expect(screen.getByText(/anomaly detection/i)).toBeInTheDocument();
@@ -331,7 +291,7 @@ describe('AnomalyDetection', () => {
 
     it('should handle flows with no anomalies', () => {
       const flows = Array.from({ length: 10 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           bytesIn: 1000,
           bytesOut: 500,
@@ -344,7 +304,7 @@ describe('AnomalyDetection', () => {
 
     it('should handle single device with normal traffic', () => {
       const device = createMockDevice();
-      const flows = [createMockFlow({ deviceId: device.id })];
+      const flows = [createMockNetworkFlow({ deviceId: device.id })];
       render(<AnomalyDetection flows={flows} devices={[device]} />);
 
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
@@ -355,7 +315,7 @@ describe('AnomalyDetection', () => {
       const flows = [
         // High bandwidth
         ...Array.from({ length: 100 }, (_, i) =>
-          createMockFlow({
+          createMockNetworkFlow({
             id: `flow-high-${i}`,
             deviceId: 'device-1',
             bytesIn: 100000000,
@@ -363,7 +323,7 @@ describe('AnomalyDetection', () => {
         ),
         // Port scanning
         ...Array.from({ length: 30 }, (_, i) =>
-          createMockFlow({
+          createMockNetworkFlow({
             id: `flow-scan-${i}`,
             packetsOut: 200,
             bytesOut: 5000,
@@ -381,7 +341,7 @@ describe('AnomalyDetection', () => {
     it('should handle very large numbers', () => {
       const device = createMockDevice({ id: 'device-1' });
       const flows = [
-        createMockFlow({
+        createMockNetworkFlow({
           id: 'flow-1',
           deviceId: 'device-1',
           bytesOut: 1000000000, // 1GB
@@ -397,7 +357,7 @@ describe('AnomalyDetection', () => {
 
   describe('Icon Display', () => {
     it('should show check circle icon when no anomalies', () => {
-      render(<AnomalyDetection flows={[createMockFlow()]} devices={[createMockDevice()]} />);
+      render(<AnomalyDetection flows={[createMockNetworkFlow()]} devices={[createMockDevice()]} />);
 
       // Component uses CheckCircle icon when no anomalies
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
@@ -406,7 +366,7 @@ describe('AnomalyDetection', () => {
     it('should show warning icon when anomalies detected', () => {
       const device = createMockDevice({ id: 'device-1' });
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           bytesIn: 100000000,
@@ -423,7 +383,7 @@ describe('AnomalyDetection', () => {
   describe('Score Color Coding', () => {
     it('should apply correct color for low scores', () => {
       const flows = Array.from({ length: 60 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           destIp: '192.168.1.100',
@@ -441,7 +401,7 @@ describe('AnomalyDetection', () => {
     it('should apply correct color for high scores', () => {
       const device = createMockDevice({ id: 'device-1' });
       const flows = Array.from({ length: 100 }, (_, i) =>
-        createMockFlow({
+        createMockNetworkFlow({
           id: `flow-${i}`,
           deviceId: 'device-1',
           bytesIn: 1000000000,
