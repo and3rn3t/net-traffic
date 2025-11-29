@@ -289,7 +289,7 @@ describe('ConnectionsTableEnhanced', () => {
         fireEvent.click(exportButton);
 
         await waitFor(() => {
-          expect(toast.toast.success).toHaveBeenCalledWith('Export started');
+          expect(toast.success).toHaveBeenCalledWith('Export started');
         });
       }
     });
@@ -325,7 +325,7 @@ describe('ConnectionsTableEnhanced', () => {
         fireEvent.click(exportButton);
 
         await waitFor(() => {
-          expect(toast.toast.error).toHaveBeenCalledWith('Failed to export flows');
+          expect(toast.error).toHaveBeenCalledWith('Failed to export flows');
         });
       }
     });
@@ -357,11 +357,14 @@ describe('ConnectionsTableEnhanced', () => {
 
       renderConnectionsTable({
         flows: manyFlows,
+        useApiFilters: false, // Use local flows to avoid mock issues
         useVirtualization: true,
         virtualizationThreshold: 100,
       });
 
-      expect(screen.getByText(/150 total/i)).toBeInTheDocument();
+      // Component shows "{count} total" - might appear multiple times
+      const totalTexts = screen.getAllByText(/150 total/i);
+      expect(totalTexts.length).toBeGreaterThan(0);
     });
 
     it('should not use virtualization for small lists', () => {

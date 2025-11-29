@@ -169,20 +169,31 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchSummaryStats();
 
-      expect(result.current.summaryStats).toBeNull();
-      // Hook sets error message from the caught error
-      expect(result.current.error).toBeTruthy();
+      await waitFor(() => {
+        expect(result.current.summaryStats).toBeNull();
+        // Hook sets error message from the caught error
+        expect(result.current.error).toBeTruthy();
+      });
     });
 
     it('should return null when API is not available', async () => {
-      vi.mocked(import.meta.env).VITE_USE_REAL_API = 'false';
+      // Mock environment variable before hook is used
+      vi.stubEnv('VITE_USE_REAL_API', 'false');
 
-      const { result } = renderHook(() => useEnhancedAnalytics({ autoFetch: false }));
+      // Re-import the hook to get the new USE_REAL_API value
+      const { useEnhancedAnalytics: useEnhancedAnalyticsMocked } = await import(
+        '@/hooks/useEnhancedAnalytics'
+      );
+
+      const { result } = renderHook(() => useEnhancedAnalyticsMocked({ autoFetch: false }));
 
       const stats = await result.current.fetchSummaryStats();
 
       expect(stats).toBeNull();
       expect(apiClient.getSummaryStats).not.toHaveBeenCalled();
+
+      // Restore env
+      vi.unstubAllEnvs();
     });
   });
 
@@ -194,8 +205,10 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchTopDomains(20, 24);
 
-      expect(apiClient.getTopDomains).toHaveBeenCalledWith(20, 24);
-      expect(result.current.topDomains).toEqual(mockTopDomains);
+      await waitFor(() => {
+        expect(apiClient.getTopDomains).toHaveBeenCalledWith(20, 24);
+        expect(result.current.topDomains).toEqual(mockTopDomains);
+      });
     });
 
     it('should use default limit and hours', async () => {
@@ -216,8 +229,10 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchTopDomains();
 
-      expect(result.current.topDomains).toEqual([]);
-      expect(result.current.error).toBe('Failed to fetch');
+      await waitFor(() => {
+        expect(result.current.topDomains).toEqual([]);
+        expect(result.current.error).toBe('Failed to fetch');
+      });
     });
   });
 
@@ -229,8 +244,10 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchTopDevices(10, 24, 'bytes');
 
-      expect(apiClient.getTopDevices).toHaveBeenCalledWith(10, 24, 'bytes');
-      expect(result.current.topDevices).toEqual(mockTopDevices);
+      await waitFor(() => {
+        expect(apiClient.getTopDevices).toHaveBeenCalledWith(10, 24, 'bytes');
+        expect(result.current.topDevices).toEqual(mockTopDevices);
+      });
     });
 
     it('should support different sortBy options', async () => {
@@ -253,8 +270,10 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchTopDevices();
 
-      expect(result.current.topDevices).toEqual([]);
-      expect(result.current.error).toBe('Failed to fetch');
+      await waitFor(() => {
+        expect(result.current.topDevices).toEqual([]);
+        expect(result.current.error).toBe('Failed to fetch');
+      });
     });
   });
 
@@ -266,8 +285,10 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchGeographicStats(24);
 
-      expect(apiClient.getGeographicStats).toHaveBeenCalledWith(24);
-      expect(result.current.geographicStats).toEqual(mockGeographicStats);
+      await waitFor(() => {
+        expect(apiClient.getGeographicStats).toHaveBeenCalledWith(24);
+        expect(result.current.geographicStats).toEqual(mockGeographicStats);
+      });
     });
 
     it('should use default hours', async () => {
@@ -289,8 +310,10 @@ describe('useEnhancedAnalytics', () => {
 
       await result.current.fetchBandwidthTimeline(24, 5);
 
-      expect(apiClient.getBandwidthTimeline).toHaveBeenCalledWith(24, 5);
-      expect(result.current.bandwidthTimeline).toEqual(mockBandwidthTimeline);
+      await waitFor(() => {
+        expect(apiClient.getBandwidthTimeline).toHaveBeenCalledWith(24, 5);
+        expect(result.current.bandwidthTimeline).toEqual(mockBandwidthTimeline);
+      });
     });
 
     it('should use default interval', async () => {

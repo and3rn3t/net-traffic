@@ -127,7 +127,9 @@ describe('DevicesListEnhanced', () => {
     it('should display device statistics', () => {
       renderDevicesList({ devices: [mockDevice] });
       // Component shows device count badge and device details
-      expect(screen.getByText(/devices/i)).toBeInTheDocument();
+      // Use getAllByText since "devices" appears multiple times
+      const deviceTexts = screen.getAllByText(/devices/i);
+      expect(deviceTexts.length).toBeGreaterThan(0);
       expect(screen.getByText('Test Device')).toBeInTheDocument();
     });
   });
@@ -184,8 +186,12 @@ describe('DevicesListEnhanced', () => {
         fireEvent.click(editButton);
 
         await waitFor(() => {
-          const nameInput = screen.getByDisplayValue('Test Device');
+          // Input has id="device-name", find by that or by placeholder
+          const nameInput =
+            screen.getByLabelText(/device name/i) ||
+            screen.getByPlaceholderText(/enter device name/i);
           expect(nameInput).toBeInTheDocument();
+          expect((nameInput as HTMLInputElement).value).toBe('Test Device');
         });
       }
     });
@@ -202,7 +208,8 @@ describe('DevicesListEnhanced', () => {
         fireEvent.click(editButton);
 
         await waitFor(() => {
-          const nameInput = screen.getByDisplayValue('Test Device') as HTMLInputElement;
+          const nameInput = (screen.getByLabelText(/device name/i) ||
+            screen.getByPlaceholderText(/enter device name/i)) as HTMLInputElement;
           fireEvent.change(nameInput, { target: { value: 'Updated Device' } });
           expect(nameInput.value).toBe('Updated Device');
         });

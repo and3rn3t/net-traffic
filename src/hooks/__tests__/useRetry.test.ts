@@ -94,6 +94,9 @@ describe('useRetry', () => {
 
       expect(error).toBeDefined();
       expect(operation).toHaveBeenCalledTimes(4); // Initial + 3 retries
+
+      // Ensure promise rejection is handled
+      await new Promise(resolve => setTimeout(resolve, 0));
     });
 
     it('should use exponential backoff for delays', async () => {
@@ -112,6 +115,9 @@ describe('useRetry', () => {
           // Expected to fail
         }
       });
+
+      // Ensure promise rejection is handled
+      await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(onRetry).toHaveBeenCalledTimes(2);
       // First retry delay: 100ms
@@ -174,6 +180,9 @@ describe('useRetry', () => {
         }
       });
 
+      // Ensure promise rejection is handled
+      await new Promise(resolve => setTimeout(resolve, 0));
+
       expect(onMaxRetriesReached).toHaveBeenCalledTimes(1);
     });
   });
@@ -228,6 +237,9 @@ describe('useRetry', () => {
         }
       });
 
+      // Ensure promise rejection is handled
+      await new Promise(resolve => setTimeout(resolve, 0));
+
       expect(result.current.isRetrying).toBe(false);
       expect(result.current.retryCount).toBe(0);
     });
@@ -255,6 +267,9 @@ describe('useRetry', () => {
           // Expected to fail
         }
       });
+
+      // Ensure promise rejection is handled
+      await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(result.current.isRetrying).toBe(false);
       expect(result.current.retryCount).toBe(0);

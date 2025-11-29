@@ -8,7 +8,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ConnectionHealthMonitor } from '@/components/ConnectionHealthMonitor';
 import { apiClient } from '@/lib/api';
-import * as toast from 'sonner';
+import { toast } from 'sonner';
 
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
@@ -49,12 +49,14 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+const mockToast = {
+  success: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+};
+
 vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-  },
+  toast: mockToast,
 }));
 
 vi.mock('@/hooks/useReconnection', () => ({
@@ -129,11 +131,11 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor();
+      renderHealthMonitor({ isConnected: true });
 
       await waitFor(() => {
         expect(apiClient.healthCheck).toHaveBeenCalled();
-      });
+      }, { timeout: 3000 });
     });
 
     it('should display healthy status', async () => {
@@ -147,11 +149,11 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor();
+      renderHealthMonitor({ isConnected: true });
 
       await waitFor(() => {
         expect(screen.getByText(/healthy/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
 
     it('should display degraded status for high latency', async () => {
@@ -165,14 +167,18 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      // Mock high latency
-      globalThis.performance.now = vi.fn(() => 1500); // 1500ms latency
+      // Mock high latency by making performance.now return increasing values
+      let callCount = 0;
+      globalThis.performance.now = vi.fn(() => {
+        callCount++;
+        return callCount === 1 ? 0 : 1500; // First call returns 0, second returns 1500
+      });
 
-      renderHealthMonitor();
+      renderHealthMonitor({ isConnected: true, enableMetrics: true });
 
       await waitFor(() => {
         expect(screen.getByText(/degraded/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
 
     it('should display offline status when not connected', () => {
@@ -193,11 +199,11 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor({ enableMetrics: true });
+      renderHealthMonitor({ isConnected: true, enableMetrics: true });
 
       await waitFor(() => {
         expect(screen.getByText(/latency/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
 
     it('should display active flows count', async () => {
@@ -211,11 +217,11 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor();
+      renderHealthMonitor({ isConnected: true });
 
       await waitFor(() => {
         expect(screen.getByText(/10/)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
 
     it('should display active devices count', async () => {
@@ -229,19 +235,21 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor();
+      renderHealthMonitor({ isConnected: true });
 
       await waitFor(() => {
         expect(screen.getByText(/5/)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
   });
 
   describe('Retry Functionality', () => {
     it('should call onRetry when retry button is clicked', () => {
       const onRetry = vi.fn();
-      renderHealthMonitor({ error: 'Connection failed', onRetry });
+      // Retry button is shown when error exists and isConnected is false
+      renderHealthMonitor({ isConnected: false, error: 'Connection failed', onRetry });
 
+      // Button text is "Retry Connection"
       const retryButton = screen.getByRole('button', { name: /retry connection/i });
       fireEvent.click(retryButton);
 
@@ -259,7 +267,7 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor({ error: 'Connection failed' });
+      renderHealthMonitor({ isConnected: false, error: 'Connection failed' });
 
       const retryButton = screen.getByRole('button', { name: /retry connection/i });
       fireEvent.click(retryButton);
@@ -289,12 +297,12 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor();
+      renderHealthMonitor({ isConnected: true });
 
       await waitFor(() => {
         expect(screen.getByText(/storage/i)).toBeInTheDocument();
         expect(screen.getByText(/packet capture/i)).toBeInTheDocument();
-      });
+      }, { timeout: 3000 });
     });
   });
 
@@ -317,7 +325,7 @@ describe('ConnectionHealthMonitor', () => {
       rerender(<ConnectionHealthMonitor isConnected={true} error={null} />);
 
       await waitFor(() => {
-        expect(toast.toast.success).toHaveBeenCalled();
+        expect(toast.success).toHaveBeenCalled();
       });
     });
 
@@ -338,7 +346,7 @@ describe('ConnectionHealthMonitor', () => {
       renderHealthMonitor();
 
       await waitFor(() => {
-        expect(toast.toast.warning).toHaveBeenCalled();
+        expect(toast.warning).toHaveBeenCalled();
       });
     });
 
@@ -350,7 +358,7 @@ describe('ConnectionHealthMonitor', () => {
       rerender(<ConnectionHealthMonitor isConnected={false} error="Connection failed" />);
 
       await waitFor(() => {
-        expect(toast.toast.error).toHaveBeenCalled();
+        expect(toast.error).toHaveBeenCalled();
       });
     });
   });

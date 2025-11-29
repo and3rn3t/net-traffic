@@ -42,7 +42,8 @@ describe('AnomalyDetection', () => {
       render(<AnomalyDetection flows={flows} devices={[device]} />);
 
       expect(screen.queryByText(/no anomalies detected/i)).not.toBeInTheDocument();
-      expect(screen.getByText(/excessive bandwidth/i)).toBeInTheDocument();
+      // Component shows "Excessive Bandwidth" (capitalized) as the type
+      expect(screen.getByText(/Excessive Bandwidth/i)).toBeInTheDocument();
     });
   });
 
@@ -71,14 +72,10 @@ describe('AnomalyDetection', () => {
 
       render(<AnomalyDetection flows={flows} devices={devices} />);
 
-      expect(screen.getByText(/excessive bandwidth/i)).toBeInTheDocument();
-      // Component shows device name in description, not as separate text
-      // Check for the device name or "Excessive Bandwidth" type
-      expect(
-        screen.getByText(/high traffic device/i) ||
-          screen.getByText(/excessive bandwidth/i) ||
-          screen.getByText(/consuming/i)
-      ).toBeTruthy();
+      // Component shows "Excessive Bandwidth" (capitalized) as the type
+      expect(screen.getByText(/Excessive Bandwidth/i)).toBeInTheDocument();
+      // Device name appears in the description
+      expect(screen.getByText(/High Traffic Device/i)).toBeInTheDocument();
     });
 
     it('should detect unusual activity hours', () => {
@@ -174,7 +171,9 @@ describe('AnomalyDetection', () => {
 
       render(<AnomalyDetection flows={flows} devices={[device]} />);
 
-      expect(screen.getByText(/MEDIUM/i)).toBeInTheDocument();
+      // Component shows severity badge with uppercase text like "MEDIUM"
+      const mediumBadges = screen.getAllByText(/MEDIUM/i);
+      expect(mediumBadges.length).toBeGreaterThan(0);
     });
 
     it('should display low severity for minor anomalies', () => {
@@ -250,15 +249,14 @@ describe('AnomalyDetection', () => {
 
       render(<AnomalyDetection flows={flows} devices={[device1, device2]} />);
 
-      // Should show affected devices text - component shows "Affected: {device names}"
-      const affectedText = screen.queryByText(/affected/i);
+      // Component shows "Affected: {device names}" or device names in description
+      const affectedText = screen.queryByText(/Affected:/i);
       if (affectedText) {
         expect(affectedText).toBeInTheDocument();
-      } else {
-        // Alternative: check if device names or anomaly description are shown
-        // Component shows device name in description like "Device 1 consuming XMB"
-        expect(screen.getByText(/device 1/i)).toBeInTheDocument();
       }
+      // Device names should appear either in "Affected:" text or in description
+      // Device name is "Device One" (capitalized)
+      expect(screen.getByText(/Device One/i)).toBeInTheDocument();
     });
 
     it('should limit displayed device names to 3', () => {

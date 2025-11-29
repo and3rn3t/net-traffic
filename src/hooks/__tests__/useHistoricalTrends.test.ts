@@ -326,6 +326,10 @@ describe('useHistoricalTrends', () => {
     it('should update time range', () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
 
+      // Ensure hook is initialized
+      expect(result.current).toBeDefined();
+      expect(result.current.updateTimeRange).toBeDefined();
+
       act(() => {
         result.current.updateTimeRange('7d');
       });
@@ -356,6 +360,10 @@ describe('useHistoricalTrends', () => {
 
     it('should not fetch data when time range is updated with autoFetch disabled', async () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
+
+      // Ensure hook is initialized
+      expect(result.current).toBeDefined();
+      expect(result.current.updateTimeRange).toBeDefined();
 
       act(() => {
         result.current.updateTimeRange('7d');

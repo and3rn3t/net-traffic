@@ -225,7 +225,8 @@ describe('SearchBar', () => {
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
       await waitFor(() => {
-        expect(screen.getByText(/searching\.\.\./i)).toBeInTheDocument();
+        // Component shows "Searching..." (capital S, three dots)
+        expect(screen.getByText(/Searching\.\.\./i)).toBeInTheDocument();
       });
 
       // Resolve the promise
@@ -305,7 +306,8 @@ describe('SearchBar', () => {
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
       await waitFor(() => {
-        expect(screen.getByText(/no results found/i)).toBeInTheDocument();
+        // Component shows "No results found" (capital N)
+        expect(screen.getByText(/No results found/i)).toBeInTheDocument();
       });
     });
 
@@ -319,7 +321,8 @@ describe('SearchBar', () => {
       fireEvent.change(input, { target: { value: 'test' } });
 
       await waitFor(() => {
-        expect(toast.toast.error).toHaveBeenCalledWith('Search failed', {
+        // Component uses toast.error directly, not toast.toast.error
+        expect(toast.error).toHaveBeenCalledWith('Search failed', {
           description: 'API Error',
         });
       });
@@ -424,8 +427,16 @@ describe('SearchBar', () => {
         expect(screen.getByText(/search results/i)).toBeInTheDocument();
       });
 
-      const closeButton = screen.getByRole('button', { name: /close/i });
-      fireEvent.click(closeButton);
+      // There might be multiple close buttons, find the one in the dialog
+      const closeButtons = screen.getAllByRole('button', { name: /close/i });
+      const dialogCloseButton = closeButtons.find(
+        btn => btn.closest('[role="dialog"]') || btn.textContent === 'Close'
+      );
+      if (dialogCloseButton) {
+        fireEvent.click(dialogCloseButton);
+      } else if (closeButtons.length > 0) {
+        fireEvent.click(closeButtons[0]);
+      }
 
       await waitFor(() => {
         expect(screen.queryByText(/search results/i)).not.toBeInTheDocument();
