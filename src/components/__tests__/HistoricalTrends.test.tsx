@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { HistoricalTrends } from '@/components/HistoricalTrends';
 import { AnalyticsData } from '@/lib/types';
 
@@ -121,10 +121,19 @@ describe('HistoricalTrends', () => {
 
       render(<HistoricalTrends />);
 
+      // Wait for component to render
+      await waitFor(() => {
+        const tab1h = screen.getByText('1h');
+        expect(tab1h).toBeInTheDocument();
+      });
+
       const tab1h = screen.getByText('1h');
       fireEvent.click(tab1h);
 
-      expect(updateTimeRange).toHaveBeenCalledWith('1h');
+      // Wait for the click to be processed
+      await waitFor(() => {
+        expect(updateTimeRange).toHaveBeenCalledWith('1h');
+      });
     });
 
     it('should display active time range', () => {

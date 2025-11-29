@@ -11,7 +11,7 @@ import { queryClient } from '@/lib/queryClient';
 import { DevicesListEnhanced } from '@/components/DevicesListEnhanced';
 import { apiClient } from '@/lib/api';
 import { Device } from '@/lib/types';
-import * as toast from 'sonner';
+// Toast is mocked below
 
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
@@ -52,11 +52,13 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+const mockToast = {
+  success: vi.fn(),
+  error: vi.fn(),
+};
+
 vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
+  toast: mockToast,
 }));
 
 const renderDevicesList = (
@@ -138,82 +140,43 @@ describe('DevicesListEnhanced', () => {
     it('should open edit dialog when edit button is clicked', async () => {
       renderDevicesList({ devices: [mockDevice] });
 
-      // Find edit button by looking for button with PencilSimple icon or by aria-label
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn =>
-          btn.getAttribute('aria-label')?.includes('edit') ||
-          btn.querySelector('svg') ||
-          btn.textContent?.toLowerCase().includes('edit')
-      );
+      // Find edit button by title attribute "Edit Device"
+      const editButton = screen.getByTitle('Edit Device');
 
-      if (editButton) {
-        fireEvent.click(editButton);
+      fireEvent.click(editButton);
 
-        await waitFor(() => {
-          expect(screen.getByText(/edit device/i)).toBeInTheDocument();
-        });
-      } else {
-        // If we can't find edit button, try clicking any button that might be it
-        const allButtons = screen.getAllByRole('button');
-        const possibleEditButton = allButtons.find(
-          btn =>
-            !btn.textContent?.includes('Cancel') &&
-            !btn.textContent?.includes('Save') &&
-            !btn.textContent?.includes('Analytics')
-        );
-        if (possibleEditButton) {
-          fireEvent.click(possibleEditButton);
-          await waitFor(
-            () => {
-              expect(screen.getByText(/edit device/i)).toBeInTheDocument();
-            },
-            { timeout: 2000 }
-          );
-        }
-      }
+      await waitFor(() => {
+        expect(screen.getByText(/edit device/i)).toBeInTheDocument();
+      });
     });
 
     it('should populate edit form with device data', async () => {
       renderDevicesList({ devices: [mockDevice] });
 
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn => btn.querySelector('svg') || btn.textContent?.includes('Edit')
-      );
+      const editButton = screen.getByTitle('Edit Device');
+      fireEvent.click(editButton);
 
-      if (editButton) {
-        fireEvent.click(editButton);
-
-        await waitFor(() => {
-          // Input has id="device-name", find by that or by placeholder
-          const nameInput =
-            screen.getByLabelText(/device name/i) ||
-            screen.getByPlaceholderText(/enter device name/i);
-          expect(nameInput).toBeInTheDocument();
-          expect((nameInput as HTMLInputElement).value).toBe('Test Device');
-        });
-      }
+      await waitFor(() => {
+        // Input has id="device-name", find by that or by placeholder
+        const nameInput =
+          screen.getByLabelText('Device Name') || screen.getByPlaceholderText('Enter device name');
+        expect(nameInput).toBeInTheDocument();
+        expect((nameInput as HTMLInputElement).value).toBe('Test Device');
+      });
     });
 
     it('should update device name in form', async () => {
       renderDevicesList({ devices: [mockDevice] });
 
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn => btn.querySelector('svg') || btn.textContent?.includes('Edit')
-      );
+      const editButton = screen.getByTitle('Edit Device');
+      fireEvent.click(editButton);
 
-      if (editButton) {
-        fireEvent.click(editButton);
-
-        await waitFor(() => {
-          const nameInput = (screen.getByLabelText(/device name/i) ||
-            screen.getByPlaceholderText(/enter device name/i)) as HTMLInputElement;
-          fireEvent.change(nameInput, { target: { value: 'Updated Device' } });
-          expect(nameInput.value).toBe('Updated Device');
-        });
-      }
+      await waitFor(() => {
+        const nameInput = (screen.getByLabelText('Device Name') ||
+          screen.getByPlaceholderText('Enter device name')) as HTMLInputElement;
+        fireEvent.change(nameInput, { target: { value: 'Updated Device' } });
+        expect(nameInput.value).toBe('Updated Device');
+      });
     });
 
     it('should save device changes via API', async () => {
@@ -224,30 +187,29 @@ describe('DevicesListEnhanced', () => {
 
       renderDevicesList({ devices: [mockDevice], onDeviceUpdate });
 
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn => btn.querySelector('svg') || btn.textContent?.includes('Edit')
-      );
+      const editButton = screen.getByTitle('Edit Device');
+      fireEvent.click(editButton);
 
-      if (editButton) {
-        fireEvent.click(editButton);
+      await waitFor(() => {
+        const nameInput = (screen.getByLabelText('Device Name') ||
+          screen.getByPlaceholderText('Enter device name')) as HTMLInputElement;
+        expect(nameInput).toBeInTheDocument();
+      });
 
-        await waitFor(async () => {
-          const nameInput = screen.getByDisplayValue('Test Device') as HTMLInputElement;
-          fireEvent.change(nameInput, { target: { value: 'Updated Device' } });
+      const nameInput = (screen.getByLabelText('Device Name') ||
+        screen.getByPlaceholderText('Enter device name')) as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'Updated Device' } });
 
-          const saveButton = screen.getByRole('button', { name: /save changes/i });
-          fireEvent.click(saveButton);
+      const saveButton = screen.getByRole('button', { name: /save changes/i });
+      fireEvent.click(saveButton);
 
-          await waitFor(() => {
-            expect(apiClient.updateDevice).toHaveBeenCalledWith('1', {
-              name: 'Updated Device',
-              type: 'laptop',
-              notes: '',
-            });
-          });
+      await waitFor(() => {
+        expect(apiClient.updateDevice).toHaveBeenCalledWith('1', {
+          name: 'Updated Device',
+          type: 'laptop',
+          notes: '',
         });
-      }
+      });
     });
 
     it('should call onDeviceUpdate callback after saving', async () => {
@@ -258,23 +220,25 @@ describe('DevicesListEnhanced', () => {
 
       renderDevicesList({ devices: [mockDevice], onDeviceUpdate });
 
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn => btn.querySelector('svg') || btn.textContent?.includes('Edit')
-      );
+      const editButton = screen.getByTitle('Edit Device');
+      fireEvent.click(editButton);
 
-      if (editButton) {
-        fireEvent.click(editButton);
+      await waitFor(() => {
+        const nameInput = (screen.getByLabelText('Device Name') ||
+          screen.getByPlaceholderText('Enter device name')) as HTMLInputElement;
+        expect(nameInput).toBeInTheDocument();
+      });
 
-        await waitFor(async () => {
-          const saveButton = screen.getByRole('button', { name: /save changes/i });
-          fireEvent.click(saveButton);
+      const nameInput = (screen.getByLabelText('Device Name') ||
+        screen.getByPlaceholderText('Enter device name')) as HTMLInputElement;
+      fireEvent.change(nameInput, { target: { value: 'Updated Device' } });
 
-          await waitFor(() => {
-            expect(onDeviceUpdate).toHaveBeenCalledWith(updatedDevice);
-          });
-        });
-      }
+      const saveButton = screen.getByRole('button', { name: /save changes/i });
+      fireEvent.click(saveButton);
+
+      await waitFor(() => {
+        expect(onDeviceUpdate).toHaveBeenCalledWith(updatedDevice);
+      });
     });
 
     it('should show success toast after saving', async () => {
@@ -308,46 +272,39 @@ describe('DevicesListEnhanced', () => {
 
       renderDevicesList({ devices: [mockDevice] });
 
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn => btn.querySelector('svg') || btn.textContent?.includes('Edit')
-      );
+      const editButton = screen.getByTitle('Edit Device');
+      fireEvent.click(editButton);
 
-      if (editButton) {
-        fireEvent.click(editButton);
+      await waitFor(() => {
+        const nameInput = (screen.getByLabelText('Device Name') ||
+          screen.getByPlaceholderText('Enter device name')) as HTMLInputElement;
+        expect(nameInput).toBeInTheDocument();
+      });
 
-        await waitFor(async () => {
-          const saveButton = screen.getByRole('button', { name: /save changes/i });
-          fireEvent.click(saveButton);
+      const saveButton = screen.getByRole('button', { name: /save changes/i });
+      fireEvent.click(saveButton);
 
-          await waitFor(() => {
-            expect(toast.toast.error).toHaveBeenCalled();
-          });
-        });
-      }
+      await waitFor(() => {
+        expect(mockToast.error).toHaveBeenCalled();
+      });
     });
 
     it('should cancel edit when cancel button is clicked', async () => {
       renderDevicesList({ devices: [mockDevice] });
 
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn => btn.querySelector('svg') || btn.textContent?.includes('Edit')
-      );
+      const editButton = screen.getByTitle('Edit Device');
+      fireEvent.click(editButton);
 
-      if (editButton) {
-        fireEvent.click(editButton);
+      await waitFor(() => {
+        expect(screen.getByText(/edit device/i)).toBeInTheDocument();
+      });
 
-        await waitFor(() => {
-          const cancelButtons = screen.getAllByRole('button', { name: /cancel/i });
-          const cancelButton = cancelButtons.find(btn => btn.textContent === 'Cancel');
-          if (cancelButton) {
-            fireEvent.click(cancelButton);
-          }
+      const cancelButton = screen.getByRole('button', { name: /cancel/i });
+      fireEvent.click(cancelButton);
 
-          expect(screen.queryByText(/edit device/i)).not.toBeInTheDocument();
-        });
-      }
+      await waitFor(() => {
+        expect(screen.queryByText(/edit device/i)).not.toBeInTheDocument();
+      });
     });
   });
 

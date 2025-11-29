@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 // Component that throws an error
@@ -121,14 +121,11 @@ describe('ErrorBoundary', () => {
       const tryAgainButton = screen.getByRole('button', { name: /try again/i });
       fireEvent.click(tryAgainButton);
 
-      // After reset, should render children again
-      rerender(
-        <ErrorBoundary>
-          <ThrowError shouldThrow={false} />
-        </ErrorBoundary>
-      );
-
-      expect(screen.queryByText(/component error/i)).not.toBeInTheDocument();
+      // Wait for reset to complete
+      await waitFor(() => {
+        // After reset, should render children again
+        expect(screen.queryByText(/component error/i)).not.toBeInTheDocument();
+      }, { timeout: 2000 });
     });
 
     it('should reset when resetKeys change', () => {

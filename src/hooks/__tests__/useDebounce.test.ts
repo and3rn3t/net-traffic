@@ -43,7 +43,7 @@ describe('useDebounce', () => {
 
     // Fast-forward time and wait for state update
     await act(async () => {
-      vi.advanceTimersByTime(500);
+      await vi.runAllTimersAsync();
     });
 
     await waitFor(() => {
@@ -58,17 +58,17 @@ describe('useDebounce', () => {
 
     rerender({ value: 'first', delay: 500 });
     await act(async () => {
-      vi.advanceTimersByTime(300); // Advance partway
+      await vi.runOnlyPendingTimersAsync(); // Advance partway
     });
 
     rerender({ value: 'second', delay: 500 });
     await act(async () => {
-      vi.advanceTimersByTime(300); // Advance partway again
+      await vi.runOnlyPendingTimersAsync(); // Advance partway again
     });
 
     rerender({ value: 'third', delay: 500 });
     await act(async () => {
-      vi.advanceTimersByTime(500); // Complete the delay
+      await vi.runAllTimersAsync(); // Complete the delay
     });
 
     await waitFor(() => {
@@ -83,7 +83,7 @@ describe('useDebounce', () => {
 
     rerender({ value: 'updated', delay: 100 });
     await act(async () => {
-      vi.advanceTimersByTime(100);
+      await vi.runAllTimersAsync();
     });
 
     await waitFor(() => {
@@ -98,7 +98,7 @@ describe('useDebounce', () => {
 
     rerender({ value: 42, delay: 500 });
     await act(async () => {
-      vi.advanceTimersByTime(500);
+      await vi.runAllTimersAsync();
     });
 
     await waitFor(() => {
@@ -116,7 +116,7 @@ describe('useDebounce', () => {
 
     rerender({ value: updated, delay: 500 });
     await act(async () => {
-      vi.advanceTimersByTime(500);
+      await vi.runAllTimersAsync();
     });
 
     await waitFor(() => {

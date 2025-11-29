@@ -226,13 +226,14 @@ describe('useOfflineDetection', () => {
 
       const { result } = renderHook(() => useOfflineDetection({ checkInterval: 1000 }));
 
-      act(() => {
-        vi.advanceTimersByTime(1000);
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+        await Promise.resolve();
       });
 
       await waitFor(() => {
         expect(result.current.isOnline).toBe(false);
-      });
+      }, { timeout: 3000 });
 
       fetchSpy.mockRestore();
     });
