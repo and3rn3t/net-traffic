@@ -12,6 +12,7 @@ import { ConnectionsTableEnhanced } from '@/components/ConnectionsTableEnhanced'
 import { NetworkFlow, Device } from '@/lib/types';
 import { apiClient } from '@/lib/api';
 import * as toast from 'sonner';
+import { createDefaultFlowFilters } from '@/test/helpers';
 
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
@@ -27,20 +28,31 @@ vi.mock('sonner', () => ({
   },
 }));
 
+const defaultFilters = {
+  protocols: [],
+  status: null,
+  threatLevel: null,
+  sourceIp: '',
+  destIp: '',
+  startTime: null,
+  endTime: null,
+  minBytes: null,
+  deviceId: null,
+  timeRangePreset: null,
+  countries: [],
+  cities: [],
+  applications: [],
+  minRtt: null,
+  maxRtt: null,
+  maxJitter: null,
+  maxRetransmissions: null,
+  sni: '',
+  connectionStates: [],
+};
+
 vi.mock('@/hooks/useFlowFilters', () => ({
   useFlowFilters: vi.fn(() => ({
-    filters: {
-      protocols: [],
-      status: null,
-      threatLevel: null,
-      sourceIp: '',
-      destIp: '',
-      startTime: null,
-      endTime: null,
-      minBytes: null,
-      deviceId: null,
-      timeRangePreset: null,
-    },
+    filters: defaultFilters,
     filteredFlows: [],
     isLoading: false,
     error: null,
@@ -178,25 +190,10 @@ describe('ConnectionsTableEnhanced', () => {
       const { useFlowFilters } = await import('@/hooks/useFlowFilters');
       vi.mocked(useFlowFilters).mockReturnValue({
         filters: {
-          protocols: [],
-          status: null,
-          threatLevel: null,
-          sourceIp: '',
-          destIp: '',
+          ...createDefaultFlowFilters(),
           startTime: 1000,
           endTime: 2000,
-          minBytes: null,
           deviceId: '1',
-          timeRangePreset: null,
-          countries: [],
-          cities: [],
-          applications: [],
-          minRtt: null,
-          maxRtt: null,
-          maxJitter: null,
-          maxRetransmissions: null,
-          sni: '',
-          connectionStates: [],
         },
         filteredFlows: [mockFlow],
         isLoading: false,
@@ -232,27 +229,7 @@ describe('ConnectionsTableEnhanced', () => {
 
       const { useFlowFilters } = await import('@/hooks/useFlowFilters');
       vi.mocked(useFlowFilters).mockReturnValue({
-        filters: {
-          protocols: [],
-          status: null,
-          threatLevel: null,
-          sourceIp: '',
-          destIp: '',
-          startTime: null,
-          endTime: null,
-          minBytes: null,
-          deviceId: null,
-          timeRangePreset: null,
-          countries: [],
-          cities: [],
-          applications: [],
-          minRtt: null,
-          maxRtt: null,
-          maxJitter: null,
-          maxRetransmissions: null,
-          sni: '',
-          connectionStates: [],
-        },
+        filters: createDefaultFlowFilters(),
         filteredFlows: [mockFlow],
         isLoading: false,
         error: null,
@@ -288,27 +265,7 @@ describe('ConnectionsTableEnhanced', () => {
 
       const { useFlowFilters } = await import('@/hooks/useFlowFilters');
       vi.mocked(useFlowFilters).mockReturnValue({
-        filters: {
-          protocols: [],
-          status: null,
-          threatLevel: null,
-          sourceIp: '',
-          destIp: '',
-          startTime: null,
-          endTime: null,
-          minBytes: null,
-          deviceId: null,
-          timeRangePreset: null,
-          countries: [],
-          cities: [],
-          applications: [],
-          minRtt: null,
-          maxRtt: null,
-          maxJitter: null,
-          maxRetransmissions: null,
-          sni: '',
-          connectionStates: [],
-        },
+        filters: createDefaultFlowFilters(),
         filteredFlows: [mockFlow],
         isLoading: false,
         error: null,

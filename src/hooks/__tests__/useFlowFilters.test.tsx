@@ -10,6 +10,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { useFlowFilters } from '@/hooks/useFlowFilters';
 import { apiClient } from '@/lib/api';
+import { createDefaultFlowFilters } from '@/test/helpers';
 import type { FlowFilters } from '@/components/FlowFilters';
 
 // Mock dependencies
@@ -196,25 +197,10 @@ describe('useFlowFilters', () => {
       const { result } = renderHook(() => useFlowFilters(), { wrapper });
 
       const presetFilters: FlowFilters = {
+        ...createDefaultFlowFilters(),
         protocols: ['UDP'],
         status: 'closed',
         threatLevel: 'low',
-        sourceIp: '',
-        destIp: '',
-        startTime: null,
-        endTime: null,
-        minBytes: null,
-        deviceId: null,
-        timeRangePreset: null,
-        countries: [],
-        cities: [],
-        applications: [],
-        minRtt: null,
-        maxRtt: null,
-        maxJitter: null,
-        maxRetransmissions: null,
-        sni: '',
-        connectionStates: [],
       };
 
       act(() => {

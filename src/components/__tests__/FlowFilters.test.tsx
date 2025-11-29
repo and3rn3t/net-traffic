@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FlowFiltersComponent, FlowFilters } from '@/components/FlowFilters';
+import { createDefaultFlowFilters } from '@/test/helpers';
 
 // Mock dependencies
 vi.mock('@phosphor-icons/react', () => ({
@@ -14,31 +15,9 @@ vi.mock('@phosphor-icons/react', () => ({
   X: () => <div data-testid="x-icon">X</div>,
 }));
 
-const createDefaultFilters = (): FlowFilters => ({
-  protocols: [],
-  status: null,
-  threatLevel: null,
-  sourceIp: '',
-  destIp: '',
-  startTime: null,
-  endTime: null,
-  minBytes: null,
-  deviceId: null,
-  timeRangePreset: null,
-  countries: [],
-  cities: [],
-  applications: [],
-  minRtt: null,
-  maxRtt: null,
-  maxJitter: null,
-  maxRetransmissions: null,
-  sni: '',
-  connectionStates: [],
-});
-
 const renderFlowFilters = (props = {}) => {
   const defaultProps = {
-    filters: createDefaultFilters(),
+    filters: createDefaultFlowFilters(),
     onFiltersChange: vi.fn(),
     onApply: vi.fn(),
     onClear: vi.fn(),
@@ -65,7 +44,7 @@ describe('FlowFiltersComponent', () => {
 
     it('should show active filter count badge', () => {
       const filters: FlowFilters = {
-        ...createDefaultFilters(),
+        ...createDefaultFlowFilters(),
         protocols: ['TCP', 'UDP'],
         status: 'active',
       };
@@ -195,7 +174,7 @@ describe('FlowFiltersComponent', () => {
       const onClear = vi.fn();
       const onFiltersChange = vi.fn();
       const filters: FlowFilters = {
-        ...createDefaultFilters(),
+        ...createDefaultFlowFilters(),
         protocols: ['TCP'],
         status: 'active',
         threatLevel: 'high',
@@ -307,7 +286,7 @@ describe('FlowFiltersComponent', () => {
   describe('Active Filter Count', () => {
     it('should calculate active filter count correctly', () => {
       const filters: FlowFilters = {
-        ...createDefaultFilters(),
+        ...createDefaultFlowFilters(),
         protocols: ['TCP', 'UDP'],
         status: 'active',
         threatLevel: 'high',
