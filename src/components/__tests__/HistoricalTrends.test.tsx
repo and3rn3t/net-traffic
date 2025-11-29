@@ -233,10 +233,10 @@ describe('HistoricalTrends', () => {
         refresh: vi.fn(),
       });
 
-      render(<HistoricalTrends useApi={true} />);
+      const { container } = render(<HistoricalTrends useApi={true} />);
 
       // Should show skeleton loaders - Skeleton uses data-slot="skeleton"
-      const skeletons = screen.container.querySelectorAll('[data-slot="skeleton"]');
+      const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
       expect(skeletons.length).toBeGreaterThan(0);
     });
 
@@ -361,8 +361,12 @@ describe('HistoricalTrends', () => {
 
       // Refresh button only has an icon (ArrowClockwise), find by finding button with svg
       const refreshButtons = screen.getAllByRole('button');
-      const refreshButton = refreshButtons.find(btn => btn.querySelector('svg'));
-      if (refreshButton && !refreshButton.disabled) {
+      const refreshButton = refreshButtons.find(btn => {
+        const hasSvg = btn.querySelector('svg');
+        const isDisabled = btn.hasAttribute('disabled') || (btn as HTMLButtonElement).disabled;
+        return hasSvg && !isDisabled;
+      });
+      if (refreshButton) {
         fireEvent.click(refreshButton);
       } else {
         // If not found, the button might be disabled or not rendered
