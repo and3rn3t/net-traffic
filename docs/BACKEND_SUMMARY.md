@@ -127,6 +127,38 @@ Follow `INTEGRATION_GUIDE.md`:
 ✅ **Raspberry Pi 5 optimized** - runs efficiently on Pi hardware
 ✅ **Easy integration** - drop-in replacement for mock data
 
+## Completed Backend Improvements (December 2024)
+
+This section consolidates the major backend improvements that were previously documented across several `*_COMPLETE.md` files. Use this as the single high-level reference; see the linked docs in `docs/` for full implementation details.
+
+- **Packet capture race condition fix**
+  - **Docs**: `RACE_CONDITION_FIX.md`, `BACKEND_IMPROVEMENTS.md` (items #1/#3)
+  - **Summary**: Added `asyncio.Lock`-based locking around `_active_flows` and DNS cache in `packet_capture.py`, making flow tracking thread-safe under high packet volume.
+
+- **WebSocket reliability & database connection management**
+  - **Docs**: `WEBSOCKET_DB_IMPROVEMENTS.md`
+  - **Summary**: Improved `notify_clients()` error classification and retry logic; added connection health checks, reconnection with backoff, and retry wrappers in `storage.py` for more resilient persistence.
+
+- **Centralized exception handling**
+  - **Docs**: `EXCEPTION_HANDLING_COMPLETE.md`
+  - **Summary**: Introduced `backend/utils/error_handler.py` and wrapped all endpoints with `handle_endpoint_error()` to provide consistent HTTP errors, structured logging, and safe WebSocket notifications.
+
+- **Comprehensive input validation**
+  - **Docs**: `INPUT_VALIDATION_COMPLETE.md`
+  - **Summary**: Added `backend/utils/validators.py` and FastAPI `Query`/`Path` constraints for all endpoints (limits, offsets, IPs, enums, time ranges, etc.), significantly hardening the API against bad input.
+
+- **Request logging middleware**
+  - **Docs**: `REQUEST_LOGGING_COMPLETE.md`
+  - **Summary**: Added `RequestLoggingMiddleware` with structured logging, request IDs, duration metrics, and per-status log levels; integrated at the top of the FastAPI middleware stack for full request coverage.
+
+- **Threat search and indexing optimizations**
+  - **Docs**: `SEARCH_OPTIMIZATION_COMPLETE.md`
+  - **Summary**: Moved threat search to database-level `search_threats()` queries with appropriate indexes on devices, flows, and threats, reducing memory usage and drastically improving search latency.
+
+- **Critical fixes and code-quality cleanup**
+  - **Docs**: `CRITICAL_FIXES_COMPLETE.md`
+  - **Summary**: Fixed Docker healthcheck formatting and long-line violations in `backend/main.py`, improving Docker reliability and PEP 8 compliance.
+
 ## Next Steps
 
 1. **Enhanced Threat Detection**

@@ -184,6 +184,24 @@ src/
 
 See `src/test/README.md` for detailed testing guidelines and best practices.
 
+## Testing Status & History
+
+For a high-level view of what tests exist and when they were added:
+
+- **Unit tests**
+  - See `UNIT_TESTING_SUMMARY.md` for a consolidated list of all unit test files, coverage focus (components + hooks), and CI integration details.
+
+- **E2E Playwright tests**
+  - `E2E_TESTING_COMPLETE.md` – Summary of the Playwright configuration, helpers, and initial E2E suites that were created.
+  - `E2E_TESTS_ADDED.md` – Details of additional E2E suites added for devices, threats, filters, export, visualizations, error handling, and connections table.
+  - `PLAYWRIGHT_INSTALLATION_COMPLETE.md` – Verification that browsers and test discovery are fully set up on the target environment.
+
+In day-to-day work, you can treat this file (`TESTING_SETUP.md`) as the **entry point** for testing, and use:
+
+- `UNIT_TESTING_SUMMARY.md` when you need to know **which unit tests exist and where**.
+- `tests/e2e/README.md` when you need to **write or run Playwright E2E tests**.
+- The `*_COMPLETE.md` files above only when you need historical detail about how the testing stack evolved.
+
 ## Troubleshooting
 
 ### Tests not running?

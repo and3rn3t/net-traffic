@@ -61,7 +61,20 @@
 - React Testing Library for component testing
 - Mocked API client for isolated testing
 
-## Updated Documentation
+## Consolidated Completed Work (High Level)
+
+In addition to the tasks above, several other completion documents capture broader progress and milestones. Treat this file as the single high-level \"what's done\" view, and refer to the following when you need more detail:
+
+- **Critical integration tasks** – `CRITICAL_TASKS_COMPLETED.md`  
+  Summarizes replacement of mock data with `useApiData`, loading/error states, capture control wiring, and connection status indicator.
+
+- **High‑priority feature work** – `HIGH_PRIORITY_FEATURES_COMPLETED.md`  
+  Covers Device Management UI (`DevicesListEnhanced`), API‑backed export (`DataExporterEnhanced`), and global Search UI (`SearchBar`) tied into backend endpoints.
+
+- **Phase and session‑level progress** – `COMPLETION_SUMMARY.md`, `PHASE_1_PROGRESS.md`  
+  Provide phase‑wide status (Phase 1 ~75% complete), list which roadmap items are finished (advanced filtering, historical trends, health monitor, performance optimizations), and outline remaining/open items.
+
+## Updated Documentation**_ End Patch```} ći assistant to=functions.apply_patch _**!
 
 ### Roadmap Updates
 

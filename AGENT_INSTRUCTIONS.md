@@ -212,25 +212,33 @@ async def get_device(device_id: str) -> Device:
 
 #### Frontend Tests
 
-- **Unit tests**: Test hooks and utilities
-- **Integration tests**: Test API integration
-- **Component tests**: Test critical components
+- **Unit tests**: Hooks, utilities, and core components (see `UNIT_TESTING_SUMMARY.md`)
+- **Integration tests**: API client and hook integration (see `TESTING_SETUP.md`)
+- **E2E tests**: Full user flows with Playwright (`tests/e2e/README.md`)
 
-**Run tests**:
+**Run tests locally**:
 
 ```bash
-npm run test          # Run all tests
-npm run test:ui       # Run with UI
+npm run test          # Watch mode
+npm run test:run      # All unit + integration tests once
 npm run test:coverage # With coverage
+npm run test:integration
+npm run test:e2e      # Playwright E2E tests
 ```
+
+**CI expectations**:
+
+- All tests run via `.github/workflows/ci-cd.yml`
+- PRs should only be merged when CI is green
+- Add or update tests for any new feature or fix
 
 #### Backend Tests
 
-- **Service tests**: Test business logic
-- **API tests**: Test endpoints
-- **Integration tests**: Test with database
+- **Service tests**: Business logic in `backend/services/*`
+- **API tests**: FastAPI endpoints in `backend/main.py`
+- **Integration tests**: Storage and analytics
 
-**Run tests**:
+**Run backend tests**:
 
 ```bash
 cd backend

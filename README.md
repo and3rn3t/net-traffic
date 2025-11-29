@@ -176,21 +176,24 @@ Comprehensive documentation is available in the project:
 
 ### For Users
 
-- **[USER_GUIDE.md](./USER_GUIDE.md)** - Complete user guide with getting started, features, and troubleshooting
+- **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - Complete user guide with getting started, features, and troubleshooting
 
 ### For Developers
 
 - **[AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md)** - Instructions for AI agents and developers
-- **[INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md)** - Frontend-backend integration guide
-- **[PERFORMANCE_OPTIMIZATIONS.md](./PERFORMANCE_OPTIMIZATIONS.md)** - Performance optimization guide
+- **[INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)** - Frontend-backend integration guide
+- **[PERFORMANCE_OPTIMIZATIONS.md](./docs/PERFORMANCE_OPTIMIZATIONS.md)** - Performance optimization guide
+- **[TESTING_SETUP.md](./docs/TESTING_SETUP.md)** - Vitest and integration testing setup
+- **[UNIT_TESTING_SUMMARY.md](./docs/UNIT_TESTING_SUMMARY.md)** - Summary of unit tests and coverage
+- **[E2E Tests Guide](./tests/e2e/README.md)** - Playwright E2E testing guide
 
 ### Project Management
 
-- **[ROADMAP.md](./ROADMAP.md)** - Development roadmap and phases
-- **[REMAINING_TASKS.md](./REMAINING_TASKS.md)** - Current task list with priorities
-- **[DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md)** - Complete documentation index
+- **[ROADMAP.md](./docs/ROADMAP.md)** - Development roadmap and phases
+- **[REMAINING_TASKS.md](./docs/REMAINING_TASKS.md)** - Current task list with priorities
+- **[DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md)** - Complete documentation index
 
-See [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) for a full list of all documentation files.
+See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of all documentation files.
 
 ## 📁 Project Structure
 

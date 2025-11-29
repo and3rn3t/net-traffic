@@ -6,9 +6,9 @@ This document provides a comprehensive index of all documentation files in the N
 
 ### Getting Started
 
-- **[README.md](./README.md)** - Main project documentation, setup instructions, and quick start guide
+- **[README.md](../README.md)** - Main project documentation, setup instructions, and quick start guide
 - **[USER_GUIDE.md](./USER_GUIDE.md)** - Complete user guide with features, usage, and troubleshooting
-- **[AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md)** - Instructions for AI agents and developers working on the project
+- **[AGENT_INSTRUCTIONS.md](../AGENT_INSTRUCTIONS.md)** - Instructions for AI agents and developers working on the project
 - **[SETUP_CHECKLIST.md](./SETUP_CHECKLIST.md)** - Step-by-step setup checklist for new developers
 
 ### Project Planning
@@ -22,6 +22,23 @@ This document provides a comprehensive index of all documentation files in the N
 - **[REMAINING_TASKS.md](./REMAINING_TASKS.md)** - Current task list with priorities and status
 - **[CRITICAL_TASKS_COMPLETED.md](./CRITICAL_TASKS_COMPLETED.md)** - Documentation of completed critical tasks
 - **[HIGH_PRIORITY_FEATURES_COMPLETED.md](./HIGH_PRIORITY_FEATURES_COMPLETED.md)** - Documentation of completed high-priority features
+- **[TASK_COMPLETION_SUMMARY.md](./TASK_COMPLETION_SUMMARY.md)** - Consolidated summary of major completed work
+- **[PHASE_1_PROGRESS.md](./PHASE_1_PROGRESS.md)** - Phase 1 progress snapshot
+
+### Status Snapshots (Historical)
+
+These files capture point-in-time completion notes and can be treated as historical references when you need extra detail:
+
+- **[CRITICAL_FIXES_COMPLETE.md](./CRITICAL_FIXES_COMPLETE.md)**
+- **[DOCKER_COMPLETE.md](./DOCKER_COMPLETE.md)**
+- **[E2E_TESTING_COMPLETE.md](./E2E_TESTING_COMPLETE.md)**
+- **[E2E_TESTS_ADDED.md](./E2E_TESTS_ADDED.md)**
+- **[EXCEPTION_HANDLING_COMPLETE.md](./EXCEPTION_HANDLING_COMPLETE.md)**
+- **[INPUT_VALIDATION_COMPLETE.md](./INPUT_VALIDATION_COMPLETE.md)**
+- **[INTEGRATION_COMPLETE.md](./INTEGRATION_COMPLETE.md)**
+- **[PLAYWRIGHT_INSTALLATION_COMPLETE.md](./PLAYWRIGHT_INSTALLATION_COMPLETE.md)**
+- **[REQUEST_LOGGING_COMPLETE.md](./REQUEST_LOGGING_COMPLETE.md)**
+- **[SEARCH_OPTIMIZATION_COMPLETE.md](./SEARCH_OPTIMIZATION_COMPLETE.md)**
 
 ## 🔧 Technical Documentation
 
@@ -42,6 +59,13 @@ This document provides a comprehensive index of all documentation files in the N
 ### Performance
 
 - **[PERFORMANCE_OPTIMIZATIONS.md](./PERFORMANCE_OPTIMIZATIONS.md)** - Performance optimization guide and best practices
+
+### Testing
+
+- **[TESTING_SETUP.md](./TESTING_SETUP.md)** - Vitest and integration testing setup
+- **[UNIT_TESTING_SUMMARY.md](./UNIT_TESTING_SUMMARY.md)** - Overview of unit tests and coverage
+- **[tests/e2e/README.md](./tests/e2e/README.md)** - Playwright end-to-end testing guide
+- **[PLAYWRIGHT_INSTALLATION_COMPLETE.md](./PLAYWRIGHT_INSTALLATION_COMPLETE.md)** - Playwright installation and status
 
 ## 🚀 Deployment
 
