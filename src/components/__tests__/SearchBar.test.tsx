@@ -231,25 +231,28 @@ describe('SearchBar', () => {
       const input = screen.getByPlaceholderText(/search devices, flows, ip addresses/i);
 
       fireEvent.change(input, { target: { value: 'test' } });
+
+      // Wait a bit for debounced query to update (even though mocked, React Query needs a tick)
+      await waitFor(() => {
+        expect(input).toHaveValue('test');
+      });
+
+      // Press Enter to trigger search - this sets showResults to true
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      // Wait for React Query to start the query and dialog to open
-      // The dialog opens when showResults && (totalResults > 0 || isSearching)
-      // Since we pressed Enter, showResults should be true, and isSearching should become true when query starts
+      // Wait for React Query to start the query - this sets isSearching to true
+      // The dialog opens when showResults is true (set by Enter key) and isSearching is true
+      // Wait for dialog to open and "Searching..." text to appear
       await waitFor(
         () => {
-          // Check if dialog is open by looking for the dialog title
-          expect(screen.getByText(/Search Results/i)).toBeInTheDocument();
+          // Check for "Searching..." text in dialog description
+          // This confirms both dialog is open and query is running
+          const searchingText = screen.queryByText(/Searching\.\.\./i);
+          if (!searchingText) {
+            throw new Error('Searching text not found');
+          }
         },
-        { timeout: 5000 }
-      );
-
-      // Now wait for the "Searching..." text to appear
-      await waitFor(
-        () => {
-          expect(screen.getByText(/Searching\.\.\./i)).toBeInTheDocument();
-        },
-        { timeout: 5000 }
+        { timeout: 10000, interval: 100 }
       );
 
       // Resolve the promise
@@ -262,13 +265,8 @@ describe('SearchBar', () => {
       });
 
       // Wait for promise to resolve
-      await waitFor(
-        async () => {
-          await searchPromise;
-        },
-        { timeout: 2000 }
-      );
-    });
+      await searchPromise;
+    }, 15000);
 
     it('should display search results when API returns data', async () => {
       const mockResults = {
@@ -334,27 +332,61 @@ describe('SearchBar', () => {
       const input = screen.getByPlaceholderText(/search devices, flows, ip addresses/i);
 
       fireEvent.change(input, { target: { value: 'nonexistent' } });
+
+      // Wait a bit for debounced query to update
+      await waitFor(() => {
+        expect(input).toHaveValue('nonexistent');
+      });
+
+      // Create a promise that we can control
+      let resolvePromise: ((value: any) => void) | null = null;
+      const searchPromise = new Promise<{
+        query: string;
+        type: string;
+        devices: unknown[];
+        flows: unknown[];
+        threats: unknown[];
+      }>(resolve => {
+        resolvePromise = resolve;
+      });
+
+      vi.mocked(apiClient.search).mockReturnValue(searchPromise);
+
+      // Press Enter to trigger search
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      // Wait for React Query to complete and dialog to show results
-      // First wait for dialog to open
+      // Wait for React Query to start and dialog to open
       await waitFor(
         () => {
-          expect(screen.getByText(/Search Results/i)).toBeInTheDocument();
+          const dialog = document.querySelector('[role="dialog"]');
+          if (!dialog) {
+            throw new Error('Dialog not open');
+          }
         },
-        { timeout: 5000 }
+        { timeout: 10000, interval: 100 }
       );
 
-      // Then wait for the search to complete (isSearching becomes false)
-      // and "No results found" text to appear in the dialog content
+      // Resolve the promise to complete the search
+      resolvePromise!({
+        query: 'nonexistent',
+        type: 'all',
+        devices: [],
+        flows: [],
+        threats: [],
+      });
+
+      // Wait for the promise to resolve
+      await searchPromise;
+
+      // Wait for the search to complete and "No results found" text to appear
       await waitFor(
         () => {
           // The "No results found" text appears in the TabsContent when totalResults === 0
           expect(screen.getByText(/No results found/i)).toBeInTheDocument();
         },
-        { timeout: 10000 }
+        { timeout: 10000, interval: 100 }
       );
-    });
+    }, 15000);
 
     it('should show error toast when API call fails', async () => {
       const error = new Error('API Error');

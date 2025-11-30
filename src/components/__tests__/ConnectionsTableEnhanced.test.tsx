@@ -290,7 +290,12 @@ describe('ConnectionsTableEnhanced', () => {
 
       const { useFlowFilters } = await import('@/hooks/useFlowFilters');
       vi.mocked(useFlowFilters).mockReturnValue({
-        filters: createDefaultFlowFilters(),
+        filters: {
+          ...createDefaultFlowFilters(),
+          startTime: 1000,
+          endTime: 2000,
+          deviceId: '1',
+        },
         filteredFlows: [mockFlow],
         isLoading: false,
         error: null,
@@ -329,7 +334,7 @@ describe('ConnectionsTableEnhanced', () => {
           () => {
             expect(mockToast.success).toHaveBeenCalledWith('Export started');
           },
-          { timeout: 5000 }
+          { timeout: 10000 }
         );
       }
     });

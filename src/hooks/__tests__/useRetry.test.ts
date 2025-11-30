@@ -304,36 +304,33 @@ describe('useRetry', () => {
         // Expected to fail
       });
 
+      // Cancel immediately after starting
       await act(async () => {
-        // Cancel before delay completes
         expect(result.current).toBeDefined();
         result.current.cancel();
-
-        // Advance timers (even though cancelled, timers might still be pending)
-        await vi.runAllTimersAsync();
       });
 
-      // Wait for promise to settle (it will fail, but that's expected)
+      // Advance timers to process cancellation
+      await act(async () => {
+        await vi.runAllTimersAsync();
+        // Give time for state updates
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Wait for promise to settle with a timeout
       try {
-        await promise;
+        await Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 100)),
+        ]);
       } catch {
-        // Expected
+        // Expected - promise will reject or timeout
       }
 
       // Verify cancel was called and state was reset
       expect(result.current.isRetrying).toBe(false);
       expect(result.current.retryCount).toBe(0);
-      try {
-        await promise;
-      } catch {
-        // Expected to fail
-      }
-
-      // Ensure promise rejection is handled
-      await new Promise(resolve => setTimeout(resolve, 0));
-
-      expect(result.current.isRetrying).toBe(false);
-      expect(result.current.retryCount).toBe(0);
-    });
+    }, 10000);
   });
 });

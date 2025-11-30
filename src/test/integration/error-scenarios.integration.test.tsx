@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
@@ -166,6 +166,7 @@ describe('Error Scenario Integration Tests', () => {
     });
 
     it('should track retry state', async () => {
+      vi.useFakeTimers();
       let attemptCount = 0;
       const mockOperation = vi.fn(async () => {
         attemptCount++;
@@ -186,12 +187,25 @@ describe('Error Scenario Integration Tests', () => {
 
       await waitFor(() => {
         expect(result.current.isRetrying).toBe(true);
+      }, { timeout: 1000 });
+
+      // Advance timers to allow retry delays to complete
+      await act(async () => {
+        await vi.runAllTimersAsync();
+        // Flush promises
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       await retryPromise;
 
-      expect(result.current.isRetrying).toBe(false);
-      expect(result.current.retryCount).toBe(0);
+      // Wait for state to reset after successful retry
+      await waitFor(() => {
+        expect(result.current.isRetrying).toBe(false);
+        expect(result.current.retryCount).toBe(0);
+      }, { timeout: 10000 });
+
+      vi.useRealTimers();
     });
   });
 

@@ -229,23 +229,26 @@ describe('useOfflineDetection', () => {
       // Advance timers to trigger the connectivity check
       await act(async () => {
         // Advance through check interval to trigger the first check
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1000);
         // Wait for the async fetch to complete and state to update
+        // The fetch rejection needs to be handled by the hook
         await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve(); // Multiple ticks to ensure state updates propagate
       });
 
-      // Wait for the state to update to offline
+      // Wait for fetch to be called
+      await waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalled();
+      }, { timeout: 5000 });
+
+      // Wait for the state to update to offline (hook calls handleOffline when fetch fails)
       await waitFor(
         () => {
           expect(result.current.isOnline).toBe(false);
         },
         { timeout: 10000 }
       );
-
-      // Verify fetch was called
-      expect(fetchSpy).toHaveBeenCalled();
 
       fetchSpy.mockRestore();
     }, 20000);
