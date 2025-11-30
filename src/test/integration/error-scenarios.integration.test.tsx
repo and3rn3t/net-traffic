@@ -4,14 +4,12 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor, act, renderHook } from '@testing-library/react';
 import { queryClient } from '@/lib/queryClient';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { getErrorInfo } from '@/utils/errorMessages';
 import { useRetry } from '@/hooks/useRetry';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
-import { renderHook } from '@testing-library/react';
 
 describe('Error Scenario Integration Tests', () => {
   beforeEach(() => {
@@ -190,12 +188,12 @@ describe('Error Scenario Integration Tests', () => {
         () => {
           expect(result.current.isRetrying).toBe(true);
         },
-        { timeout: 2000, interval: 100 }
+        { timeout: 1000, interval: 50 }
       );
 
       // Advance timers to allow retry delays to complete
       await act(async () => {
-        await vi.runAllTimersAsync();
+        vi.runAllTimers();
         // Flush promises
         await Promise.resolve();
         await Promise.resolve();
@@ -211,11 +209,11 @@ describe('Error Scenario Integration Tests', () => {
           expect(result.current.isRetrying).toBe(false);
           expect(result.current.retryCount).toBe(0);
         },
-        { timeout: 15000, interval: 100 }
+        { timeout: 2000, interval: 50 }
       );
 
       vi.useRealTimers();
-    }, 15000);
+    }, 10000);
   });
 
   describe('Offline Detection', () => {
@@ -259,7 +257,7 @@ describe('Error Scenario Integration Tests', () => {
       );
 
       // Simulate offline event
-      window.dispatchEvent(new Event('offline'));
+      globalThis.dispatchEvent(new Event('offline'));
 
       expect(onOffline).toHaveBeenCalled();
     });
@@ -279,7 +277,7 @@ describe('Error Scenario Integration Tests', () => {
       );
 
       // Simulate online event
-      window.dispatchEvent(new Event('online'));
+      globalThis.dispatchEvent(new Event('online'));
 
       expect(onOnline).toHaveBeenCalled();
     });

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { SearchBar } from '@/components/SearchBar';
@@ -238,11 +238,11 @@ describe('SearchBar', () => {
         expect(input).toHaveValue('test');
       });
 
-      // Wait for debounced query to update (500ms debounce) so React Query can start
-      await new Promise(resolve => setTimeout(resolve, 700));
+      // Wait for debounced query to update (500ms debounce)
+      await new Promise(resolve => setTimeout(resolve, 600));
 
       // Press Enter to trigger search - this sets showResults to true
-      // The dialog should open immediately when showResults is true and query has text
+      // The dialog should open when showResults is true and query has text
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
       // Wait for React Query to start the query and for the dialog to open
@@ -250,7 +250,7 @@ describe('SearchBar', () => {
       await waitFor(
         () => {
           // First verify query was called (this means React Query started)
-          expect(apiClient.search).toHaveBeenCalled();
+          expect(apiClient.search).toHaveBeenCalledWith('test', 'all', 20);
           // Check for dialog title "Search Results" - this confirms dialog is open
           // The dialog content is in a portal, so we need to check for its content
           const dialogTitle = screen.queryByText(/search results/i);
@@ -263,7 +263,7 @@ describe('SearchBar', () => {
             throw new Error('Searching text not found');
           }
         },
-        { timeout: 15000, interval: 100 }
+        { timeout: 5000, interval: 100 }
       );
 
       // Resolve the promise
@@ -329,21 +329,16 @@ describe('SearchBar', () => {
     });
 
     it('should display "no results" when API returns empty results', async () => {
-      const mockResults = {
-        query: 'nonexistent',
-        type: 'all',
-        devices: [],
-        flows: [],
-        threats: [],
-      };
-
-      vi.mocked(apiClient.search).mockResolvedValue(mockResults);
-
-      renderSearchBar();
-      const input = screen.getByPlaceholderText(/search devices, flows, ip addresses/i);
-
       // Create a promise that we can control
-      let resolvePromise: ((value: any) => void) | null = null;
+      let resolvePromise:
+        | ((value: {
+            query: string;
+            type: string;
+            devices: unknown[];
+            flows: unknown[];
+            threats: unknown[];
+          }) => void)
+        | null = null;
       const searchPromise = new Promise<{
         query: string;
         type: string;
@@ -357,6 +352,9 @@ describe('SearchBar', () => {
       // Use mockImplementation to ensure the promise is returned and stays pending
       vi.mocked(apiClient.search).mockImplementation(() => searchPromise);
 
+      renderSearchBar();
+      const input = screen.getByPlaceholderText(/search devices, flows, ip addresses/i);
+
       fireEvent.change(input, { target: { value: 'nonexistent' } });
 
       // Wait for input value to update
@@ -364,11 +362,11 @@ describe('SearchBar', () => {
         expect(input).toHaveValue('nonexistent');
       });
 
-      // Wait for debounced query to update (500ms debounce) so React Query can start
-      await new Promise(resolve => setTimeout(resolve, 700));
+      // Wait for debounced query to update (500ms debounce)
+      await new Promise(resolve => setTimeout(resolve, 600));
 
       // Press Enter to trigger search - this sets showResults to true
-      // The dialog should open immediately when showResults is true and query has text
+      // The dialog should open when showResults is true and query has text
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
       // Wait for React Query to start the query and for the dialog to open
@@ -376,7 +374,7 @@ describe('SearchBar', () => {
       await waitFor(
         () => {
           // First verify query was called (this means React Query started)
-          expect(apiClient.search).toHaveBeenCalled();
+          expect(apiClient.search).toHaveBeenCalledWith('nonexistent', 'all', 20);
           // Check for dialog title "Search Results" - this confirms dialog is open
           // The dialog content is in a portal, so we need to check for its content
           const dialogTitle = screen.queryByText(/search results/i);
@@ -384,7 +382,7 @@ describe('SearchBar', () => {
             throw new Error('Dialog not open - title not found');
           }
         },
-        { timeout: 15000, interval: 100 }
+        { timeout: 5000, interval: 100 }
       );
 
       // Resolve the promise to complete the search
@@ -405,7 +403,7 @@ describe('SearchBar', () => {
           // The "No results found" text appears in the TabsContent when totalResults === 0
           expect(screen.getByText(/No results found/i)).toBeInTheDocument();
         },
-        { timeout: 10000, interval: 100 }
+        { timeout: 5000, interval: 100 }
       );
     }, 20000);
 
