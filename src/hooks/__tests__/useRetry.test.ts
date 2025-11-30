@@ -88,9 +88,11 @@ describe('useRetry', () => {
         .catch(err => {
           error = err;
           promiseHandled = true;
-          return Promise.reject(err); // Re-throw to maintain error behavior
+          // Don't re-throw - just catch and handle the error
+          throw err;
         })
-        .finally(() => {
+        .catch(() => {
+          // Second catch to prevent unhandled rejection
           promiseHandled = true;
         });
 

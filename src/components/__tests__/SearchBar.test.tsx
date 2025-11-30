@@ -238,36 +238,29 @@ describe('SearchBar', () => {
         expect(input).toHaveValue('test');
       });
 
-      // Wait for debounced query to update (500ms debounce) and React Query to start
-      // We need to wait for both the debounce and for React Query to process the enabled change
+      // Wait for debounced query to update (500ms debounce) so React Query can start
       await new Promise(resolve => setTimeout(resolve, 700));
 
       // Press Enter to trigger search - this sets showResults to true
+      // The dialog should open immediately when showResults is true and query has text
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
-
-      // Give React a moment to process the state update (showResults = true)
-      await act(async () => {
-        await Promise.resolve();
-      });
 
       // Wait for React Query to start the query and for the dialog to open
       // The dialog opens when showResults is true AND (totalResults > 0 OR isSearching OR query has text)
-      // Since we have a pending promise, isSearching should be true
       await waitFor(
         () => {
-          // Verify query was called
+          // First verify query was called (this means React Query started)
           expect(apiClient.search).toHaveBeenCalled();
-          // Check for "Searching..." text in dialog description
-          // This confirms both dialog is open and query is running (isSearching is true)
+          // Check for dialog title "Search Results" - this confirms dialog is open
+          // The dialog content is in a portal, so we need to check for its content
+          const dialogTitle = screen.queryByText(/search results/i);
+          if (!dialogTitle) {
+            throw new Error('Dialog not open - title not found');
+          }
+          // Also check for "Searching..." text to confirm isSearching is true
           const searchingText = screen.queryByText(/Searching\.\.\./i);
           if (!searchingText) {
-            // Check if dialog exists at all
-            const dialog = document.querySelector('[role="dialog"]');
-            if (dialog) {
-              // Dialog exists but "Searching..." text not found - might be a timing issue
-              throw new Error('Dialog open but searching text not found yet');
-            }
-            throw new Error('Dialog not open and searching text not found');
+            throw new Error('Searching text not found');
           }
         },
         { timeout: 15000, interval: 100 }
@@ -371,27 +364,24 @@ describe('SearchBar', () => {
         expect(input).toHaveValue('nonexistent');
       });
 
-      // Wait for debounced query to update (500ms debounce) and React Query to start
+      // Wait for debounced query to update (500ms debounce) so React Query can start
       await new Promise(resolve => setTimeout(resolve, 700));
 
       // Press Enter to trigger search - this sets showResults to true
+      // The dialog should open immediately when showResults is true and query has text
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      // Give React a moment to process the state update (showResults = true)
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      // Wait for React Query to start the query and dialog to open
+      // Wait for React Query to start the query and for the dialog to open
       // The dialog opens when showResults is true AND (totalResults > 0 OR isSearching OR query has text)
       await waitFor(
         () => {
-          // Verify query was called
+          // First verify query was called (this means React Query started)
           expect(apiClient.search).toHaveBeenCalled();
-          // Check for dialog - it opens when showResults is true and query has text
-          const dialog = document.querySelector('[role="dialog"]');
-          if (!dialog) {
-            throw new Error('Dialog not open');
+          // Check for dialog title "Search Results" - this confirms dialog is open
+          // The dialog content is in a portal, so we need to check for its content
+          const dialogTitle = screen.queryByText(/search results/i);
+          if (!dialogTitle) {
+            throw new Error('Dialog not open - title not found');
           }
         },
         { timeout: 15000, interval: 100 }
