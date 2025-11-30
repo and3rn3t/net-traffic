@@ -160,16 +160,19 @@ describe('API Integration Tests', () => {
 
       // Should show disconnected state or loading state
       // When API is disabled, isConnected starts as false and stays false
-      await waitFor(() => {
-        const connectedElement = screen.queryByTestId('connected');
-        if (connectedElement) {
-          // Component should show "Disconnected" when API is disabled
-          expect(connectedElement.textContent).toBe('Disconnected');
-        } else {
-          // Or it might still be loading
-          expect(screen.queryByText(/loading/i)).toBeInTheDocument();
-        }
-      }, { timeout: 3000 });
+      await waitFor(
+        () => {
+          const connectedElement = screen.queryByTestId('connected');
+          if (connectedElement) {
+            // Component should show "Disconnected" when API is disabled
+            expect(connectedElement.textContent).toBe('Disconnected');
+          } else {
+            // Or it might still be loading
+            expect(screen.queryByText(/loading/i)).toBeInTheDocument();
+          }
+        },
+        { timeout: 3000 }
+      );
 
       // Note: useApiData may call healthCheck during initialization even when API is disabled
       // The important thing is that it shows disconnected state and doesn't fetch real data

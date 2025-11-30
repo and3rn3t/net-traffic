@@ -122,10 +122,13 @@ describe('ErrorBoundary', () => {
       fireEvent.click(tryAgainButton);
 
       // Wait for reset to complete
-      await waitFor(() => {
-        // After reset, should render children again
-        expect(screen.queryByText(/component error/i)).not.toBeInTheDocument();
-      }, { timeout: 2000 });
+      await waitFor(
+        () => {
+          // After reset, should render children again
+          expect(screen.queryByText(/component error/i)).not.toBeInTheDocument();
+        },
+        { timeout: 2000 }
+      );
     });
 
     it('should reset when resetKeys change', () => {
