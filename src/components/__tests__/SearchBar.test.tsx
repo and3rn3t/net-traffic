@@ -9,7 +9,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { SearchBar } from '@/components/SearchBar';
 import { apiClient } from '@/lib/api';
-import * as toast from 'sonner';
 
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
@@ -50,21 +49,20 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-// Define mock functions first
-const mockToastError = vi.fn();
-const mockToastSuccess = vi.fn();
-
 vi.mock('sonner', () => ({
   toast: {
-    error: mockToastError,
-    success: mockToastSuccess,
+    error: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
-// Export mockToast for use in tests
+// Import after mock to get the mocked version
+import { toast } from 'sonner';
+
+// Create mockToast object for test assertions
 const mockToast = {
-  error: mockToastError,
-  success: mockToastSuccess,
+  error: vi.mocked(toast.error),
+  success: vi.mocked(toast.success),
 };
 
 // Mock the useDebounce hook to control debouncing in tests

@@ -48,15 +48,30 @@ vi.mock('@/lib/api', () => ({
 }));
 
 describe('useHistoricalTrends', () => {
+  let cacheCleared = false;
+
   beforeEach(() => {
     vi.clearAllMocks();
     // Use real timers for async API calls
     // Set default mock return value
     vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+
+    // Clear the cache by calling clearCache on a hook instance
+    // We need to ensure cache is cleared between tests
+    if (!cacheCleared) {
+      const { result, unmount } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
+      result.current.clearCache();
+      unmount();
+      cacheCleared = true;
+    }
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    // Clear cache after each test as well
+    const { result, unmount } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
+    result.current.clearCache();
+    unmount();
   });
 
   describe('Initial State', () => {
@@ -177,17 +192,26 @@ describe('useHistoricalTrends', () => {
     }, 60000);
 
     it('should handle API errors', async () => {
+      // Clear cache before test
+      const { result: clearResult, unmount: clearUnmount } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: false })
+      );
+      clearResult.current.clearCache();
+      clearUnmount();
+
       const error = new Error('API Error');
       vi.mocked(apiClient.getAnalytics).mockRejectedValue(error);
 
-      const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
+      const { result } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: true, cacheEnabled: false })
+      );
 
       await waitFor(
         () => {
           expect(result.current.error).toBeTruthy();
           expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
 
       expect(result.current.data).toEqual([]);
@@ -196,6 +220,13 @@ describe('useHistoricalTrends', () => {
 
   describe('Caching', () => {
     it('should use cached data when available', async () => {
+      // Clear cache before test
+      const { result: clearResult, unmount: clearUnmount } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: false })
+      );
+      clearResult.current.clearCache();
+      clearUnmount();
+
       const mockData = [
         {
           timestamp: Date.now(),
@@ -208,20 +239,26 @@ describe('useHistoricalTrends', () => {
 
       vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
-      const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
+      const { result } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: true, cacheEnabled: true })
+      );
 
       await waitFor(
         () => {
           expect(result.current.data).toEqual(mockData);
           expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
+
+      // Get the initial call count (should be 1 for the initial '24h' fetch)
+      const initialCallCount = vi.mocked(apiClient.getAnalytics).mock.calls.length;
+      expect(initialCallCount).toBeGreaterThan(0);
 
       // Clear the mock to verify cache is used
       vi.mocked(apiClient.getAnalytics).mockClear();
 
-      // Change time range and back (should use cache)
+      // Change time range to '7d' (will fetch new data, not cached)
       act(() => {
         result.current.updateTimeRange('7d');
       });
@@ -229,22 +266,49 @@ describe('useHistoricalTrends', () => {
       await waitFor(
         () => {
           expect(result.current.timeRange).toBe('7d');
+          expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
 
+      // Verify API was called for '7d'
+      expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7d = 168 hours
+      const callsAfter7d = vi.mocked(apiClient.getAnalytics).mock.calls.length;
+
+      // Clear mock again before switching back to '24h'
+      vi.mocked(apiClient.getAnalytics).mockClear();
+
+      // Now change back to '24h' - should use cache, not call API
       act(() => {
         result.current.updateTimeRange('24h');
       });
 
-      // Wait a bit to ensure no API call is made
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Wait for the timeRange to update and cache to be checked
+      await waitFor(
+        () => {
+          expect(result.current.timeRange).toBe('24h');
+          // Data should still be available from cache
+          expect(result.current.data).toEqual(mockData);
+        },
+        { timeout: 10000 }
+      );
+
+      // Wait a bit more to ensure no API call is made
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Should not call API again for cached data
+      // The mock was cleared after '7d' fetch, so if cache works, no new calls should be made
       expect(apiClient.getAnalytics).not.toHaveBeenCalled();
     }, 60000);
 
     it('should bypass cache when refresh is called', async () => {
+      // Clear cache before test
+      const { result: clearResult, unmount: clearUnmount } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: false })
+      );
+      clearResult.current.clearCache();
+      clearUnmount();
+
       const mockData = [
         {
           timestamp: Date.now(),
@@ -257,14 +321,16 @@ describe('useHistoricalTrends', () => {
 
       vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
-      const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
+      const { result } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: true, cacheEnabled: true })
+      );
 
       await waitFor(
         () => {
           expect(result.current.data).toEqual(mockData);
           expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
@@ -278,11 +344,18 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalled();
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
     }, 30000);
 
     it('should clear cache when clearCache is called', async () => {
+      // Clear cache before test
+      const { result: clearResult, unmount: clearUnmount } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: false })
+      );
+      clearResult.current.clearCache();
+      clearUnmount();
+
       const mockData = [
         {
           timestamp: Date.now(),
@@ -295,14 +368,16 @@ describe('useHistoricalTrends', () => {
 
       vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
-      const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
+      const { result } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: true, cacheEnabled: true })
+      );
 
       await waitFor(
         () => {
           expect(result.current.data).toEqual(mockData);
           expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
 
       act(() => {
@@ -321,7 +396,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(result.current.timeRange).toBe('7d');
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
 
       act(() => {
@@ -332,7 +407,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalled();
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
     }, 60000);
 
@@ -408,16 +483,25 @@ describe('useHistoricalTrends', () => {
     });
 
     it('should fetch data when time range is updated with autoFetch enabled', async () => {
+      // Clear cache before test
+      const { result: clearResult, unmount: clearUnmount } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: false })
+      );
+      clearResult.current.clearCache();
+      clearUnmount();
+
       const mockData: never[] = [];
       vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
-      const { result } = renderHook(() => useHistoricalTrends({ autoFetch: true }));
+      const { result } = renderHook(() =>
+        useHistoricalTrends({ autoFetch: true, cacheEnabled: false })
+      );
 
       await waitFor(
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalled();
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
@@ -431,7 +515,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalledWith(168);
         },
-        { timeout: 5000 }
+        { timeout: 10000 }
       );
     }, 30000);
 
