@@ -269,22 +269,25 @@ describe('FlowFiltersComponent', () => {
 
       await waitFor(() => {
         const savePresetButton = screen.queryByRole('button', { name: /save filter preset/i });
-        if (savePresetButton) {
-          fireEvent.click(savePresetButton);
+        expect(savePresetButton).toBeInTheDocument();
+      });
 
-          await waitFor(() => {
-            const nameInput = screen.queryByPlaceholderText(/preset name/i);
-            if (nameInput) {
-              fireEvent.change(nameInput, { target: { value: 'My Preset' } });
+      const savePresetButton = screen.getByRole('button', { name: /save filter preset/i });
+      fireEvent.click(savePresetButton);
 
-              const confirmButton = screen.queryByRole('button', { name: /^save$/i });
-              if (confirmButton) {
-                fireEvent.click(confirmButton);
-                expect(onSavePreset).toHaveBeenCalledWith('My Preset');
-              }
-            }
-          });
-        }
+      await waitFor(() => {
+        const nameInput = screen.queryByPlaceholderText(/preset name/i);
+        expect(nameInput).toBeInTheDocument();
+      });
+
+      const nameInput = screen.getByPlaceholderText(/preset name/i);
+      fireEvent.change(nameInput, { target: { value: 'My Preset' } });
+
+      const confirmButton = screen.getByRole('button', { name: /^save$/i });
+      fireEvent.click(confirmButton);
+
+      await waitFor(() => {
+        expect(onSavePreset).toHaveBeenCalledWith('My Preset');
       });
     });
   });

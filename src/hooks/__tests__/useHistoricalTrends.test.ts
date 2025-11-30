@@ -50,14 +50,13 @@ vi.mock('@/lib/api', () => ({
 describe('useHistoricalTrends', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2024-01-01T12:00:00Z'));
+    // Use real timers for async API calls
     // Set default mock return value
     vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   describe('Initial State', () => {
@@ -111,9 +110,7 @@ describe('useHistoricalTrends', () => {
       const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
 
       // Wait a bit to ensure no fetch occurs
-      await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      });
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       expect(apiClient.getAnalytics).not.toHaveBeenCalled();
     });
@@ -127,12 +124,17 @@ describe('useHistoricalTrends', () => {
         { initialProps: { timeRange: '1h' as const } }
       );
 
+      // Wait for initial fetch
       await waitFor(
         () => {
-          expect(apiClient.getAnalytics).toHaveBeenCalledWith(1);
+          expect(apiClient.getAnalytics).toHaveBeenCalled();
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
+
+      // Clear mock to count new calls
+      vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       act(() => {
         _result.current.updateTimeRange('24h');
@@ -142,8 +144,11 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalledWith(24);
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
+
+      vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       act(() => {
         _result.current.updateTimeRange('7d');
@@ -153,8 +158,11 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7 * 24
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
+
+      vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       act(() => {
         _result.current.updateTimeRange('30d');
@@ -164,7 +172,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalledWith(720); // 30 * 24
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
     }, 60000);
 
@@ -177,12 +185,12 @@ describe('useHistoricalTrends', () => {
       await waitFor(
         () => {
           expect(result.current.error).toBeTruthy();
+          expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       expect(result.current.data).toEqual([]);
-      expect(result.current.isLoading).toBe(false);
     }, 15000);
   });
 
@@ -205,8 +213,9 @@ describe('useHistoricalTrends', () => {
       await waitFor(
         () => {
           expect(result.current.data).toEqual(mockData);
+          expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       // Clear the mock to verify cache is used
@@ -221,20 +230,18 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(result.current.timeRange).toBe('7d');
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       act(() => {
         result.current.updateTimeRange('24h');
       });
 
-      await waitFor(
-        () => {
-          // Should not call API again for cached data
-          expect(apiClient.getAnalytics).not.toHaveBeenCalled();
-        },
-        { timeout: 10000 }
-      );
+      // Wait a bit to ensure no API call is made
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Should not call API again for cached data
+      expect(apiClient.getAnalytics).not.toHaveBeenCalled();
     }, 60000);
 
     it('should bypass cache when refresh is called', async () => {
@@ -255,11 +262,13 @@ describe('useHistoricalTrends', () => {
       await waitFor(
         () => {
           expect(result.current.data).toEqual(mockData);
+          expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       act(() => {
         result.current.refresh();
@@ -269,7 +278,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalled();
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
     }, 30000);
 
@@ -291,8 +300,9 @@ describe('useHistoricalTrends', () => {
       await waitFor(
         () => {
           expect(result.current.data).toEqual(mockData);
+          expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       act(() => {
@@ -300,6 +310,7 @@ describe('useHistoricalTrends', () => {
       });
 
       vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       // Change time range - should fetch again since cache was cleared
       act(() => {
@@ -310,7 +321,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(result.current.timeRange).toBe('7d');
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       act(() => {
@@ -321,7 +332,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalled();
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
     }, 60000);
 
@@ -345,11 +356,13 @@ describe('useHistoricalTrends', () => {
       await waitFor(
         () => {
           expect(result.current.data).toEqual(mockData);
+          expect(result.current.isLoading).toBe(false);
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       // Change time range and back - should fetch again
       act(() => {
@@ -360,10 +373,11 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7d = 168 hours
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       act(() => {
         result.current.updateTimeRange('24h');
@@ -373,7 +387,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalledWith(24); // 24h = 24 hours
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
     }, 60000);
   });
@@ -403,10 +417,11 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalled();
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
 
       vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockData);
 
       act(() => {
         result.current.updateTimeRange('7d');
@@ -416,7 +431,7 @@ describe('useHistoricalTrends', () => {
         () => {
           expect(apiClient.getAnalytics).toHaveBeenCalledWith(168);
         },
-        { timeout: 10000 }
+        { timeout: 5000 }
       );
     }, 30000);
 

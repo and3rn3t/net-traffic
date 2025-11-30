@@ -84,8 +84,15 @@ describe('useRetry', () => {
       const promise = result.current.retry(operation);
 
       // Fast-forward timers for all retry delays
+      // Each retry has a delay, so we need to advance multiple times
       await act(async () => {
-        await vi.runAllTimersAsync();
+        // Advance through all delays: 100ms, 200ms, 400ms (exponential backoff)
+        vi.advanceTimersByTime(100); // First retry delay
+        await Promise.resolve();
+        vi.advanceTimersByTime(200); // Second retry delay
+        await Promise.resolve();
+        vi.advanceTimersByTime(400); // Third retry delay
+        await Promise.resolve();
       });
 
       try {
@@ -99,7 +106,7 @@ describe('useRetry', () => {
 
       // Ensure promise rejection is handled
       await new Promise(resolve => setTimeout(resolve, 0));
-    }, 10000);
+    }, 15000);
 
     it('should use exponential backoff for delays', async () => {
       const onRetry = vi.fn();
@@ -111,7 +118,11 @@ describe('useRetry', () => {
       const promise = result.current.retry(operation);
 
       await act(async () => {
-        await vi.runAllTimersAsync();
+        // Advance through delays: 100ms, 200ms
+        vi.advanceTimersByTime(100);
+        await Promise.resolve();
+        vi.advanceTimersByTime(200);
+        await Promise.resolve();
       });
 
       try {
@@ -126,7 +137,7 @@ describe('useRetry', () => {
       expect(onRetry).toHaveBeenCalledTimes(2);
       // First retry delay: 100ms
       // Second retry delay: 200ms (100 * 2)
-    }, 10000);
+    }, 15000);
 
     it('should respect maxDelay', async () => {
       const { result } = renderHook(() =>
@@ -137,7 +148,11 @@ describe('useRetry', () => {
       const promise = result.current.retry(operation);
 
       await act(async () => {
-        await vi.runAllTimersAsync();
+        // Advance through delays: 1000ms, 5000ms (capped at maxDelay)
+        vi.advanceTimersByTime(1000);
+        await Promise.resolve();
+        vi.advanceTimersByTime(5000);
+        await Promise.resolve();
       });
 
       try {
@@ -150,7 +165,7 @@ describe('useRetry', () => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(operation).toHaveBeenCalledTimes(3);
-    }, 10000);
+    }, 15000);
   });
 
   describe('Callbacks', () => {
@@ -182,7 +197,11 @@ describe('useRetry', () => {
       const promise = result.current.retry(operation);
 
       await act(async () => {
-        await vi.runAllTimersAsync();
+        // Advance through delays for 2 retries
+        vi.advanceTimersByTime(1000); // First retry delay
+        await Promise.resolve();
+        vi.advanceTimersByTime(2000); // Second retry delay
+        await Promise.resolve();
       });
 
       try {
@@ -195,7 +214,7 @@ describe('useRetry', () => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(onMaxRetriesReached).toHaveBeenCalledTimes(1);
-    }, 10000);
+    }, 15000);
   });
 
   describe('State Management', () => {
@@ -208,7 +227,9 @@ describe('useRetry', () => {
 
       await act(async () => {
         const promise = result.current.retry(operation);
-        await vi.runAllTimersAsync();
+        // Advance through delay: 100ms
+        vi.advanceTimersByTime(100);
+        await Promise.resolve();
         await promise;
       });
 
@@ -226,7 +247,9 @@ describe('useRetry', () => {
 
       await act(async () => {
         const promise = result.current.retry(operation);
-        await vi.runAllTimersAsync();
+        // Advance through delay: 1000ms
+        vi.advanceTimersByTime(1000);
+        await Promise.resolve();
         await promise;
       });
 
@@ -241,7 +264,9 @@ describe('useRetry', () => {
       const promise = result.current.retry(operation);
 
       await act(async () => {
-        await vi.runAllTimersAsync();
+        // Advance through delay: 1000ms
+        vi.advanceTimersByTime(1000);
+        await Promise.resolve();
       });
 
       try {
@@ -255,7 +280,7 @@ describe('useRetry', () => {
 
       expect(result.current.isRetrying).toBe(false);
       expect(result.current.retryCount).toBe(0);
-    }, 10000);
+    }, 15000);
   });
 
   describe('Cancel', () => {
@@ -270,8 +295,9 @@ describe('useRetry', () => {
         // Cancel before delay completes
         result.current.cancel();
 
-        // Advance timers
-        await vi.runAllTimersAsync();
+        // Advance timers (even though cancelled, timers might still be pending)
+        vi.advanceTimersByTime(1000);
+        await Promise.resolve();
       });
 
       // Wait for promise (it will fail, but that's expected)

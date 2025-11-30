@@ -175,16 +175,9 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      // Mock high latency by making performance.now return increasing values
-      let callCount = 0;
-      globalThis.performance.now = vi.fn(() => {
-        callCount++;
-        return callCount === 1 ? 0 : 1500; // First call returns 0, second returns 1500
-      });
-
       // Mock performance.now to return high latency
-      let callCount = 0;
       const originalNow = globalThis.performance.now;
+      let callCount = 0;
       globalThis.performance.now = vi.fn(() => {
         callCount++;
         return callCount === 1 ? 0 : 2000; // First call returns 0, second returns 2000ms

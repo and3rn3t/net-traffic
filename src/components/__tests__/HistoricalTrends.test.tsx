@@ -108,7 +108,7 @@ describe('HistoricalTrends', () => {
   });
 
   describe('Time Range Selection', () => {
-    it('should call updateTimeRange when tab is clicked', () => {
+    it('should call updateTimeRange when tab is clicked', async () => {
       const updateTimeRange = vi.fn();
       mockUseHistoricalTrends.mockReturnValue({
         timeRange: '24h',

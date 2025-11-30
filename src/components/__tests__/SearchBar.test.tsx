@@ -227,15 +227,13 @@ describe('SearchBar', () => {
       fireEvent.change(input, { target: { value: 'test' } });
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      await waitFor(() => {
-        // Component shows "Searching..." (capital S, three dots) in DialogDescription
-        await waitFor(
-          () => {
-            expect(screen.getByText(/Searching\.\.\./i)).toBeInTheDocument();
-          },
-          { timeout: 2000 }
-        );
-      });
+      // Component shows "Searching..." (capital S, three dots) in DialogDescription
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Searching\.\.\./i)).toBeInTheDocument();
+        },
+        { timeout: 2000 }
+      );
 
       // Resolve the promise
       resolvePromise!({
@@ -313,15 +311,13 @@ describe('SearchBar', () => {
       fireEvent.change(input, { target: { value: 'nonexistent' } });
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      await waitFor(() => {
-        // Component shows "No results found" (capital N)
-        await waitFor(
-          () => {
-            expect(screen.getByText(/No results found/i)).toBeInTheDocument();
-          },
-          { timeout: 2000 }
-        );
-      });
+      // Component shows "No results found" (capital N)
+      await waitFor(
+        () => {
+          expect(screen.getByText(/No results found/i)).toBeInTheDocument();
+        },
+        { timeout: 2000 }
+      );
     });
 
     it('should show error toast when API call fails', async () => {

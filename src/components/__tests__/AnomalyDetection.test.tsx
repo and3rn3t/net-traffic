@@ -48,7 +48,7 @@ describe('AnomalyDetection', () => {
   });
 
   describe('Anomaly Detection Logic', () => {
-    it('should detect excessive bandwidth usage', () => {
+    it('should detect excessive bandwidth usage', async () => {
       const device = createMockDevice({ id: 'device-1', name: 'High Traffic Device' });
       // Create flows where one device has much higher traffic than average
       const normalFlows = Array.from({ length: 10 }, (_, i) =>

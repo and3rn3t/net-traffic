@@ -260,7 +260,7 @@ describe('DevicesListEnhanced', () => {
           fireEvent.click(saveButton);
 
           await waitFor(() => {
-            expect(toast.toast.success).toHaveBeenCalledWith('Device updated successfully');
+            expect(mockToast.success).toHaveBeenCalledWith('Device updated successfully');
           });
         });
       }

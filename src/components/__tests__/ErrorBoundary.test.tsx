@@ -109,7 +109,7 @@ describe('ErrorBoundary', () => {
   });
 
   describe('Error Recovery', () => {
-    it('should reset error boundary when Try Again is clicked', () => {
+    it('should reset error boundary when Try Again is clicked', async () => {
       const { rerender } = render(
         <ErrorBoundary>
           <ThrowError shouldThrow={true} />
