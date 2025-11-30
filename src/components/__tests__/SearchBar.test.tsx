@@ -50,14 +50,22 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-const mockToast = {
-  error: vi.fn(),
-  success: vi.fn(),
-};
+// Define mock functions first
+const mockToastError = vi.fn();
+const mockToastSuccess = vi.fn();
 
 vi.mock('sonner', () => ({
-  toast: mockToast,
+  toast: {
+    error: mockToastError,
+    success: mockToastSuccess,
+  },
 }));
+
+// Export mockToast for use in tests
+const mockToast = {
+  error: mockToastError,
+  success: mockToastSuccess,
+};
 
 // Mock the useDebounce hook to control debouncing in tests
 vi.mock('@/hooks/useDebounce', () => ({

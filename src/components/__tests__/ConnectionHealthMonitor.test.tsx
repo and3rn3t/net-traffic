@@ -49,15 +49,25 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-const mockToast = {
-  success: vi.fn(),
-  error: vi.fn(),
-  warning: vi.fn(),
-};
+// Define mock functions first
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+const mockToastWarning = vi.fn();
 
 vi.mock('sonner', () => ({
-  toast: mockToast,
+  toast: {
+    success: mockToastSuccess,
+    error: mockToastError,
+    warning: mockToastWarning,
+  },
 }));
+
+// Export mockToast for use in tests
+const mockToast = {
+  success: mockToastSuccess,
+  error: mockToastError,
+  warning: mockToastWarning,
+};
 
 vi.mock('@/hooks/useReconnection', () => ({
   useReconnection: vi.fn(() => ({

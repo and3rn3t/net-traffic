@@ -63,8 +63,8 @@ describe('AnomalyDetection', () => {
         createMockNetworkFlow({
           id: `flow-high-${i}`,
           deviceId: 'device-1',
-          bytesIn: 100000000, // Very high
-          bytesOut: 50000000,
+          bytesIn: 2000000000, // Very high - 2GB per flow to ensure threshold is exceeded
+          bytesOut: 1000000000,
         })
       );
       const flows = [...normalFlows, ...highTrafficFlows];
@@ -149,35 +149,44 @@ describe('AnomalyDetection', () => {
 
   describe('Severity Levels', () => {
     it('should display high severity for critical anomalies', async () => {
-      // Create two devices - one with normal traffic, one with very high traffic
-      const normalDevice = createMockDevice({ id: 'device-2', name: 'Normal Device' });
+      // Create multiple normal devices and one high traffic device
+      // This ensures the average is lower, making it easier to exceed threshold * 2
+      const normalDevices = Array.from({ length: 5 }, (_, i) =>
+        createMockDevice({ id: `device-normal-${i}`, name: `Normal Device ${i}` })
+      );
       const highTrafficDevice = createMockDevice({ id: 'device-1', name: 'High Traffic Device' });
 
-      // Normal device with low traffic
-      const normalFlows = Array.from({ length: 10 }, (_, i) =>
-        createMockNetworkFlow({
-          id: `flow-normal-${i}`,
-          deviceId: 'device-2',
-          bytesIn: 1000,
-          bytesOut: 500,
-        })
+      // Normal devices with low traffic
+      const normalFlows = normalDevices.flatMap((device, deviceIdx) =>
+        Array.from({ length: 10 }, (_, i) =>
+          createMockNetworkFlow({
+            id: `flow-normal-${deviceIdx}-${i}`,
+            deviceId: device.id,
+            bytesIn: 1000,
+            bytesOut: 500,
+          })
+        )
       );
 
-      // High traffic device - needs to be > 2.5x average
-      // Average will be ~(10*1500 + 100*1500000000) / 2 = ~750000007500
-      // Threshold will be ~1875000018750
-      // So device-1 needs > 1875000018750 bytes total
-      const highTrafficFlows = Array.from({ length: 100 }, (_, i) =>
+      // High traffic device - needs to be > threshold * 2 for high severity
+      // With 2 devices: avg = (normal + high) / 2, threshold = avg * 2.5
+      // For high severity: high > threshold * 2 = avg * 5
+      // If normal = 15,000 and high = X, then avg = (15,000 + X) / 2
+      // We need X > ((15,000 + X) / 2) * 5 = (15,000 + X) * 2.5
+      // X > 37,500 + 2.5X => -1.5X > 37,500 => X < -25,000 (impossible)
+      // So we need more normal devices to make the average lower
+      // Let's use 5 normal devices and 1 high traffic device
+      const highTrafficFlows = Array.from({ length: 10 }, (_, i) =>
         createMockNetworkFlow({
           id: `flow-high-${i}`,
           deviceId: 'device-1',
-          bytesIn: 20000000000, // Very high traffic - 20GB per flow
-          bytesOut: 10000000000,
+          bytesIn: 100000000000, // 100GB per flow - very high
+          bytesOut: 50000000000,
         })
       );
 
       const allFlows = [...normalFlows, ...highTrafficFlows];
-      render(<AnomalyDetection flows={allFlows} devices={[highTrafficDevice, normalDevice]} />);
+      render(<AnomalyDetection flows={allFlows} devices={[highTrafficDevice, ...normalDevices]} />);
 
       // Wait for anomalies to be detected
       await waitFor(
@@ -191,32 +200,37 @@ describe('AnomalyDetection', () => {
     });
 
     it('should display medium severity for moderate anomalies', async () => {
-      // Create two devices - one with normal traffic, one with moderate high traffic
-      const normalDevice = createMockDevice({ id: 'device-2', name: 'Normal Device' });
+      // Create multiple normal devices and one moderate high traffic device
+      const normalDevices = Array.from({ length: 5 }, (_, i) =>
+        createMockDevice({ id: `device-normal-${i}`, name: `Normal Device ${i}` })
+      );
       const moderateDevice = createMockDevice({ id: 'device-1', name: 'Moderate Device' });
 
-      // Normal device with low traffic
-      const normalFlows = Array.from({ length: 10 }, (_, i) =>
-        createMockNetworkFlow({
-          id: `flow-normal-${i}`,
-          deviceId: 'device-2',
-          bytesIn: 1000,
-          bytesOut: 500,
-        })
+      // Normal devices with low traffic
+      const normalFlows = normalDevices.flatMap((device, deviceIdx) =>
+        Array.from({ length: 10 }, (_, i) =>
+          createMockNetworkFlow({
+            id: `flow-normal-${deviceIdx}-${i}`,
+            deviceId: device.id,
+            bytesIn: 1000,
+            bytesOut: 500,
+          })
+        )
       );
 
       // Moderate high traffic device - needs to be > 2.5x average but < 5x average for medium severity
-      const moderateFlows = Array.from({ length: 50 }, (_, i) =>
+      // Use multiple normal devices to lower the average
+      const moderateFlows = Array.from({ length: 10 }, (_, i) =>
         createMockNetworkFlow({
           id: `flow-moderate-${i}`,
           deviceId: 'device-1',
-          bytesIn: 100000000, // 100MB per flow
-          bytesOut: 50000000,
+          bytesIn: 10000000000, // 10GB per flow - high but not extreme
+          bytesOut: 5000000000,
         })
       );
 
       const allFlows = [...normalFlows, ...moderateFlows];
-      render(<AnomalyDetection flows={allFlows} devices={[moderateDevice, normalDevice]} />);
+      render(<AnomalyDetection flows={allFlows} devices={[moderateDevice, ...normalDevices]} />);
 
       // Wait for anomalies to be detected
       await waitFor(

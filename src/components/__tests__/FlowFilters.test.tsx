@@ -66,8 +66,12 @@ describe('FlowFiltersComponent', () => {
         // "Protocol" appears multiple times, use getAllByText
         const protocolTexts = screen.getAllByText(/protocol/i);
         expect(protocolTexts.length).toBeGreaterThan(0);
-        expect(screen.getByText(/status/i)).toBeInTheDocument();
-        expect(screen.getByText(/threat level/i)).toBeInTheDocument();
+        // Status appears multiple times, use getAllByText and check for label
+        const statusTexts = screen.getAllByText(/status/i);
+        expect(statusTexts.length).toBeGreaterThan(0);
+        // Threat level also appears multiple times
+        const threatLevelTexts = screen.getAllByText(/threat level/i);
+        expect(threatLevelTexts.length).toBeGreaterThan(0);
       });
     });
   });
@@ -97,9 +101,9 @@ describe('FlowFiltersComponent', () => {
       fireEvent.click(filterButton);
 
       await waitFor(() => {
-        // Status is a Select component, find the label
-        const statusLabel = screen.getByText(/status/i);
-        expect(statusLabel).toBeInTheDocument();
+        // Status is a Select component, find the label - use getAllByText since it appears multiple times
+        const statusLabels = screen.getAllByText(/status/i);
+        expect(statusLabels.length).toBeGreaterThan(0);
         // Select components use buttons, so we can't easily test the change
         // Just verify the label is present
         expect(onFiltersChange).toBeDefined();
@@ -130,9 +134,9 @@ describe('FlowFiltersComponent', () => {
       fireEvent.click(filterButton);
 
       await waitFor(() => {
-        // Time range is a Select component, find the label
-        const timeRangeLabel = screen.getByText(/time range/i);
-        expect(timeRangeLabel).toBeInTheDocument();
+        // Time range is a Select component, find the label - use getAllByText since it appears multiple times
+        const timeRangeLabels = screen.getAllByText(/time range/i);
+        expect(timeRangeLabels.length).toBeGreaterThan(0);
         // Select components use buttons, so we can't easily test the change
         // Just verify the label is present
         expect(onFiltersChange).toBeDefined();

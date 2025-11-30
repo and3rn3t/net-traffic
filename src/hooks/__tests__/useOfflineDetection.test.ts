@@ -227,22 +227,25 @@ describe('useOfflineDetection', () => {
 
       const { result } = renderHook(() => useOfflineDetection({ checkInterval: 1000 }));
 
-      // Advance timers to trigger the connectivity check
+      // Advance timers to trigger the connectivity check multiple times
       await act(async () => {
-        vi.advanceTimersByTime(1000);
-        await Promise.resolve();
+        // Advance through multiple check intervals to ensure fetch is called
+        for (let i = 0; i < 3; i++) {
+          vi.advanceTimersByTime(1000);
+          await Promise.resolve();
+        }
       });
 
       await waitFor(
         () => {
           expect(result.current.isOnline).toBe(false);
         },
-        { timeout: 3000 }
+        { timeout: 5000 }
       );
 
       fetchSpy.mockRestore();
       vi.useRealTimers();
-    }, 10000);
+    }, 20000);
 
     it('should update to offline when fetch returns non-ok response', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({

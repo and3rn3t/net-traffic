@@ -52,14 +52,22 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-const mockToast = {
-  success: vi.fn(),
-  error: vi.fn(),
-};
+// Define mock functions first
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
 
 vi.mock('sonner', () => ({
-  toast: mockToast,
+  toast: {
+    success: mockToastSuccess,
+    error: mockToastError,
+  },
 }));
+
+// Export mockToast for use in tests
+const mockToast = {
+  success: mockToastSuccess,
+  error: mockToastError,
+};
 
 const defaultFilters = {
   protocols: [],
