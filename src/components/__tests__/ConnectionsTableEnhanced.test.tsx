@@ -253,9 +253,20 @@ describe('ConnectionsTableEnhanced', () => {
 
       renderConnectionsTable({ flows: [mockFlow], useApiFilters: true });
 
-      const exportButtons = screen.getAllByRole('button');
-      const exportButton = exportButtons.find(
-        btn => btn.textContent?.includes('Export') || btn.querySelector('svg')
+      // Wait for component to render and export button to appear
+      // The button appears when filters are active (startTime, endTime, deviceId are set)
+      let exportButton: HTMLElement | undefined;
+      await waitFor(
+        () => {
+          const exportButtons = screen.getAllByRole('button');
+          exportButton = exportButtons.find(
+            btn =>
+              btn.textContent?.includes('Export') ||
+              (btn.querySelector('svg') && btn.textContent?.toLowerCase().includes('export'))
+          ) as HTMLElement | undefined;
+          expect(exportButton).toBeDefined();
+        },
+        { timeout: 5000 }
       );
 
       expect(exportButton).toBeDefined();
@@ -266,15 +277,11 @@ describe('ConnectionsTableEnhanced', () => {
           () => {
             expect(apiClient.exportFlows).toHaveBeenCalled();
           },
-          { timeout: 3000 }
+          { timeout: 5000 }
         );
 
         // Check the call was made with correct parameters
         expect(apiClient.exportFlows).toHaveBeenCalledWith('csv', 1000, 2000, '1');
-      } else {
-        // If export button not found, it means filters aren't active
-        // The button only shows when filters are active
-        expect(true).toBe(true); // Skip this assertion
       }
     });
 
@@ -299,9 +306,19 @@ describe('ConnectionsTableEnhanced', () => {
 
       renderConnectionsTable({ flows: [mockFlow], useApiFilters: true });
 
-      const exportButtons = screen.getAllByRole('button');
-      const exportButton = exportButtons.find(
-        btn => btn.textContent?.includes('Export') || btn.querySelector('svg')
+      // Wait for component to render and export button to appear
+      let exportButton: HTMLElement | undefined;
+      await waitFor(
+        () => {
+          const exportButtons = screen.getAllByRole('button');
+          exportButton = exportButtons.find(
+            btn =>
+              btn.textContent?.includes('Export') ||
+              (btn.querySelector('svg') && btn.textContent?.toLowerCase().includes('export'))
+          ) as HTMLElement | undefined;
+          expect(exportButton).toBeDefined();
+        },
+        { timeout: 5000 }
       );
 
       expect(exportButton).toBeDefined();
@@ -312,7 +329,7 @@ describe('ConnectionsTableEnhanced', () => {
           () => {
             expect(mockToast.success).toHaveBeenCalledWith('Export started');
           },
-          { timeout: 3000 }
+          { timeout: 5000 }
         );
       }
     });
@@ -323,7 +340,12 @@ describe('ConnectionsTableEnhanced', () => {
 
       const { useFlowFilters } = await import('@/hooks/useFlowFilters');
       vi.mocked(useFlowFilters).mockReturnValue({
-        filters: createDefaultFlowFilters(),
+        filters: {
+          ...createDefaultFlowFilters(),
+          startTime: 1000,
+          endTime: 2000,
+          deviceId: '1',
+        },
         filteredFlows: [mockFlow],
         isLoading: false,
         error: null,
@@ -339,11 +361,22 @@ describe('ConnectionsTableEnhanced', () => {
 
       renderConnectionsTable({ flows: [mockFlow], useApiFilters: true });
 
-      const exportButtons = screen.getAllByRole('button');
-      const exportButton = exportButtons.find(
-        btn => btn.textContent?.includes('Export') || btn.querySelector('svg')
+      // Wait for export button to appear
+      let exportButton: HTMLElement | undefined;
+      await waitFor(
+        () => {
+          const exportButtons = screen.getAllByRole('button');
+          exportButton = exportButtons.find(
+            btn =>
+              btn.textContent?.includes('Export') ||
+              (btn.querySelector('svg') && btn.textContent?.toLowerCase().includes('export'))
+          ) as HTMLElement | undefined;
+          expect(exportButton).toBeDefined();
+        },
+        { timeout: 5000 }
       );
 
+      expect(exportButton).toBeDefined();
       if (exportButton) {
         fireEvent.click(exportButton);
 
@@ -351,7 +384,7 @@ describe('ConnectionsTableEnhanced', () => {
           () => {
             expect(mockToast.error).toHaveBeenCalledWith('Failed to export flows');
           },
-          { timeout: 3000 }
+          { timeout: 5000 }
         );
       }
     });

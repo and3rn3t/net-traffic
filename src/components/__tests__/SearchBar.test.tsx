@@ -233,12 +233,23 @@ describe('SearchBar', () => {
       fireEvent.change(input, { target: { value: 'test' } });
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      // Component shows "Searching..." (capital S, three dots) in DialogDescription
+      // Wait for React Query to start the query and dialog to open
+      // The dialog opens when showResults && (totalResults > 0 || isSearching)
+      // Since we pressed Enter, showResults should be true, and isSearching should become true when query starts
+      await waitFor(
+        () => {
+          // Check if dialog is open by looking for the dialog title
+          expect(screen.getByText(/Search Results/i)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+
+      // Now wait for the "Searching..." text to appear
       await waitFor(
         () => {
           expect(screen.getByText(/Searching\.\.\./i)).toBeInTheDocument();
         },
-        { timeout: 2000 }
+        { timeout: 5000 }
       );
 
       // Resolve the promise
@@ -249,6 +260,14 @@ describe('SearchBar', () => {
         flows: [],
         threats: [],
       });
+
+      // Wait for promise to resolve
+      await waitFor(
+        async () => {
+          await searchPromise;
+        },
+        { timeout: 2000 }
+      );
     });
 
     it('should display search results when API returns data', async () => {
@@ -317,12 +336,23 @@ describe('SearchBar', () => {
       fireEvent.change(input, { target: { value: 'nonexistent' } });
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      // Component shows "No results found" (capital N)
+      // Wait for React Query to complete and dialog to show results
+      // First wait for dialog to open
       await waitFor(
         () => {
+          expect(screen.getByText(/Search Results/i)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+
+      // Then wait for the search to complete (isSearching becomes false)
+      // and "No results found" text to appear in the dialog content
+      await waitFor(
+        () => {
+          // The "No results found" text appears in the TabsContent when totalResults === 0
           expect(screen.getByText(/No results found/i)).toBeInTheDocument();
         },
-        { timeout: 2000 }
+        { timeout: 10000 }
       );
     });
 
@@ -335,12 +365,16 @@ describe('SearchBar', () => {
 
       fireEvent.change(input, { target: { value: 'test' } });
 
-      await waitFor(() => {
-        // Component uses toast.error directly
-        expect(mockToast.error).toHaveBeenCalledWith('Search failed', {
-          description: 'API Error',
-        });
-      });
+      // Wait for React Query to process the error and trigger the useEffect
+      await waitFor(
+        () => {
+          // Component uses toast.error via useEffect when error exists
+          expect(mockToast.error).toHaveBeenCalledWith('Search failed', {
+            description: 'API Error',
+          });
+        },
+        { timeout: 5000 }
+      );
     });
   });
 

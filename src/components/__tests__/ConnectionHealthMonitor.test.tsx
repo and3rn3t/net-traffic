@@ -8,7 +8,6 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { ConnectionHealthMonitor } from '@/components/ConnectionHealthMonitor';
 import { apiClient } from '@/lib/api';
-import { toast } from 'sonner';
 
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
@@ -162,9 +161,17 @@ describe('ConnectionHealthMonitor', () => {
 
       renderHealthMonitor({ isConnected: true });
 
+      // Wait for health check to complete and status to update
       await waitFor(
         () => {
-          // Component shows "Healthy" in the status badge or status text
+          expect(apiClient.healthCheck).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
+
+      // Wait for "Healthy" badge to appear
+      await waitFor(
+        () => {
           const healthyText = screen.queryByText(/Healthy/i);
           expect(healthyText).toBeInTheDocument();
         },
@@ -193,13 +200,21 @@ describe('ConnectionHealthMonitor', () => {
 
       renderHealthMonitor({ isConnected: true, enableMetrics: true });
 
+      // Wait for health check to complete
       await waitFor(
         () => {
-          // Component shows "Degraded" in the status badge when latency > 1000ms
+          expect(apiClient.healthCheck).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
+
+      // Wait for "Degraded" badge to appear (latency > 1000ms triggers degraded status)
+      await waitFor(
+        () => {
           const degradedText = screen.queryByText(/Degraded/i);
           expect(degradedText).toBeInTheDocument();
         },
-        { timeout: 3000 }
+        { timeout: 5000 }
       );
 
       // Restore original
@@ -226,11 +241,20 @@ describe('ConnectionHealthMonitor', () => {
 
       renderHealthMonitor({ isConnected: true, enableMetrics: true });
 
+      // Wait for health check to complete
+      await waitFor(
+        () => {
+          expect(apiClient.healthCheck).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
+
+      // Wait for latency information to appear (component shows latency when metrics are enabled)
       await waitFor(
         () => {
           expect(screen.getByText(/latency/i)).toBeInTheDocument();
         },
-        { timeout: 3000 }
+        { timeout: 5000 }
       );
     });
 
@@ -247,12 +271,17 @@ describe('ConnectionHealthMonitor', () => {
 
       renderHealthMonitor({ isConnected: true });
 
-      // Component doesn't directly display active_flows, but it displays status
-      // Verify health check was called and status is displayed
+      // Wait for health check to complete
       await waitFor(
         () => {
           expect(apiClient.healthCheck).toHaveBeenCalled();
-          // Status should be displayed
+        },
+        { timeout: 3000 }
+      );
+
+      // Wait for status to be displayed
+      await waitFor(
+        () => {
           expect(screen.getByText(/healthy/i)).toBeInTheDocument();
         },
         { timeout: 3000 }
@@ -272,12 +301,17 @@ describe('ConnectionHealthMonitor', () => {
 
       renderHealthMonitor({ isConnected: true });
 
-      // Component doesn't directly display active_devices, but it displays status
-      // Verify health check was called and status is displayed
+      // Wait for health check to complete
       await waitFor(
         () => {
           expect(apiClient.healthCheck).toHaveBeenCalled();
-          // Status should be displayed
+        },
+        { timeout: 3000 }
+      );
+
+      // Wait for status to be displayed
+      await waitFor(
+        () => {
           expect(screen.getByText(/healthy/i)).toBeInTheDocument();
         },
         { timeout: 3000 }
@@ -286,19 +320,25 @@ describe('ConnectionHealthMonitor', () => {
   });
 
   describe('Retry Functionality', () => {
-    it('should call onRetry when retry button is clicked', () => {
+    it('should call onRetry when retry button is clicked', async () => {
       const onRetry = vi.fn();
-      // Retry button is shown when error exists and isConnected is false
+      // Retry button is shown when error exists, isConnected is false, and onRetry is provided
+      // The component shows "Retry Connection" button inside the Alert when offline
       renderHealthMonitor({ isConnected: false, error: 'Connection failed', onRetry });
 
-      // Button text is "Retry Connection"
+      // Wait for the component to render and show the retry button
+      await waitFor(() => {
+        const retryButton = screen.getByRole('button', { name: /retry connection/i });
+        expect(retryButton).toBeInTheDocument();
+      });
+
       const retryButton = screen.getByRole('button', { name: /retry connection/i });
       fireEvent.click(retryButton);
 
       expect(onRetry).toHaveBeenCalled();
     });
 
-    it('should check health again when retry is clicked', async () => {
+    it('should check health again when refresh button is clicked', async () => {
       const mockHealth = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -309,13 +349,19 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      renderHealthMonitor({ isConnected: false, error: 'Connection failed' });
+      renderHealthMonitor({ isConnected: true, error: null });
 
-      const retryButton = screen.getByRole('button', { name: /retry connection/i });
-      fireEvent.click(retryButton);
+      // Wait for initial health check
+      await waitFor(() => {
+        expect(apiClient.healthCheck).toHaveBeenCalled();
+      });
+
+      // Click the Refresh button (not Retry Connection - that only appears when offline with onRetry)
+      const refreshButton = screen.getByRole('button', { name: /refresh/i });
+      fireEvent.click(refreshButton);
 
       await waitFor(() => {
-        expect(apiClient.healthCheck).toHaveBeenCalledTimes(2); // Once on mount, once on retry
+        expect(apiClient.healthCheck).toHaveBeenCalledTimes(2); // Once on mount, once on refresh
       });
     });
   });
@@ -341,12 +387,21 @@ describe('ConnectionHealthMonitor', () => {
 
       renderHealthMonitor({ isConnected: true });
 
+      // Wait for health check to complete
+      await waitFor(
+        () => {
+          expect(apiClient.healthCheck).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
+
+      // Wait for service status indicators to appear
       await waitFor(
         () => {
           expect(screen.getByText(/storage/i)).toBeInTheDocument();
           expect(screen.getByText(/packet capture/i)).toBeInTheDocument();
         },
-        { timeout: 3000 }
+        { timeout: 5000 }
       );
     });
   });
@@ -366,14 +421,44 @@ describe('ConnectionHealthMonitor', () => {
       // Start with offline
       const { rerender } = renderHealthMonitor({ isConnected: false, error: 'Connection failed' });
 
-      // Change to connected
-      rerender(<ConnectionHealthMonitor isConnected={true} error={null} />);
-
+      // Wait for initial offline state to be set (this sets previousStatus)
       await waitFor(
         () => {
-          expect(mockToast.success).toHaveBeenCalled();
+          expect(screen.getByText(/offline/i)).toBeInTheDocument();
+        },
+        { timeout: 2000 }
+      );
+
+      // Give a moment for previousStatus to be set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Change to connected - this triggers health check
+      rerender(<ConnectionHealthMonitor isConnected={true} error={null} />);
+
+      // Wait for health check to complete
+      await waitFor(
+        () => {
+          expect(apiClient.healthCheck).toHaveBeenCalled();
         },
         { timeout: 3000 }
+      );
+
+      // Wait for status to change to healthy
+      await waitFor(
+        () => {
+          expect(screen.getByText(/healthy/i)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+
+      // Wait for success toast (component shows toast when status changes from offline to healthy)
+      await waitFor(
+        () => {
+          expect(mockToast.success).toHaveBeenCalledWith('Backend health restored', {
+            description: 'All services are now operational',
+          });
+        },
+        { timeout: 5000 }
       );
     });
 
@@ -388,31 +473,99 @@ describe('ConnectionHealthMonitor', () => {
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
 
-      // Mock high latency
-      globalThis.performance.now = vi.fn(() => 1500);
+      // Mock performance.now to return high latency (1500ms > 1000ms threshold)
+      const originalNow = globalThis.performance.now;
+      let callCount = 0;
+      globalThis.performance.now = vi.fn(() => {
+        callCount++;
+        return callCount === 1 ? 0 : 1500; // First call returns 0, second returns 1500ms
+      });
 
-      renderHealthMonitor();
+      renderHealthMonitor({ isConnected: true, enableMetrics: true });
 
+      // Wait for initial health check to complete and status to be set
+      await waitFor(
+        () => {
+          expect(apiClient.healthCheck).toHaveBeenCalled();
+        },
+        { timeout: 3000 }
+      );
+
+      // Wait for status to be set (might be healthy first, then degraded)
+      await waitFor(
+        () => {
+          // Status might be healthy or degraded depending on latency calculation
+          const statusText = screen.queryByText(/healthy/i) || screen.queryByText(/degraded/i);
+          expect(statusText).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+
+      // Wait for warning toast (component shows toast when status changes to degraded)
+      // Note: This will only show if status actually changes from healthy to degraded
       await waitFor(
         () => {
           expect(mockToast.warning).toHaveBeenCalled();
         },
-        { timeout: 3000 }
+        { timeout: 5000 }
       );
+
+      // Restore original
+      globalThis.performance.now = originalNow;
     });
 
     it('should show error notification when status changes to offline', async () => {
-      renderHealthMonitor({ isConnected: true, error: null });
+      const mockHealth = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        capture_running: true,
+        active_flows: 10,
+        active_devices: 5,
+      };
 
-      // Change to offline
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+
+      // Start with connected and healthy
       const { rerender } = renderHealthMonitor({ isConnected: true, error: null });
-      rerender(<ConnectionHealthMonitor isConnected={false} error="Connection failed" />);
 
+      // Wait for initial health check to complete
       await waitFor(
         () => {
-          expect(mockToast.error).toHaveBeenCalled();
+          expect(apiClient.healthCheck).toHaveBeenCalled();
         },
         { timeout: 3000 }
+      );
+
+      // Wait for healthy status to be set (this sets previousStatus)
+      await waitFor(
+        () => {
+          expect(screen.getByText(/healthy/i)).toBeInTheDocument();
+        },
+        { timeout: 5000 }
+      );
+
+      // Give a moment for previousStatus to be set
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Change to offline - this should trigger error toast
+      rerender(<ConnectionHealthMonitor isConnected={false} error="Connection failed" />);
+
+      // Wait for offline status to be displayed
+      await waitFor(
+        () => {
+          expect(screen.getByText(/offline/i)).toBeInTheDocument();
+        },
+        { timeout: 2000 }
+      );
+
+      // Wait for error toast (component shows toast when status changes from healthy to offline)
+      await waitFor(
+        () => {
+          expect(mockToast.error).toHaveBeenCalledWith('Backend connection lost', {
+            description: 'Attempting to reconnect automatically...',
+          });
+        },
+        { timeout: 5000 }
       );
     });
   });

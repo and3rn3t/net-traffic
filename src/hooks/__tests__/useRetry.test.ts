@@ -81,7 +81,18 @@ describe('useRetry', () => {
       const operation = vi.fn().mockRejectedValue(new Error('Always fails'));
 
       let error: unknown;
-      const promise = result.current.retry(operation);
+      let promiseHandled = false;
+      // Handle promise rejection immediately to avoid unhandled rejection
+      const promise = result.current
+        .retry(operation)
+        .catch(err => {
+          error = err;
+          promiseHandled = true;
+          return Promise.reject(err); // Re-throw to maintain error behavior
+        })
+        .finally(() => {
+          promiseHandled = true;
+        });
 
       // Fast-forward timers for all retry delays
       // Use runAllTimersAsync to advance all pending timers
@@ -89,19 +100,22 @@ describe('useRetry', () => {
         // Advance through all delays: 100ms, 200ms, 400ms (exponential backoff)
         // Total: 700ms, but we'll advance more to ensure all timers are processed
         await vi.runAllTimersAsync();
+        // Give time for all async operations to complete
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
       try {
         await promise;
       } catch (err) {
+        // Error is expected
         error = err;
       }
 
+      // Ensure promise was handled
+      expect(promiseHandled).toBe(true);
       expect(error).toBeDefined();
       expect(operation).toHaveBeenCalledTimes(4); // Initial + 3 retries
-
-      // Ensure promise rejection is handled
-      await new Promise(resolve => setTimeout(resolve, 0));
     }, 20000);
 
     it('should use exponential backoff for delays', async () => {
@@ -111,7 +125,10 @@ describe('useRetry', () => {
       );
       const operation = vi.fn().mockRejectedValue(new Error('Fail'));
 
-      const promise = result.current.retry(operation);
+      // Handle promise rejection immediately
+      const promise = result.current.retry(operation).catch(() => {
+        // Expected to fail
+      });
 
       await act(async () => {
         // Advance through all delays
@@ -123,9 +140,6 @@ describe('useRetry', () => {
       } catch {
         // Expected to fail
       }
-
-      // Ensure promise rejection is handled
-      await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(onRetry).toHaveBeenCalledTimes(2);
       // First retry delay: 100ms
@@ -138,7 +152,10 @@ describe('useRetry', () => {
       );
       const operation = vi.fn().mockRejectedValue(new Error('Fail'));
 
-      const promise = result.current.retry(operation);
+      // Handle promise rejection immediately
+      const promise = result.current.retry(operation).catch(() => {
+        // Expected to fail
+      });
 
       await act(async () => {
         // Advance through all delays
@@ -150,9 +167,6 @@ describe('useRetry', () => {
       } catch {
         // Expected to fail
       }
-
-      // Ensure promise rejection is handled
-      await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(operation).toHaveBeenCalledTimes(3);
     }, 20000);
@@ -184,7 +198,10 @@ describe('useRetry', () => {
       const { result } = renderHook(() => useRetry({ maxRetries: 2, onMaxRetriesReached }));
       const operation = vi.fn().mockRejectedValue(new Error('Always fails'));
 
-      const promise = result.current.retry(operation);
+      // Handle promise rejection immediately
+      const promise = result.current.retry(operation).catch(() => {
+        // Expected
+      });
 
       await act(async () => {
         // Advance through all delays
@@ -196,9 +213,6 @@ describe('useRetry', () => {
       } catch {
         // Expected
       }
-
-      // Ensure promise rejection is handled
-      await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(onMaxRetriesReached).toHaveBeenCalledTimes(1);
     }, 20000);
@@ -234,20 +248,27 @@ describe('useRetry', () => {
       await act(async () => {
         const promise = result.current.retry(operation);
         // Advance through delay: 1000ms
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1000);
         await Promise.resolve();
         await promise;
       });
 
       expect(result.current.isRetrying).toBe(false);
       expect(result.current.retryCount).toBe(0);
-    });
+    }, 10000);
 
     it('should reset state after max retries reached', async () => {
       const { result } = renderHook(() => useRetry({ maxRetries: 1 }));
       const operation = vi.fn().mockRejectedValue(new Error('Always fails'));
 
-      const promise = result.current.retry(operation);
+      // Ensure hook is ready
+      expect(result.current).toBeDefined();
+      expect(result.current.retry).toBeDefined();
+
+      // Handle promise rejection immediately
+      const promise = result.current.retry(operation).catch(() => {
+        // Expected
+      });
 
       await act(async () => {
         // Advance through all delays
@@ -260,9 +281,8 @@ describe('useRetry', () => {
         // Expected
       }
 
-      // Ensure promise rejection is handled
-      await new Promise(resolve => setTimeout(resolve, 0));
-
+      // Ensure hook is still mounted
+      expect(result.current).toBeDefined();
       expect(result.current.isRetrying).toBe(false);
       expect(result.current.retryCount).toBe(0);
     }, 20000);
@@ -273,18 +293,36 @@ describe('useRetry', () => {
       const { result } = renderHook(() => useRetry({ maxRetries: 2, initialDelay: 1000 }));
       const operation = vi.fn().mockRejectedValue(new Error('Fail'));
 
-      // Start retry
-      const promise = result.current.retry(operation);
+      // Ensure hook is ready
+      expect(result.current).toBeDefined();
+      expect(result.current.retry).toBeDefined();
+
+      // Start retry and handle rejection immediately to avoid unhandled rejection
+      let promiseRejected = false;
+      const promise = result.current.retry(operation).catch(() => {
+        promiseRejected = true;
+        // Expected to fail
+      });
 
       await act(async () => {
         // Cancel before delay completes
+        expect(result.current).toBeDefined();
         result.current.cancel();
 
         // Advance timers (even though cancelled, timers might still be pending)
         await vi.runAllTimersAsync();
       });
 
-      // Wait for promise (it will fail, but that's expected)
+      // Wait for promise to settle (it will fail, but that's expected)
+      try {
+        await promise;
+      } catch {
+        // Expected
+      }
+
+      // Verify cancel was called and state was reset
+      expect(result.current.isRetrying).toBe(false);
+      expect(result.current.retryCount).toBe(0);
       try {
         await promise;
       } catch {

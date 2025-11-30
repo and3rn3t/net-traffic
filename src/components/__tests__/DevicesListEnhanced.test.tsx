@@ -254,23 +254,25 @@ describe('DevicesListEnhanced', () => {
 
       renderDevicesList({ devices: [mockDevice] });
 
-      const editButtons = screen.getAllByRole('button');
-      const editButton = editButtons.find(
-        btn => btn.querySelector('svg') || btn.textContent?.includes('Edit')
-      );
+      const editButton = screen.getByTitle('Edit Device');
+      fireEvent.click(editButton);
 
-      if (editButton) {
-        fireEvent.click(editButton);
+      // Wait for dialog to open
+      await waitFor(() => {
+        expect(screen.getByText(/edit device/i)).toBeInTheDocument();
+      });
 
-        await waitFor(async () => {
-          const saveButton = screen.getByRole('button', { name: /save changes/i });
-          fireEvent.click(saveButton);
+      // Wait for save button to appear in dialog
+      await waitFor(() => {
+        const saveButton = screen.getByRole('button', { name: /save changes/i });
+        expect(saveButton).toBeInTheDocument();
+        fireEvent.click(saveButton);
+      });
 
-          await waitFor(() => {
-            expect(mockToast.success).toHaveBeenCalledWith('Device updated successfully');
-          });
-        });
-      }
+      // Wait for toast to be called
+      await waitFor(() => {
+        expect(mockToast.success).toHaveBeenCalledWith('Device updated successfully');
+      });
     });
 
     it('should handle API errors when saving', async () => {
@@ -316,19 +318,16 @@ describe('DevicesListEnhanced', () => {
   });
 
   describe('Device Selection', () => {
-    it('should call onDeviceSelect when device is clicked', () => {
+    it('should call onDeviceSelect when analytics button is clicked', () => {
       const onDeviceSelect = vi.fn();
+      vi.stubEnv('VITE_USE_REAL_API', 'true');
       renderDevicesList({ devices: [mockDevice], onDeviceSelect });
 
-      // Click on device card
-      const deviceCard =
-        screen.getByText('Test Device').closest('[class*="card"]') ||
-        screen.getByText('Test Device').closest('div');
-
-      if (deviceCard) {
-        fireEvent.click(deviceCard);
-        expect(onDeviceSelect).toHaveBeenCalledWith(mockDevice);
-      }
+      // The component calls onDeviceSelect when the analytics button is clicked
+      // (when USE_REAL_API is true)
+      const analyticsButton = screen.getByTitle('View Analytics');
+      fireEvent.click(analyticsButton);
+      expect(onDeviceSelect).toHaveBeenCalledWith(mockDevice);
     });
   });
 
