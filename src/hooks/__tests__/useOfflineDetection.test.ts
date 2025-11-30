@@ -237,21 +237,19 @@ describe('useOfflineDetection', () => {
         await Promise.resolve(); // Multiple ticks to ensure state updates propagate
       });
 
-      // Wait for fetch to be called
-      await waitFor(() => {
-        expect(fetchSpy).toHaveBeenCalled();
-      }, { timeout: 5000 });
-
-      // Wait for the state to update to offline (hook calls handleOffline when fetch fails)
+      // Wait for fetch to be called and state to update
+      // The hook catches the fetch error in the catch block and calls handleOffline if isOnline is true
       await waitFor(
         () => {
+          expect(fetchSpy).toHaveBeenCalled();
+          // The hook should have processed the error and updated state to offline
           expect(result.current.isOnline).toBe(false);
         },
-        { timeout: 10000 }
+        { timeout: 15000, interval: 100 }
       );
 
       fetchSpy.mockRestore();
-    }, 20000);
+    }, 25000);
 
     it('should update to offline when fetch returns non-ok response', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({

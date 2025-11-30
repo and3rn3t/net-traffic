@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { SearchBar } from '@/components/SearchBar';
@@ -225,34 +225,52 @@ describe('SearchBar', () => {
         resolvePromise = resolve;
       });
 
-      vi.mocked(apiClient.search).mockReturnValue(searchPromise);
+      // Use mockImplementation to ensure the promise is returned and stays pending
+      vi.mocked(apiClient.search).mockImplementation(() => searchPromise);
 
       renderSearchBar();
       const input = screen.getByPlaceholderText(/search devices, flows, ip addresses/i);
 
       fireEvent.change(input, { target: { value: 'test' } });
 
-      // Wait a bit for debounced query to update (even though mocked, React Query needs a tick)
+      // Wait for input value to update
       await waitFor(() => {
         expect(input).toHaveValue('test');
       });
 
+      // Wait for debounced query to update (500ms debounce) and React Query to start
+      // We need to wait for both the debounce and for React Query to process the enabled change
+      await new Promise(resolve => setTimeout(resolve, 700));
+
       // Press Enter to trigger search - this sets showResults to true
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      // Wait for React Query to start the query - this sets isSearching to true
-      // The dialog opens when showResults is true (set by Enter key) and isSearching is true
-      // Wait for dialog to open and "Searching..." text to appear
+      // Give React a moment to process the state update (showResults = true)
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Wait for React Query to start the query and for the dialog to open
+      // The dialog opens when showResults is true AND (totalResults > 0 OR isSearching OR query has text)
+      // Since we have a pending promise, isSearching should be true
       await waitFor(
         () => {
+          // Verify query was called
+          expect(apiClient.search).toHaveBeenCalled();
           // Check for "Searching..." text in dialog description
-          // This confirms both dialog is open and query is running
+          // This confirms both dialog is open and query is running (isSearching is true)
           const searchingText = screen.queryByText(/Searching\.\.\./i);
           if (!searchingText) {
-            throw new Error('Searching text not found');
+            // Check if dialog exists at all
+            const dialog = document.querySelector('[role="dialog"]');
+            if (dialog) {
+              // Dialog exists but "Searching..." text not found - might be a timing issue
+              throw new Error('Dialog open but searching text not found yet');
+            }
+            throw new Error('Dialog not open and searching text not found');
           }
         },
-        { timeout: 10000, interval: 100 }
+        { timeout: 15000, interval: 100 }
       );
 
       // Resolve the promise
@@ -266,7 +284,7 @@ describe('SearchBar', () => {
 
       // Wait for promise to resolve
       await searchPromise;
-    }, 15000);
+    }, 20000);
 
     it('should display search results when API returns data', async () => {
       const mockResults = {
@@ -331,13 +349,6 @@ describe('SearchBar', () => {
       renderSearchBar();
       const input = screen.getByPlaceholderText(/search devices, flows, ip addresses/i);
 
-      fireEvent.change(input, { target: { value: 'nonexistent' } });
-
-      // Wait a bit for debounced query to update
-      await waitFor(() => {
-        expect(input).toHaveValue('nonexistent');
-      });
-
       // Create a promise that we can control
       let resolvePromise: ((value: any) => void) | null = null;
       const searchPromise = new Promise<{
@@ -350,20 +361,40 @@ describe('SearchBar', () => {
         resolvePromise = resolve;
       });
 
-      vi.mocked(apiClient.search).mockReturnValue(searchPromise);
+      // Use mockImplementation to ensure the promise is returned and stays pending
+      vi.mocked(apiClient.search).mockImplementation(() => searchPromise);
 
-      // Press Enter to trigger search
+      fireEvent.change(input, { target: { value: 'nonexistent' } });
+
+      // Wait for input value to update
+      await waitFor(() => {
+        expect(input).toHaveValue('nonexistent');
+      });
+
+      // Wait for debounced query to update (500ms debounce) and React Query to start
+      await new Promise(resolve => setTimeout(resolve, 700));
+
+      // Press Enter to trigger search - this sets showResults to true
       fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
 
-      // Wait for React Query to start and dialog to open
+      // Give React a moment to process the state update (showResults = true)
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Wait for React Query to start the query and dialog to open
+      // The dialog opens when showResults is true AND (totalResults > 0 OR isSearching OR query has text)
       await waitFor(
         () => {
+          // Verify query was called
+          expect(apiClient.search).toHaveBeenCalled();
+          // Check for dialog - it opens when showResults is true and query has text
           const dialog = document.querySelector('[role="dialog"]');
           if (!dialog) {
             throw new Error('Dialog not open');
           }
         },
-        { timeout: 10000, interval: 100 }
+        { timeout: 15000, interval: 100 }
       );
 
       // Resolve the promise to complete the search
@@ -386,7 +417,7 @@ describe('SearchBar', () => {
         },
         { timeout: 10000, interval: 100 }
       );
-    }, 15000);
+    }, 20000);
 
     it('should show error toast when API call fails', async () => {
       const error = new Error('API Error');

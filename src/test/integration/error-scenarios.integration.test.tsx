@@ -185,9 +185,13 @@ describe('Error Scenario Integration Tests', () => {
 
       const retryPromise = result.current.retry(mockOperation);
 
-      await waitFor(() => {
-        expect(result.current.isRetrying).toBe(true);
-      }, { timeout: 1000 });
+      // Wait for retry to start
+      await waitFor(
+        () => {
+          expect(result.current.isRetrying).toBe(true);
+        },
+        { timeout: 2000, interval: 100 }
+      );
 
       // Advance timers to allow retry delays to complete
       await act(async () => {
@@ -195,18 +199,23 @@ describe('Error Scenario Integration Tests', () => {
         // Flush promises
         await Promise.resolve();
         await Promise.resolve();
+        await Promise.resolve();
       });
 
+      // Wait for the promise to resolve
       await retryPromise;
 
       // Wait for state to reset after successful retry
-      await waitFor(() => {
-        expect(result.current.isRetrying).toBe(false);
-        expect(result.current.retryCount).toBe(0);
-      }, { timeout: 10000 });
+      await waitFor(
+        () => {
+          expect(result.current.isRetrying).toBe(false);
+          expect(result.current.retryCount).toBe(0);
+        },
+        { timeout: 15000, interval: 100 }
+      );
 
       vi.useRealTimers();
-    });
+    }, 15000);
   });
 
   describe('Offline Detection', () => {

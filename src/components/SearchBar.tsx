@@ -41,6 +41,7 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
   const {
     data: results = { devices: [], flows: [], threats: [] },
     isLoading: isSearching,
+    isFetching,
     error,
   } = useQuery({
     queryKey: ['search', debouncedQuery, searchType],
@@ -122,7 +123,14 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
       </div>
 
       {/* Search Results Dialog */}
-      <Dialog open={showResults && (totalResults > 0 || isSearching)} onOpenChange={setShowResults}>
+      {/* Open dialog when showResults is true AND (has results OR is searching/fetching OR there's a query) */}
+      {/* When Enter is pressed, showResults is set to true, and if there's a query, the dialog should open immediately */}
+      <Dialog
+        open={
+          showResults && (totalResults > 0 || isSearching || isFetching || query.trim().length > 0)
+        }
+        onOpenChange={setShowResults}
+      >
         <DialogContent className="max-w-3xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Search Results</DialogTitle>
