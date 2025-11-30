@@ -12,4 +12,3 @@ describe('SecurityPosture', () => {
     expect(screen.getByText(/security posture/i)).toBeInTheDocument();
   });
 });
-

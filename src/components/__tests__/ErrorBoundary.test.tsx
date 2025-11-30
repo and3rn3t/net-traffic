@@ -119,7 +119,7 @@ describe('ErrorBoundary', () => {
       expect(screen.getByText(/component error/i)).toBeInTheDocument();
 
       const tryAgainButton = screen.getByRole('button', { name: /try again/i });
-      
+
       // After clicking Try Again, change the props so the component doesn't throw again
       // Use resetKeys to trigger reset
       rerender(
@@ -127,7 +127,7 @@ describe('ErrorBoundary', () => {
           <ThrowError shouldThrow={false} />
         </ErrorBoundary>
       );
-      
+
       fireEvent.click(tryAgainButton);
 
       // Wait for reset to complete
