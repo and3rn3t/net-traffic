@@ -38,6 +38,8 @@ from utils.validators import (
     validate_time_range, validate_min_bytes, validate_string_param
 )
 from utils.error_handler import handle_endpoint_error
+from utils.constants import SECONDS_PER_HOUR, CLEANUP_INTERVAL_HOURS
+from utils.service_manager import ServiceManager
 
 # Configure logging
 logging.basicConfig(
@@ -46,7 +48,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global services
+# Global services (maintained for backward compatibility with endpoints)
 packet_capture: Optional[PacketCaptureService] = None
 device_service: Optional[DeviceFingerprintingService] = None
 threat_service: Optional[ThreatDetectionService] = None
@@ -56,6 +58,9 @@ advanced_analytics: Optional[AdvancedAnalyticsService] = None
 geolocation_service: Optional[GeolocationService] = None
 network_quality_analytics: Optional[NetworkQualityAnalyticsService] = None
 application_analytics: Optional[ApplicationAnalyticsService] = None
+
+# Service manager for centralized lifecycle management
+service_manager: Optional[ServiceManager] = None
 
 # WebSocket connections for real-time updates
 active_connections: List[WebSocket] = []
@@ -78,21 +83,24 @@ async def on_threat_update(threat: Threat):
     })
 
 
-# Error messages
-ERR_STORAGE_NOT_INIT = "Storage service not initialized"
-ERR_DEVICE_NOT_FOUND = "Device not found"
-ERR_FLOW_NOT_FOUND = "Flow not found"
-ERR_THREAT_NOT_FOUND = "Threat not found"
-ERR_ANALYTICS_NOT_INIT = "Analytics service not initialized"
-ERR_ADV_ANALYTICS_NOT_INIT = "Advanced analytics service not initialized"
-ERR_CAPTURE_NOT_INIT = "Packet capture not initialized"
+# Import error messages from constants
+from utils.constants import ErrorMessages
+
+# Backward compatibility aliases
+ERR_STORAGE_NOT_INIT = ErrorMessages.STORAGE_NOT_INIT
+ERR_DEVICE_NOT_FOUND = ErrorMessages.DEVICE_NOT_FOUND
+ERR_FLOW_NOT_FOUND = ErrorMessages.FLOW_NOT_FOUND
+ERR_THREAT_NOT_FOUND = ErrorMessages.THREAT_NOT_FOUND
+ERR_ANALYTICS_NOT_INIT = ErrorMessages.ANALYTICS_NOT_INIT
+ERR_ADV_ANALYTICS_NOT_INIT = ErrorMessages.ADV_ANALYTICS_NOT_INIT
+ERR_CAPTURE_NOT_INIT = ErrorMessages.CAPTURE_NOT_INIT
 
 
 async def _periodic_cleanup(storage: StorageService, interval_hours: int):
     """Periodic cleanup task for old data"""
     while True:
         try:
-            await asyncio.sleep(interval_hours * 3600)  # Convert to seconds
+            await asyncio.sleep(interval_hours * SECONDS_PER_HOUR)
             retention_days = config.data_retention_days
             logger.info(f"Running periodic cleanup (retention: {retention_days} days)")
             await storage.cleanup_old_data(days=retention_days)
@@ -106,7 +114,16 @@ async def _periodic_cleanup(storage: StorageService, interval_hours: int):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle"""
-    global packet_capture, device_service, threat_service, storage, analytics
+    global packet_capture
+    global device_service
+    global threat_service
+    global storage
+    global analytics
+    global advanced_analytics
+    global geolocation_service
+    global network_quality_analytics
+    global application_analytics
+    global service_manager
 
     logger.info("Starting NetInsight Backend...")
 
@@ -114,39 +131,31 @@ async def lifespan(app: FastAPI):
     storage = StorageService(db_path=config.db_path)
     await storage.initialize()
 
-    # Initialize services with WebSocket callbacks
-    device_service = DeviceFingerprintingService(storage, on_device_update=on_device_update)
-    threat_service = ThreatDetectionService(storage, on_threat_update=on_threat_update)
-    analytics = AnalyticsService(storage)
-    global advanced_analytics
-    advanced_analytics = AdvancedAnalyticsService(storage)
-
-    # Initialize geolocation service
-    global geolocation_service
-    geolocation_service = GeolocationService()  # Will auto-detect database location
-
-    # Initialize new analytics services
-    global network_quality_analytics, application_analytics
-    network_quality_analytics = NetworkQualityAnalyticsService(storage)
-    application_analytics = ApplicationAnalyticsService(storage)
-
-    # Initialize packet capture
-    packet_capture = PacketCaptureService(
-        interface=config.network_interface,
-        device_service=device_service,
-        threat_service=threat_service,
-        storage=storage,
-        geolocation_service=geolocation_service,
-        on_flow_update=notify_clients
+    # Initialize services using ServiceManager
+    service_manager = ServiceManager(storage)
+    service_manager.initialize_services(
+        on_device_update=on_device_update,
+        on_threat_update=on_threat_update,
+        on_flow_update=notify_clients,
+        network_interface=config.network_interface,
     )
+
+    # Assign to global variables for backward compatibility with endpoints
+    device_service = service_manager.device_service
+    threat_service = service_manager.threat_service
+    analytics = service_manager.analytics
+    advanced_analytics = service_manager.advanced_analytics
+    geolocation_service = service_manager.geolocation_service
+    network_quality_analytics = service_manager.network_quality_analytics
+    application_analytics = service_manager.application_analytics
+    packet_capture = service_manager.packet_capture
 
     # Start packet capture in background
     capture_task = asyncio.create_task(packet_capture.start())
 
     # Start periodic cleanup task
-    cleanup_interval_hours = 24  # Run cleanup once per day
     cleanup_task = asyncio.create_task(
-        _periodic_cleanup(storage, cleanup_interval_hours)
+        _periodic_cleanup(storage, CLEANUP_INTERVAL_HOURS)
     )
 
     logger.info(
@@ -157,25 +166,26 @@ async def lifespan(app: FastAPI):
 
     # Cleanup
     logger.info("Shutting down NetInsight Backend...")
-    if packet_capture:
-        await packet_capture.stop()
-    if storage:
-        await storage.close()
-    if geolocation_service:
-        geolocation_service.close()
-    logger.info("NetInsight Backend stopped")
 
-    # Stop packet capture
-    if packet_capture:
-        await packet_capture.stop()
+    # Cancel background tasks
     capture_task.cancel()
+    cleanup_task.cancel()
+
     try:
         await capture_task
     except asyncio.CancelledError:
         pass
 
-    # Close storage
-    await storage.close()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
+
+    # Cleanup services using ServiceManager
+    if service_manager:
+        await service_manager.cleanup()
+
+    logger.info("NetInsight Backend stopped")
 
 
 app = FastAPI(
@@ -310,6 +320,11 @@ async def health():
                 if packet_capture
                 else 0
             ),
+            "performance_stats": (
+                packet_capture.get_performance_stats()
+                if packet_capture
+                else {}
+            ),
             "flows_detected": (
                 packet_capture.flows_detected
                 if packet_capture
@@ -332,6 +347,113 @@ async def health():
         health_status["status"] = "unhealthy"
 
     return health_status
+
+
+@app.get("/api/health/storage")
+@handle_endpoint_error
+async def health_storage():
+    """Health check for storage service"""
+    if not storage:
+        raise HTTPException(
+            status_code=503,
+            detail=ErrorMessages.STORAGE_NOT_INIT
+        )
+    
+    try:
+        stats = await storage.get_database_stats()
+        return {
+            "status": "healthy",
+            "service": "storage",
+            "timestamp": datetime.now().isoformat(),
+            "database": {
+                "connected": True,
+                "path": storage.db_path,
+                "stats": stats,
+            },
+        }
+    except Exception as e:
+        logger.error(f"Storage health check failed: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Storage service unhealthy: {str(e)}"
+        )
+
+
+@app.get("/api/health/capture")
+@handle_endpoint_error
+async def health_capture():
+    """Health check for packet capture service"""
+    if not packet_capture:
+        raise HTTPException(
+            status_code=503,
+            detail=ErrorMessages.CAPTURE_NOT_INIT
+        )
+    
+    return {
+        "status": "healthy" if packet_capture.is_running() else "inactive",
+        "service": "packet_capture",
+        "timestamp": datetime.now().isoformat(),
+        "capture": {
+            "running": packet_capture.is_running(),
+            "interface": packet_capture.interface,
+            "packets_captured": packet_capture.packets_captured,
+        },
+    }
+
+
+@app.get("/api/health/analytics")
+@handle_endpoint_error
+async def health_analytics():
+    """Health check for analytics services"""
+    services_status = {
+        "analytics": analytics is not None,
+        "advanced_analytics": advanced_analytics is not None,
+        "network_quality_analytics": network_quality_analytics is not None,
+        "application_analytics": application_analytics is not None,
+    }
+    
+    all_healthy = all(services_status.values())
+    
+    return {
+        "status": "healthy" if all_healthy else "degraded",
+        "service": "analytics",
+        "timestamp": datetime.now().isoformat(),
+        "services": services_status,
+    }
+
+
+@app.get("/api/health/device")
+@handle_endpoint_error
+async def health_device():
+    """Health check for device fingerprinting service"""
+    if not device_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Device service not initialized"
+        )
+    
+    return {
+        "status": "healthy",
+        "service": "device_fingerprinting",
+        "timestamp": datetime.now().isoformat(),
+    }
+
+
+@app.get("/api/health/threat")
+@handle_endpoint_error
+async def health_threat():
+    """Health check for threat detection service"""
+    if not threat_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Threat detection service not initialized"
+        )
+    
+    return {
+        "status": "healthy",
+        "service": "threat_detection",
+        "timestamp": datetime.now().isoformat(),
+    }
 
 
 @app.get("/api/devices", response_model=List[Device])

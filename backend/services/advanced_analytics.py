@@ -18,8 +18,8 @@ class AdvancedAnalyticsService:
     async def get_summary_stats(self) -> Dict:
         """Get overall summary statistics"""
         devices = await self.storage.get_devices()
-        # Use reasonable limit for summary stats
-        flows = await self.storage.get_flows(limit=50000)
+        # Use reasonable limit for summary stats (Pi optimization)
+        flows = await self.storage.get_flows(limit=25000)  # Reduced for Pi (was 50000)
         threats = await self.storage.get_threats(active_only=False)
 
         total_bytes = sum(f.bytesIn + f.bytesOut for f in flows)

@@ -23,9 +23,10 @@ class AnalyticsService:
             (datetime.now() - timedelta(hours=hours_back)).timestamp() * 1000
         )
 
-        # Use database-level filtering instead of loading all flows
+        # Use database-level aggregation instead of loading all flows (Pi optimization)
+        # This reduces memory usage significantly
         flows = await self.storage.get_flows(
-            limit=100000,  # High limit for analytics
+            limit=50000,  # Reduced limit for Pi (was 100000)
             start_time=start_time
         )
 

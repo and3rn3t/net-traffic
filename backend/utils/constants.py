@@ -37,6 +37,21 @@ ALLOWED_APPLICATIONS = ["HTTP", "HTTPS", "SSH", "DNS"]
 # DNS response codes
 DNS_NOERROR = "NOERROR"
 
+# Device vendor MAC prefixes (OUI database - simplified)
+# In production, use a full OUI database
+VENDOR_DB = {
+    "00:50:56": "VMware",
+    "00:0C:29": "VMware",
+    "00:05:69": "VMware",
+    "08:00:27": "VirtualBox",
+    "52:54:00": "QEMU",
+    "B8:27:EB": "Raspberry Pi",
+    "DC:A6:32": "Raspberry Pi",
+    "E4:5F:01": "Raspberry Pi",
+    "28:CD:C1": "Raspberry Pi",
+    "D8:3A:DD": "Raspberry Pi",
+}
+
 # Threat score increments
 THREAT_SCORE_EXFILTRATION = 30
 THREAT_SCORE_SUSPICIOUS_PORT = 50

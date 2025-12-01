@@ -6,32 +6,18 @@ import uuid
 import socket
 from typing import Optional, Callable
 from datetime import datetime
-import re
 
 try:
-    from scapy.all import ARP, Ether
+    from scapy.all import ARP
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
 
 from models.types import Device
 from services.storage import StorageService
+from utils.constants import VENDOR_DB
 
 logger = logging.getLogger(__name__)
-
-# Vendor MAC prefixes (simplified - in production, use full OUI database)
-VENDOR_DB = {
-    "00:50:56": "VMware",
-    "00:0C:29": "VMware",
-    "00:05:69": "VMware",
-    "08:00:27": "VirtualBox",
-    "52:54:00": "QEMU",
-    "B8:27:EB": "Raspberry Pi",
-    "DC:A6:32": "Raspberry Pi",
-    "E4:5F:01": "Raspberry Pi",
-    "28:CD:C1": "Raspberry Pi",
-    "D8:3A:DD": "Raspberry Pi",
-}
 
 
 class DeviceFingerprintingService:
@@ -60,8 +46,9 @@ class DeviceFingerprintingService:
         except Exception as e:
             logger.error(f"Error processing ARP packet: {e}")
 
-    async def get_or_create_device(self, ip: str, mac: Optional[str] = None,
-                                   packet=None) -> Device:
+    async def get_or_create_device(
+        self, ip: str, mac: Optional[str] = None, packet=None
+    ) -> Device:
         """Get existing device or create new one"""
         # Try to find by MAC first (most reliable)
         device = None
@@ -78,7 +65,7 @@ class DeviceFingerprintingService:
             return device
 
         # Create new device
-        device_type = self._detect_device_type(ip, mac, packet)
+        device_type = self._detect_device_type(ip, mac)
         vendor = self._detect_vendor(mac) if mac else "Unknown"
         device_name = self._generate_device_name(ip, vendor, device_type)
 
@@ -113,8 +100,16 @@ class DeviceFingerprintingService:
 
         return device
 
-    def _detect_device_type(self, ip: str, mac: Optional[str], packet) -> str:
-        """Detect device type from IP, MAC, and traffic patterns"""
+    def _detect_device_type(
+        self, ip: str, mac: Optional[str], packet=None  # noqa: ARG002
+    ) -> str:
+        """Detect device type from IP, MAC, and traffic patterns
+        
+        Args:
+            ip: Device IP address
+            mac: Device MAC address
+            packet: Optional packet for future analysis (currently unused)
+        """
         # Check if it's a router/gateway (typically .1)
         if ip.endswith(".1"):
             return "server"
@@ -122,7 +117,8 @@ class DeviceFingerprintingService:
         # Check vendor from MAC
         if mac:
             mac_prefix = mac.upper()[:8]
-            if any(v in mac_prefix for v in ["B8:27:EB", "DC:A6:32", "E4:5F:01"]):
+            raspberry_pi_prefixes = ["B8:27:EB", "DC:A6:32", "E4:5F:01"]
+            if any(v in mac_prefix for v in raspberry_pi_prefixes):
                 return "server"  # Raspberry Pi
 
         # Default to unknown - could be improved with more heuristics
@@ -148,7 +144,8 @@ class DeviceFingerprintingService:
             hostname = socket.gethostbyaddr(ip)[0]
             if hostname and hostname != ip:
                 return hostname.split('.')[0]
-        except:
+        except (socket.herror, OSError):
+            # Hostname resolution failed - use fallback
             pass
 
         # Fallback to vendor + type

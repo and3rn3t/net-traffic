@@ -9,6 +9,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 
 from models.types import NetworkFlow, Device, Threat
+from utils.migrations import run_migrations
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,8 @@ class StorageService:
         """Initialize database and create tables"""
         await self._ensure_connection()
         await self._create_tables()
+        # Run migrations to handle schema updates
+        await run_migrations(self.db)
         logger.info(f"Database initialized: {self.db_path}")
 
     async def _ensure_connection(self):
@@ -60,6 +63,10 @@ class StorageService:
                     timeout=5.0
                 )
                 self.db.row_factory = aiosqlite.Row
+                
+                # Optimize SQLite for Raspberry Pi 5
+                await self._optimize_sqlite()
+                
                 logger.info(f"Database connected: {self.db_path}")
                 return
             except Exception as e:
@@ -132,6 +139,7 @@ class StorageService:
                 connections_count INTEGER NOT NULL DEFAULT 0,
                 threat_score REAL NOT NULL DEFAULT 0,
                 behavioral TEXT NOT NULL DEFAULT '{}',
+                notes TEXT,
                 ipv6_support INTEGER DEFAULT 0,
                 avg_rtt REAL,
                 connection_quality TEXT,
@@ -255,6 +263,22 @@ class StorageService:
 
         await self.db.commit()
 
+    async def _optimize_sqlite(self):
+        """Optimize SQLite settings for Raspberry Pi 5"""
+        # Enable WAL mode for better concurrency (readers don't block writers)
+        await self.db.execute("PRAGMA journal_mode=WAL")
+        
+        # Optimize for Pi's limited resources
+        await self.db.execute("PRAGMA synchronous=NORMAL")  # Balance safety/performance
+        await self.db.execute("PRAGMA cache_size=-32000")  # 32MB cache (adjust for Pi RAM)
+        await self.db.execute("PRAGMA temp_store=MEMORY")  # Use RAM for temp tables
+        await self.db.execute("PRAGMA mmap_size=268435456")  # 256MB memory-mapped I/O
+        await self.db.execute("PRAGMA page_size=4096")  # Optimal page size
+        await self.db.execute("PRAGMA optimize")  # Run query optimizer
+        
+        await self.db.commit()
+        logger.debug("SQLite optimized for Raspberry Pi 5")
+
     async def cleanup_old_data(self, days: int = 30):
         """Clean up old flows and threats older than specified days"""
         cutoff_time = int(
@@ -359,13 +383,13 @@ class StorageService:
         await self._execute_with_retry("""
             INSERT OR REPLACE INTO devices
             (id, name, ip, mac, type, vendor, os, first_seen, last_seen, bytes_total,
-             connections_count, threat_score, behavioral, ipv6_support, avg_rtt,
+             connections_count, threat_score, behavioral, notes, ipv6_support, avg_rtt,
              connection_quality, applications)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             device.id, device.name, device.ip, device.mac, device.type, device.vendor,
             device.os, device.firstSeen, device.lastSeen, device.bytesTotal, device.connectionsCount,
-            device.threatScore, json.dumps(device.behavioral),
+            device.threatScore, json.dumps(device.behavioral), device.notes,
             1 if device.ipv6Support else 0, device.avgRtt, device.connectionQuality, applications_str
         ))
         await self._ensure_connection()
@@ -666,6 +690,7 @@ class StorageService:
             connectionsCount=row["connections_count"],
             threatScore=row["threat_score"],
             behavioral=json.loads(row["behavioral"]),
+            notes=row.get("notes"),  # Handle missing notes field for existing databases
             ipv6Support=bool(row["ipv6_support"]) if row["ipv6_support"] is not None else None,
             avgRtt=row["avg_rtt"],
             connectionQuality=row["connection_quality"],
