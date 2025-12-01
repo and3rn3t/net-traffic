@@ -41,17 +41,23 @@ fi
 echo "Using: $COMPOSE_CMD"
 echo ""
 
-# Pull latest images (if using a registry)
-# Uncomment and configure if you're pushing images to a registry:
-# echo "Pulling latest images from registry..."
-# $COMPOSE_CMD pull --ignore-pull-failures || echo "Warning: Could not pull images (may not be in registry yet)"
-
-# Build images with --pull to ensure base images are latest
-echo "Building/updating images (pulling latest base images)..."
-$COMPOSE_CMD build --pull --no-cache || {
-    echo "Warning: Build with --pull failed, trying without --pull..."
-    $COMPOSE_CMD build
-}
+# Check if using registry mode (has pull_policy or image from registry, no build:)
+if grep -q "pull_policy:" docker-compose.yml || (grep -q "image:" docker-compose.yml && ! grep -q "build:" docker-compose.yml); then
+    # Using registry - pull images
+    echo "Pulling latest images from registry..."
+    $COMPOSE_CMD pull --ignore-pull-failures || {
+        echo "Warning: Could not pull images from registry"
+        echo "Falling back to build mode..."
+        $COMPOSE_CMD build --pull
+    }
+else
+    # Using local build - build images with --pull for latest base images
+    echo "Building/updating images (pulling latest base images)..."
+    $COMPOSE_CMD build --pull --no-cache || {
+        echo "Warning: Build with --pull failed, trying without --pull..."
+        $COMPOSE_CMD build
+    }
+fi
 
 # Stop existing containers if running
 echo ""

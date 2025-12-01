@@ -1,0 +1,72 @@
+version: '3.8'
+
+# Example docker-compose configuration for pulling images from a registry
+# Copy this to docker-compose.yml and update with your registry URLs
+
+services:
+  # Backend API Service
+  backend:
+    # Remove build section and use image from registry instead
+    image: your-registry/netinsight-backend:latest
+    pull_policy: always  # Always pull latest on startup
+    platform: linux/arm64
+    container_name: netinsight-backend
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      - NETWORK_INTERFACE=${NETWORK_INTERFACE:-eth0}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DB_PATH=/app/data/netinsight.db
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000}
+      - DEBUG=${DEBUG:-false}
+      - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
+    volumes:
+      - backend-data:/app/data
+    networks:
+      - netinsight-network
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: false
+    healthcheck:
+      test:
+        ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Web Application
+  frontend:
+    # Remove build section and use image from registry instead
+    image: your-registry/netinsight-frontend:latest
+    pull_policy: always  # Always pull latest on startup
+    platform: linux/arm64
+    container_name: netinsight-frontend
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    networks:
+      - netinsight-network
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
+    driver: local
+    name: netinsight-backend-data
+
+networks:
+  netinsight-network:
+    driver: bridge
+    name: netinsight-network
+

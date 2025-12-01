@@ -32,14 +32,16 @@ else
     exit 1
 fi
 
-# Pull latest images from registry (if configured)
-# Uncomment if you're using a container registry:
-# echo "Pulling latest images from registry..."
-# $COMPOSE_CMD pull || echo "Warning: Could not pull images from registry"
-
-# Rebuild images with latest base images
-echo "Rebuilding images with latest base images..."
-$COMPOSE_CMD build --pull
+# Check if using registry mode (has pull_policy or image from registry, no build:)
+if grep -q "pull_policy:" docker-compose.yml || (grep -q "image:" docker-compose.yml && ! grep -q "build:" docker-compose.yml); then
+    # Using registry - pull images
+    echo "Pulling latest images from registry..."
+    $COMPOSE_CMD pull || echo "Warning: Could not pull images from registry"
+else
+    # Using local build - rebuild images with latest base images
+    echo "Rebuilding images with latest base images..."
+    $COMPOSE_CMD build --pull
+fi
 
 # Restart containers
 echo ""
