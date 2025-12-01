@@ -27,8 +27,13 @@ from services.advanced_analytics import AdvancedAnalyticsService
 from services.geolocation import GeolocationService
 from services.network_quality_analytics import NetworkQualityAnalyticsService
 from services.application_analytics import ApplicationAnalyticsService
+from services.auth_service import AuthService
 from models.types import (
     NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
+)
+from models.auth import (
+    User, UserCreate, UserUpdate, LoginRequest, Token,
+    APIKeyCreate, APIKey, PasswordChange, UserRole
 )
 from models.requests import DeviceUpdateRequest
 from utils.config import config
@@ -58,6 +63,7 @@ advanced_analytics: Optional[AdvancedAnalyticsService] = None
 geolocation_service: Optional[GeolocationService] = None
 network_quality_analytics: Optional[NetworkQualityAnalyticsService] = None
 application_analytics: Optional[ApplicationAnalyticsService] = None
+auth_service: Optional[AuthService] = None
 
 # Service manager for centralized lifecycle management
 service_manager: Optional[ServiceManager] = None
@@ -123,6 +129,7 @@ async def lifespan(app: FastAPI):
     global geolocation_service
     global network_quality_analytics
     global application_analytics
+    global auth_service
     global service_manager
 
     logger.info("Starting NetInsight Backend...")
@@ -130,6 +137,14 @@ async def lifespan(app: FastAPI):
     # Initialize storage
     storage = StorageService(db_path=config.db_path)
     await storage.initialize()
+
+    # Initialize authentication service
+    auth_service = AuthService(db_path=config.db_path)
+    await auth_service.initialize()
+
+    # Set auth service for dependencies
+    from utils.auth_dependencies import set_auth_service
+    set_auth_service(auth_service)
 
     # Initialize services using ServiceManager
     service_manager = ServiceManager(storage)
@@ -184,6 +199,10 @@ async def lifespan(app: FastAPI):
     # Cleanup services using ServiceManager
     if service_manager:
         await service_manager.cleanup()
+
+    # Cleanup auth service
+    if auth_service:
+        await auth_service.close()
 
     logger.info("NetInsight Backend stopped")
 
@@ -456,6 +475,248 @@ async def health_threat():
     }
 
 
+# ============================================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================================
+
+from utils.auth_dependencies import (
+    get_current_user, get_current_active_user,
+    require_admin, require_operator_or_admin, get_current_user_optional
+)
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Depends, status
+
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Login with username and password to get JWT token
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    user = await auth_service.authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Create access token
+    from datetime import timedelta
+    access_token_expires = timedelta(minutes=30)
+    token = auth_service.create_access_token(
+        data={"sub": user.username, "role": user.role.value},
+        expires_delta=access_token_expires
+    )
+
+    return token
+
+
+@app.post("/api/auth/register", response_model=User, status_code=status.HTTP_201_CREATED)
+async def register(
+    user_create: UserCreate,
+    current_user: User = Depends(require_admin)
+):
+    """
+    Register a new user (admin only)
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    # Check if username already exists
+    existing_user = await auth_service.get_user(user_create.username)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered"
+        )
+
+    user = await auth_service.create_user(user_create)
+    return user
+
+
+@app.get("/api/auth/me", response_model=User)
+async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
+    """
+    Get current authenticated user information
+    """
+    return current_user
+
+
+@app.get("/api/auth/users", response_model=List[User])
+async def list_users(current_user: User = Depends(require_admin)):
+    """
+    List all users (admin only)
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    users = await auth_service.list_users()
+    return users
+
+
+@app.patch("/api/auth/users/{username}", response_model=User)
+async def update_user(
+    username: str,
+    user_update: UserUpdate,
+    current_user: User = Depends(require_admin)
+):
+    """
+    Update user information (admin only)
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    updated_user = await auth_service.update_user(username, user_update)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return updated_user
+
+
+@app.delete("/api/auth/users/{username}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    username: str,
+    current_user: User = Depends(require_admin)
+):
+    """
+    Delete a user (admin only)
+    Cannot delete yourself
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    if username == current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account"
+        )
+
+    success = await auth_service.delete_user(username)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return None
+
+
+@app.post("/api/auth/change-password")
+async def change_password(
+    password_change: PasswordChange,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Change current user's password
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    # Verify old password
+    user_in_db = await auth_service.get_user(current_user.username)
+    if not user_in_db or not auth_service.verify_password(password_change.old_password, user_in_db.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect password"
+        )
+
+    # Update password
+    await auth_service.update_user(
+        current_user.username,
+        UserUpdate(password=password_change.new_password)
+    )
+
+    return {"message": "Password updated successfully"}
+
+
+@app.post("/api/auth/api-keys", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_api_key(
+    api_key_create: APIKeyCreate,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Create a new API key for current user
+    Returns the API key once - store it securely!
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    api_key_obj, raw_key = await auth_service.create_api_key(current_user.id, api_key_create)
+
+    return {
+        "id": api_key_obj.id,
+        "name": api_key_obj.name,
+        "api_key": raw_key,  # Only shown once!
+        "created_at": api_key_obj.created_at,
+        "expires_at": api_key_obj.expires_at,
+        "message": "Store this API key securely - it will not be shown again"
+    }
+
+
+@app.get("/api/auth/api-keys", response_model=List[APIKey])
+async def list_api_keys(current_user: User = Depends(get_current_active_user)):
+    """
+    List current user's API keys
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    keys = await auth_service.list_user_api_keys(current_user.id)
+    return keys
+
+
+@app.delete("/api/auth/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_api_key(
+    key_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Revoke (delete) an API key
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    await auth_service.revoke_api_key(key_id, current_user.id)
+    return None
+
+
+# ============================================================================
+# DEVICE ENDPOINTS
+# ============================================================================
+
 @app.get("/api/devices", response_model=List[Device])
 async def get_devices():
     """Get all discovered devices"""
@@ -574,8 +835,11 @@ async def get_threats(active_only: bool = True):
 
 
 @app.post("/api/threats/{threat_id}/dismiss")
-async def dismiss_threat(threat_id: str = ThreatIdPath()):
-    """Dismiss a threat alert"""
+async def dismiss_threat(
+    threat_id: str = ThreatIdPath(),
+    current_user: User = Depends(require_operator_or_admin)
+):
+    """Dismiss a threat alert - Requires operator or admin role"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
@@ -856,9 +1120,10 @@ async def get_device_analytics(
 @app.patch("/api/devices/{device_id}")
 async def update_device(
     device_id: str = DeviceIdPath(),
-    update: DeviceUpdateRequest = ...
+    update: DeviceUpdateRequest = ...,
+    current_user: User = Depends(require_operator_or_admin)
 ):
-    """Update device information (name, notes, type)"""
+    """Update device information (name, notes, type) - Requires operator or admin role"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
@@ -1017,8 +1282,8 @@ async def export_flows(
 
 
 @app.post("/api/capture/start")
-async def start_capture():
-    """Start packet capture"""
+async def start_capture(current_user: User = Depends(require_operator_or_admin)):
+    """Start packet capture - Requires operator or admin role"""
     if not packet_capture:
         raise HTTPException(
             status_code=503, detail=ERR_CAPTURE_NOT_INIT
@@ -1030,8 +1295,8 @@ async def start_capture():
 
 
 @app.post("/api/capture/stop")
-async def stop_capture():
-    """Stop packet capture"""
+async def stop_capture(current_user: User = Depends(require_operator_or_admin)):
+    """Stop packet capture - Requires operator or admin role"""
     if not packet_capture:
         raise HTTPException(
             status_code=503, detail=ERR_CAPTURE_NOT_INIT
