@@ -27,7 +27,16 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
     "test:all": "npm run test:run && npm run test:e2e",
-    "validate:env": "node scripts/validate-env.js"
+    "validate:env": "node scripts/validate-env.js",
+    "clean": "node scripts/clean.js",
+    "clean:all": "node scripts/clean.js --all",
+    "check-deps": "node scripts/check-deps.js",
+    "check-deps:python": "node scripts/check-deps.js --python",
+    "analyze-bundle": "node scripts/analyze-bundle.js",
+    "pre-commit": "node scripts/pre-commit.js",
+    "health-check": "node scripts/health-check.js",
+    "backend:setup": "bash scripts/backend-setup.sh",
+    "db:backup": "bash scripts/db-backup.sh"
   },
   "dependencies": {
     "@github/spark": "^0.39.0",
