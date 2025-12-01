@@ -1,21 +1,21 @@
 /**
  * Summary statistics card using the enhanced API
  */
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MetricCard } from '@/components/MetricCard';
 import { formatBytesShort } from '@/lib/formatters';
 import { Pulse, ArrowClockwise, ShieldCheck, Warning, DeviceMobile } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
 
 export function SummaryStatsCard() {
   const { summaryStats, isLoading, error, fetchSummaryStats } = useEnhancedAnalytics({
     autoFetch: true,
   });
-  const [useApi] = useState(import.meta.env.VITE_USE_REAL_API === 'true');
+  const { useRealApi } = useApiConfig();
 
-  if (!useApi || !summaryStats) {
+  if (!useRealApi || !summaryStats) {
     return null; // Only show when API is available
   }
 

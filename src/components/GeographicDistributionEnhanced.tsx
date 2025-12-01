@@ -1,7 +1,6 @@
 /**
  * Enhanced GeographicDistribution component using API endpoints
  */
-import { useState } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
@@ -10,6 +9,7 @@ import { Globe, ArrowClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
 
 interface GeographicDistributionEnhancedProps {
   flows?: NetworkFlow[]; // Fallback data
@@ -24,7 +24,7 @@ export function GeographicDistributionEnhanced({
     autoFetch: true,
     hours,
   });
-  const [useApi] = useState(import.meta.env.VITE_USE_REAL_API === 'true');
+  const { useRealApi } = useApiConfig();
 
   // Fallback: calculate from flows
   const fallbackStats = flows.reduce(
@@ -53,7 +53,7 @@ export function GeographicDistributionEnhanced({
   );
 
   // Use API data if available, otherwise use fallback
-  const stats = useApi && geographicStats.length > 0 ? geographicStats : fallbackGeographic;
+  const stats = useRealApi && geographicStats.length > 0 ? geographicStats : fallbackGeographic;
   const maxConnections = stats.length > 0 ? Math.max(...stats.map(s => s.connections)) : 0;
 
   return (
@@ -67,7 +67,7 @@ export function GeographicDistributionEnhanced({
             </CardTitle>
             <CardDescription>Network connections by country</CardDescription>
           </div>
-          {useApi && (
+          {useRealApi && (
             <Button
               variant="ghost"
               size="sm"
@@ -80,7 +80,7 @@ export function GeographicDistributionEnhanced({
         </div>
       </CardHeader>
       <CardContent>
-        {error && useApi && (
+        {error && useRealApi && (
           <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded">
             {error}. Falling back to local data.
           </div>

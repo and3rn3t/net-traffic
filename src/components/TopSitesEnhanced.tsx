@@ -2,7 +2,6 @@
  * Enhanced TopSites component using API endpoints
  * Falls back to calculating from flows if API unavailable
  */
-import { useState } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
@@ -10,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Globe, ArrowClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
 
 interface TopSitesEnhancedProps {
   flows?: NetworkFlow[]; // Fallback data
@@ -22,7 +22,7 @@ export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSite
     autoFetch: true,
     hours,
   });
-  const [useApi] = useState(import.meta.env.VITE_USE_REAL_API === 'true');
+  const { useRealApi } = useApiConfig();
 
   // Fallback: calculate from flows if API not available
   const fallbackSites = flows.reduce(
@@ -63,7 +63,7 @@ export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSite
     .slice(0, limit);
 
   // Use API data if available, otherwise use fallback
-  const sites = useApi && topDomains.length > 0 ? topDomains : fallbackTopSites;
+  const sites = useRealApi && topDomains.length > 0 ? topDomains : fallbackTopSites;
   const maxBytes = sites.length > 0 ? Math.max(...sites.map(s => s.bytes)) : 0;
 
   return (
@@ -77,7 +77,7 @@ export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSite
             </CardTitle>
             <CardDescription>Most accessed sites and services by traffic volume</CardDescription>
           </div>
-          {useApi && (
+          {useRealApi && (
             <Button
               variant="ghost"
               size="sm"
@@ -90,7 +90,7 @@ export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSite
         </div>
       </CardHeader>
       <CardContent>
-        {error && useApi && (
+        {error && useRealApi && (
           <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded">
             {error}. Falling back to local data.
           </div>

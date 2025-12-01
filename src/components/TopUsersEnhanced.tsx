@@ -2,7 +2,6 @@
  * Enhanced TopUsers component using API endpoints
  * Falls back to calculating from devices/flows if API unavailable
  */
-import { useState } from 'react';
 import { Device, NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
@@ -10,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { DeviceMobile, TrendUp, TrendDown, Minus, ArrowClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
 
 interface TopUsersEnhancedProps {
   devices?: Device[]; // Fallback data
@@ -30,7 +30,7 @@ export function TopUsersEnhanced({
     autoFetch: true,
     hours,
   });
-  const [useApi] = useState(import.meta.env.VITE_USE_REAL_API === 'true');
+  const { useRealApi } = useApiConfig();
 
   // Fallback: calculate from devices/flows
   const fallbackDeviceStats = devices.map(device => {
@@ -55,7 +55,7 @@ export function TopUsersEnhanced({
   const fallbackTopUsers = fallbackDeviceStats.slice(0, limit);
 
   // Use API data if available, otherwise use fallback
-  const users = useApi && topDevices.length > 0 ? topDevices : fallbackTopUsers;
+  const users = useRealApi && topDevices.length > 0 ? topDevices : fallbackTopUsers;
   const maxBytes = users.length > 0 ? Math.max(...users.map(u => u.bytes)) : 0;
 
   const getTrendIcon = (user: (typeof users)[0]) => {
@@ -79,7 +79,7 @@ export function TopUsersEnhanced({
             </CardTitle>
             <CardDescription>Devices ranked by total data consumption</CardDescription>
           </div>
-          {useApi && (
+          {useRealApi && (
             <Button
               variant="ghost"
               size="sm"
@@ -92,7 +92,7 @@ export function TopUsersEnhanced({
         </div>
       </CardHeader>
       <CardContent>
-        {error && useApi && (
+        {error && useRealApi && (
           <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded">
             {error}. Falling back to local data.
           </div>
