@@ -3,7 +3,14 @@
  * Connects frontend to Raspberry Pi 5 backend service
  */
 
-import type { Device, NetworkFlow, Threat } from './types';
+import type {
+  Device,
+  NetworkFlow,
+  Threat,
+  AnalyticsData,
+  ProtocolStats,
+  CaptureStatus,
+} from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -17,8 +24,10 @@ export class ApiClient {
   private timeout: number;
   private ws: WebSocket | null = null;
   private wsReconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = 10;
+  private wsReconnectTimeout: NodeJS.Timeout | null = null;
   private wsListeners: Map<string, Set<(data: unknown) => void>> = new Map();
+  private wsPingInterval: NodeJS.Timeout | null = null;
 
   constructor(config: ApiConfig = { baseURL: API_BASE_URL, timeout: 30000 }) {
     this.baseURL = config.baseURL;
@@ -133,12 +142,12 @@ export class ApiClient {
   }
 
   // Devices
-  async getDevices(): Promise<any[]> {
-    return this.request('/api/devices');
+  async getDevices(): Promise<Device[]> {
+    return this.request<Device[]>('/api/devices');
   }
 
-  async getDevice(deviceId: string): Promise<any> {
-    return this.request(`/api/devices/${deviceId}`);
+  async getDevice(deviceId: string): Promise<Device> {
+    return this.request<Device>(`/api/devices/${deviceId}`);
   }
 
   // Flows
@@ -164,7 +173,7 @@ export class ApiClient {
     maxRetransmissions?: number,
     sni?: string,
     connectionState?: string
-  ): Promise<any[]> {
+  ): Promise<NetworkFlow[]> {
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: offset.toString(),
@@ -190,16 +199,16 @@ export class ApiClient {
     if (sni) params.append('sni', sni);
     if (connectionState) params.append('connection_state', connectionState);
 
-    return this.request(`/api/flows?${params.toString()}`);
+    return this.request<NetworkFlow[]>(`/api/flows?${params.toString()}`);
   }
 
-  async getFlow(flowId: string): Promise<any> {
-    return this.request(`/api/flows/${flowId}`);
+  async getFlow(flowId: string): Promise<NetworkFlow> {
+    return this.request<NetworkFlow>(`/api/flows/${flowId}`);
   }
 
   // Threats
-  async getThreats(activeOnly: boolean = true): Promise<any[]> {
-    return this.request(`/api/threats?active_only=${activeOnly}`);
+  async getThreats(activeOnly: boolean = true): Promise<Threat[]> {
+    return this.request<Threat[]>(`/api/threats?active_only=${activeOnly}`);
   }
 
   async dismissThreat(threatId: string): Promise<void> {
@@ -207,17 +216,17 @@ export class ApiClient {
   }
 
   // Analytics
-  async getAnalytics(hours: number = 24): Promise<any[]> {
-    return this.request(`/api/analytics?hours=${hours}`);
+  async getAnalytics(hours: number = 24): Promise<AnalyticsData[]> {
+    return this.request<AnalyticsData[]>(`/api/analytics?hours=${hours}`);
   }
 
-  async getProtocolStats(): Promise<any[]> {
-    return this.request('/api/protocols');
+  async getProtocolStats(): Promise<ProtocolStats[]> {
+    return this.request<ProtocolStats[]>('/api/protocols');
   }
 
   // Capture control
-  async getCaptureStatus(): Promise<any> {
-    return this.request('/api/capture/status');
+  async getCaptureStatus(): Promise<CaptureStatus> {
+    return this.request<CaptureStatus>('/api/capture/status');
   }
 
   async startCapture(): Promise<void> {
@@ -495,8 +504,8 @@ export class ApiClient {
   async updateDevice(
     deviceId: string,
     update: { name?: string; type?: string; notes?: string }
-  ): Promise<any> {
-    return this.request(`/api/devices/${deviceId}`, {
+  ): Promise<Device> {
+    return this.request<Device>(`/api/devices/${deviceId}`, {
       method: 'PATCH',
       body: JSON.stringify(update),
     });
@@ -569,8 +578,15 @@ export class ApiClient {
     globalThis.URL.revokeObjectURL(downloadUrl);
   }
 
-  // WebSocket connection for real-time updates
+  // WebSocket connection for real-time updates with improved resilience
   connectWebSocket(onMessage: (data: unknown) => void): () => void {
+    // Clear any existing reconnect timeout
+    if (this.wsReconnectTimeout) {
+      clearTimeout(this.wsReconnectTimeout);
+      this.wsReconnectTimeout = null;
+    }
+
+    // If already connected, return disconnect function
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return () => this.disconnectWebSocket();
     }
@@ -581,21 +597,38 @@ export class ApiClient {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected successfully');
         this.wsReconnectAttempts = 0;
 
+        // Clear any existing ping interval
+        if (this.wsPingInterval) {
+          clearInterval(this.wsPingInterval);
+        }
+
         // Send ping to keep connection alive
-        const pingInterval = setInterval(() => {
+        this.wsPingInterval = setInterval(() => {
           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send('ping');
+            try {
+              this.ws.send('ping');
+            } catch (error) {
+              console.error('Failed to send WebSocket ping:', error);
+            }
           } else {
-            clearInterval(pingInterval);
+            if (this.wsPingInterval) {
+              clearInterval(this.wsPingInterval);
+              this.wsPingInterval = null;
+            }
           }
-        }, 30000);
+        }, 30000); // Ping every 30 seconds
       };
 
       this.ws.onmessage = event => {
         try {
+          // Ignore pong responses
+          if (event.data === 'pong') {
+            return;
+          }
+
           const data = JSON.parse(event.data);
           onMessage(data);
         } catch (error) {
@@ -607,38 +640,68 @@ export class ApiClient {
         console.error('WebSocket error:', error);
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
+      this.ws.onclose = event => {
+        console.log(`WebSocket disconnected (code: ${event.code}, reason: ${event.reason || 'none'})`);
 
-        // Attempt to reconnect
+        // Clear ping interval
+        if (this.wsPingInterval) {
+          clearInterval(this.wsPingInterval);
+          this.wsPingInterval = null;
+        }
+
+        // Attempt to reconnect with exponential backoff
         if (this.wsReconnectAttempts < this.maxReconnectAttempts) {
           this.wsReconnectAttempts++;
-          const delay = Math.min(1000 * Math.pow(2, this.wsReconnectAttempts), 30000);
+          // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, max 60s
+          const delay = Math.min(1000 * Math.pow(2, this.wsReconnectAttempts - 1), 60000);
+
           console.log(
-            `Reconnecting WebSocket in ${delay}ms... (attempt ${this.wsReconnectAttempts})`
+            `Scheduling WebSocket reconnect in ${delay / 1000}s... (attempt ${this.wsReconnectAttempts}/${this.maxReconnectAttempts})`
           );
 
-          setTimeout(() => {
-            if (this.ws?.readyState !== WebSocket.OPEN) {
+          this.wsReconnectTimeout = setTimeout(() => {
+            // Only reconnect if not already connected
+            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+              console.log(`Attempting WebSocket reconnect (${this.wsReconnectAttempts}/${this.maxReconnectAttempts})`);
               this.connectWebSocket(onMessage);
             }
           }, delay);
         } else {
-          console.error('Max WebSocket reconnect attempts reached');
+          console.error(`Max WebSocket reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`);
+          // Reset attempts after a longer delay to allow future manual retries
+          setTimeout(() => {
+            this.wsReconnectAttempts = 0;
+          }, 300000); // Reset after 5 minutes
         }
       };
     } catch (error) {
-      console.error('Failed to connect WebSocket:', error);
+      console.error('Failed to create WebSocket connection:', error);
     }
 
     return () => this.disconnectWebSocket();
   }
 
   disconnectWebSocket(): void {
+    // Clear reconnect timeout
+    if (this.wsReconnectTimeout) {
+      clearTimeout(this.wsReconnectTimeout);
+      this.wsReconnectTimeout = null;
+    }
+
+    // Clear ping interval
+    if (this.wsPingInterval) {
+      clearInterval(this.wsPingInterval);
+      this.wsPingInterval = null;
+    }
+
+    // Close WebSocket connection
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
+
+    // Reset reconnect attempts
+    this.wsReconnectAttempts = 0;
   }
 
   // Subscribe to specific event types

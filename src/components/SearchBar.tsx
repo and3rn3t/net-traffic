@@ -30,7 +30,7 @@ interface SearchBarProps {
 
 export function SearchBar({ onResultClick }: SearchBarProps) {
   const [query, setQuery] = useState('');
-  const [searchType] = useState<'all' | 'devices' | 'flows' | 'threats'>('all');
+  const [searchType, setSearchType] = useState<'all' | 'devices' | 'flows' | 'threats'>('all');
   const [showResults, setShowResults] = useState(false);
 
   // Debounce search query to avoid excessive API calls
@@ -78,10 +78,33 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
     }
   }, [error]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K or Ctrl+K to focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        document.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
+      }
+      // Escape to clear search
+      if (e.key === 'Escape') {
+        setShowResults(false);
+        setQuery('');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && query.trim()) {
       // Trigger search by ensuring debounced query updates
       setShowResults(true);
+    }
+    if (e.key === 'Escape') {
+      setShowResults(false);
+      setQuery('');
     }
   };
 
@@ -89,10 +112,10 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
 
   return (
     <>
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md group">
         <Input
           type="text"
-          placeholder="Search devices, flows, IP addresses..."
+          placeholder="Search devices, flows, IP addresses... (⌘K)"
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyPress={handleKeyPress}
@@ -102,10 +125,13 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
             }
           }}
           className="pl-10 pr-10"
+          aria-label="Search"
+          aria-keyshortcuts="Meta+K Control+K"
         />
         <MagnifyingGlass
           size={18}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          aria-hidden="true"
         />
         {query && (
           <Button
@@ -116,9 +142,15 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
               setQuery('');
               setShowResults(false);
             }}
+            aria-label="Clear search"
           >
             <X size={14} />
           </Button>
+        )}
+        {!query && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+            ⌘K
+          </div>
         )}
       </div>
 
