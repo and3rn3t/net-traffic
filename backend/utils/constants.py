@@ -3,6 +3,25 @@ Constants for threat detection and network analysis
 Consolidates magic numbers and thresholds used across the backend
 """
 
+# Time constants
+SECONDS_PER_HOUR = 3600
+CLEANUP_INTERVAL_HOURS = 24
+
+# Error messages class for consistent error handling
+class ErrorMessages:
+    """Centralized error message definitions"""
+    STORAGE_NOT_INIT = "Storage service not initialized"
+    DEVICE_NOT_FOUND = "Device not found"
+    FLOW_NOT_FOUND = "Flow not found"
+    THREAT_NOT_FOUND = "Threat not found"
+    ANALYTICS_NOT_INIT = "Analytics service not initialized"
+    ADV_ANALYTICS_NOT_INIT = "Advanced analytics service not initialized"
+    CAPTURE_NOT_INIT = "Packet capture service not initialized"
+    UNAUTHORIZED = "Authentication required"
+    FORBIDDEN = "Insufficient permissions"
+    INVALID_TOKEN = "Invalid or expired token"
+    INVALID_API_KEY = "Invalid API key"
+
 # Data size thresholds (in bytes)
 LARGE_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB
 VERY_LARGE_UPLOAD_BYTES = 100 * 1024 * 1024  # 100MB

@@ -4,6 +4,7 @@ Handles schema changes and version tracking
 """
 import aiosqlite
 import logging
+import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
