@@ -269,10 +269,11 @@ describe('SearchBar', () => {
           if (!dialogTitle) {
             throw new Error('Dialog not open - title not found');
           }
-          // Also check for "Searching..." text to confirm isSearching is true
-          const searchingText = screen.queryByText(/Searching\.\.\./i);
-          if (!searchingText) {
-            throw new Error('Searching text not found');
+          // Check for the loading spinner to confirm isSearching is true
+          // The spinner has class "animate-spin" and is inside the dialog
+          const spinner = document.querySelector('[role="dialog"] .animate-spin');
+          if (!spinner) {
+            throw new Error('Loading spinner not found - search may not be in progress');
           }
         },
         { timeout: 5000, interval: 100 }
