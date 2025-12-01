@@ -10,6 +10,7 @@ import { queryClient } from '@/lib/queryClient';
 import { useApiData } from '@/hooks/useApiData';
 import { apiClient } from '@/lib/api';
 import { createMockDevice, createMockNetworkFlow, createMockThreat } from '@/lib/testHelpers';
+import { Device, NetworkFlow, Threat } from '@/lib/types';
 
 // Mock the API client
 vi.mock('@/lib/api', () => ({
@@ -83,9 +84,9 @@ describe('API Integration Tests', () => {
     });
 
     it('should fetch data when API is enabled', async () => {
-      const mockDevices = [{ id: '1', name: 'Device 1' }];
-      const mockFlows = [{ id: '1', protocol: 'TCP' }];
-      const mockThreats = [{ id: '1', type: 'suspicious' }];
+      const mockDevices = [createMockDevice({ id: '1', name: 'Device 1' })];
+      const mockFlows = [createMockNetworkFlow({ id: '1', protocol: 'TCP' })];
+      const mockThreats = [createMockThreat({ id: '1', type: 'anomaly' })];
 
       vi.mocked(apiClient.healthCheck).mockResolvedValue({
         status: 'healthy',

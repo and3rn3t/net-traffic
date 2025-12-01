@@ -293,13 +293,13 @@ describe('useFlowFilters', () => {
   describe('API Integration', () => {
     it('should fetch flows when autoFetch is enabled and API is available', async () => {
       const mockFlows = [
-        {
+        createMockNetworkFlow({
           id: '1',
           protocol: 'TCP',
           sourceIp: '192.168.1.1',
           destIp: '10.0.0.1',
-          timestamp: new Date().toISOString(),
-        },
+          timestamp: Date.now(),
+        }),
       ];
 
       vi.mocked(apiClient.getFlows).mockResolvedValue(mockFlows);
