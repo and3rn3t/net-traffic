@@ -36,7 +36,9 @@
     "pre-commit": "node scripts/pre-commit.js",
     "health-check": "node scripts/health-check.js",
     "backend:setup": "bash scripts/backend-setup.sh",
-    "db:backup": "bash scripts/db-backup.sh"
+    "db:backup": "bash scripts/db-backup.sh",
+    "ensure-env": "bash scripts/ensure-env.sh",
+    "pre-install": "bash scripts/pre-install-setup.sh"
   },
   "dependencies": {
     "@github/spark": "^0.39.0",

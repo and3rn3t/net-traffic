@@ -41,8 +41,36 @@ if [ ! -f ".env" ]; then
         echo "Copying .env.example to .env..."
         cp .env.example .env
         echo "✅ Created .env file. Please edit it with your configuration."
+    elif [ -f "$SCRIPT_DIR/ensure-env.sh" ]; then
+        echo "Creating .env file with defaults..."
+        bash "$SCRIPT_DIR/ensure-env.sh"
     else
-        echo "⚠️  .env.example not found. Please create a .env file manually."
+        echo "⚠️  .env.example not found. Creating .env with defaults..."
+        cat > .env << 'EOF'
+# NetInsight Backend Configuration
+NETWORK_INTERFACE=eth0
+HOST=0.0.0.0
+PORT=8000
+DEBUG=false
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:80
+DB_PATH=netinsight.db
+DATA_RETENTION_DAYS=30
+RATE_LIMIT_PER_MINUTE=120
+ENABLE_DNS_TRACKING=true
+ENABLE_REVERSE_DNS=true
+REVERSE_DNS_TIMEOUT=2.0
+REVERSE_DNS_RETRIES=2
+ENABLE_SERVICE_FINGERPRINTING=true
+ENABLE_DEEP_PACKET_INSPECTION=true
+ENABLE_HTTP_HOST_EXTRACTION=true
+ENABLE_ALPN_DETECTION=true
+LOG_LEVEL=INFO
+USE_JSON_LOGGING=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+EOF
+        echo "✅ Created .env file with default configuration"
+        echo "⚠️  Please review and update NETWORK_INTERFACE if needed"
     fi
 fi
 

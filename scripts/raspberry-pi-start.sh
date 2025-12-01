@@ -15,6 +15,13 @@ echo "NetInsight Raspberry Pi Startup Script"
 echo "=========================================="
 echo ""
 
+# Ensure .env file exists for backend
+if [ -f "$PROJECT_DIR/scripts/ensure-env.sh" ]; then
+    echo "Ensuring .env file exists..."
+    bash "$PROJECT_DIR/scripts/ensure-env.sh" || echo "Warning: Could not create .env file"
+    echo ""
+fi
+
 # Check if docker-compose is available
 if ! command -v docker-compose &> /dev/null && ! command -v docker &> /dev/null; then
     echo "Error: Docker is not installed or not in PATH"

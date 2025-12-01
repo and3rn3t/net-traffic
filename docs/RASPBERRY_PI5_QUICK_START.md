@@ -13,6 +13,8 @@ Before you begin, ensure you have:
 - [ ] Raspberry Pi OS 64-bit installed and booted
 - [ ] SSH access to your Pi (or keyboard/monitor)
 
+> **⚠️ Important**: Before installing NetInsight, complete the [Pre-Installation Configuration](./PRE_INSTALLATION_CONFIG.md) to set up network interface, promiscuous mode, firewall, and verify port mirroring. Or run the automated script: `bash scripts/pre-install-setup.sh`
+
 ## 🚀 Quick Start (Docker - Recommended)
 
 ### Step 1: Initial Pi Setup (5 minutes)
