@@ -46,13 +46,15 @@ from utils.validators import (
 from utils.error_handler import handle_endpoint_error
 from utils.constants import SECONDS_PER_HOUR, CLEANUP_INTERVAL_HOURS
 from utils.service_manager import ServiceManager
+from utils.logging_config import setup_logging, StructuredLogger, log_event, log_security_event
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Configure structured logging
+setup_logging(
+    level=config.log_level if hasattr(config, 'log_level') else 'INFO',
+    use_json=config.use_json_logging if hasattr(config, 'use_json_logging') else True,
+    log_file=config.log_file if hasattr(config, 'log_file') else None
 )
-logger = logging.getLogger(__name__)
+logger = StructuredLogger(__name__)
 
 # Global services (maintained for backward compatibility with endpoints)
 packet_capture: Optional[PacketCaptureService] = None
@@ -158,11 +160,12 @@ async def lifespan(app: FastAPI):
 
     # Initialize cache service (Redis)
     cache_service = CacheService(
-        host=config.redis_host if hasattr(config, 'redis_host') else 'localhost',
-        port=config.redis_port if hasattr(config, 'redis_port') else 6379,
+        host=config.redis_host,
+        port=config.redis_port,
         default_ttl=300  # 5 minutes
     )
     await cache_service.initialize()
+    logger.info("Cache service initialized", redis_host=config.redis_host, redis_port=config.redis_port)
 
     # Initialize authentication service
     auth_service = AuthService(db_path=config.db_path)

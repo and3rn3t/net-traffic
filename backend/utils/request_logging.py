@@ -11,6 +11,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
+# Try to import structured logging helpers
+try:
+    from utils.logging_config import log_request as log_structured_request
+    HAS_STRUCTURED_LOGGING = True
+except ImportError:
+    HAS_STRUCTURED_LOGGING = False
+
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware to log all HTTP requests and responses"""
@@ -85,6 +92,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     request, request_id, status_code, duration_ms,
                     client_ip
                 )
+                # Use structured logging if available
+                if HAS_STRUCTURED_LOGGING:
+                    log_structured_request(
+                        method=request.method,
+                        path=request.url.path,
+                        status_code=status_code,
+                        duration_ms=duration_ms,
+                        request_id=request_id,
+                        client_ip=client_ip,
+                        user_agent=request.headers.get("user-agent", "unknown")
+                    )
             elif should_log_debug:
                 logger.debug(
                     f"[{request_id}] {request.method} {request.url.path} "
