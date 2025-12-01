@@ -229,7 +229,7 @@ describe('useOfflineDetection', () => {
       // Advance timers to trigger the connectivity check
       await act(async () => {
         // Advance through check interval to trigger the first check
-        vi.advanceTimersByTime(1000);
+        await vi.advanceTimersByTimeAsync(1000);
         // Wait for the async fetch to complete and state to update
         // The fetch rejection needs to be handled by the hook
         await Promise.resolve();
@@ -245,11 +245,11 @@ describe('useOfflineDetection', () => {
           // The hook should have processed the error and updated state to offline
           expect(result.current.isOnline).toBe(false);
         },
-        { timeout: 5000, interval: 50 }
+        { timeout: 3000, interval: 50 }
       );
 
       fetchSpy.mockRestore();
-    }, 10000);
+    }, 8000);
 
     it('should update to offline when fetch returns non-ok response', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({

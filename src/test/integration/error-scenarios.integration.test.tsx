@@ -193,7 +193,7 @@ describe('Error Scenario Integration Tests', () => {
 
       // Advance timers to allow retry delays to complete
       await act(async () => {
-        vi.runAllTimers();
+        await vi.runAllTimersAsync();
         // Flush promises
         await Promise.resolve();
         await Promise.resolve();
@@ -209,7 +209,7 @@ describe('Error Scenario Integration Tests', () => {
           expect(result.current.isRetrying).toBe(false);
           expect(result.current.retryCount).toBe(0);
         },
-        { timeout: 2000, interval: 50 }
+        { timeout: 1000, interval: 50 }
       );
 
       vi.useRealTimers();
