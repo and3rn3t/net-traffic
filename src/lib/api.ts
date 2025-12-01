@@ -641,7 +641,9 @@ export class ApiClient {
       };
 
       this.ws.onclose = event => {
-        console.log(`WebSocket disconnected (code: ${event.code}, reason: ${event.reason || 'none'})`);
+        console.log(
+          `WebSocket disconnected (code: ${event.code}, reason: ${event.reason || 'none'})`
+        );
 
         // Clear ping interval
         if (this.wsPingInterval) {
@@ -662,12 +664,16 @@ export class ApiClient {
           this.wsReconnectTimeout = setTimeout(() => {
             // Only reconnect if not already connected
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-              console.log(`Attempting WebSocket reconnect (${this.wsReconnectAttempts}/${this.maxReconnectAttempts})`);
+              console.log(
+                `Attempting WebSocket reconnect (${this.wsReconnectAttempts}/${this.maxReconnectAttempts})`
+              );
               this.connectWebSocket(onMessage);
             }
           }, delay);
         } else {
-          console.error(`Max WebSocket reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`);
+          console.error(
+            `Max WebSocket reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`
+          );
           // Reset attempts after a longer delay to allow future manual retries
           setTimeout(() => {
             this.wsReconnectAttempts = 0;

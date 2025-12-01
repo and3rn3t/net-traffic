@@ -73,7 +73,9 @@ const FlowRow = memo(
               </div>
 
               {/* Network Quality Metrics */}
-              {(flow.rtt || flow.jitter || (flow.retransmissions !== undefined && flow.retransmissions > 0)) && (
+              {(flow.rtt ||
+                flow.jitter ||
+                (flow.retransmissions !== undefined && flow.retransmissions > 0)) && (
                 <div className="flex items-center gap-3 text-xs">
                   {flow.rtt && (
                     <span className="text-muted-foreground" title="Round-Trip Time">

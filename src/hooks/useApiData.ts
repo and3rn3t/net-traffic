@@ -33,84 +33,87 @@ export function useApiData(options: UseApiDataOptions = {}) {
   const maxRetries = 3;
 
   // Fetch all data with automatic retry
-  const fetchAll = useCallback(async (attemptNum = 0) => {
-    if (!USE_REAL_API) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      if (attemptNum > 0) {
-        setIsRetrying(true);
+  const fetchAll = useCallback(
+    async (attemptNum = 0) => {
+      if (!USE_REAL_API) {
+        setIsLoading(false);
+        return;
       }
-      setError(null);
 
-      // Check backend health
-      const health = await apiClient.healthCheck();
-      setIsConnected(true);
-      setIsCapturing(health.capture_running || false);
+      try {
+        setIsLoading(true);
+        if (attemptNum > 0) {
+          setIsRetrying(true);
+        }
+        setError(null);
 
-      // Fetch all data in parallel
-      const [devicesData, flowsData, threatsData, analyticsDataResult, protocolStatsData] =
-        await Promise.all([
-          apiClient.getDevices(),
-          apiClient.getFlows(100),
-          apiClient.getThreats(true),
-          apiClient.getAnalytics(24),
-          apiClient.getProtocolStats(),
-        ]);
+        // Check backend health
+        const health = await apiClient.healthCheck();
+        setIsConnected(true);
+        setIsCapturing(health.capture_running || false);
 
-      setDevices(devicesData || []);
-      setFlows(flowsData || []);
-      setThreats(threatsData || []);
-      setAnalyticsData(analyticsDataResult || []);
-      setProtocolStats(protocolStatsData || []);
+        // Fetch all data in parallel
+        const [devicesData, flowsData, threatsData, analyticsDataResult, protocolStatsData] =
+          await Promise.all([
+            apiClient.getDevices(),
+            apiClient.getFlows(100),
+            apiClient.getThreats(true),
+            apiClient.getAnalytics(24),
+            apiClient.getProtocolStats(),
+          ]);
 
-      // Reset retry count on success
-      setRetryCount(0);
-      setIsRetrying(false);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-      setError(errorMessage);
-      setIsConnected(false);
-      console.error('API fetch error:', err);
+        setDevices(devicesData || []);
+        setFlows(flowsData || []);
+        setThreats(threatsData || []);
+        setAnalyticsData(analyticsDataResult || []);
+        setProtocolStats(protocolStatsData || []);
 
-      // Auto-retry logic with exponential backoff
-      if (attemptNum < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, attemptNum), 10000); // Max 10 seconds
-        const nextAttempt = attemptNum + 1;
-        setRetryCount(nextAttempt);
-
-        toast.info(`Retrying connection... (${nextAttempt}/${maxRetries})`, {
-          description: `Waiting ${delay / 1000} seconds before retry`,
-        });
-
-        setTimeout(() => {
-          fetchAll(nextAttempt);
-        }, delay);
-      } else {
-        // Max retries reached
-        setIsRetrying(false);
+        // Reset retry count on success
         setRetryCount(0);
+        setIsRetrying(false);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
+        setError(errorMessage);
+        setIsConnected(false);
+        console.error('API fetch error:', err);
 
-        if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
-          toast.error('Backend unavailable', {
-            description:
-              'Cannot connect to backend after multiple attempts. Check connection and ensure the service is running.',
-            action: {
-              label: 'Retry Now',
-              onClick: () => fetchAll(0),
-            },
+        // Auto-retry logic with exponential backoff
+        if (attemptNum < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attemptNum), 10000); // Max 10 seconds
+          const nextAttempt = attemptNum + 1;
+          setRetryCount(nextAttempt);
+
+          toast.info(`Retrying connection... (${nextAttempt}/${maxRetries})`, {
+            description: `Waiting ${delay / 1000} seconds before retry`,
           });
+
+          setTimeout(() => {
+            fetchAll(nextAttempt);
+          }, delay);
+        } else {
+          // Max retries reached
+          setIsRetrying(false);
+          setRetryCount(0);
+
+          if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
+            toast.error('Backend unavailable', {
+              description:
+                'Cannot connect to backend after multiple attempts. Check connection and ensure the service is running.',
+              action: {
+                label: 'Retry Now',
+                onClick: () => fetchAll(0),
+              },
+            });
+          }
+        }
+      } finally {
+        if (attemptNum >= maxRetries || retryCount === 0) {
+          setIsLoading(false);
         }
       }
-    } finally {
-      if (attemptNum >= maxRetries || retryCount === 0) {
-        setIsLoading(false);
-      }
-    }
-  }, [maxRetries, retryCount]);
+    },
+    [maxRetries, retryCount]
+  );
 
   // WebSocket connection for real-time updates
   useEffect(() => {
