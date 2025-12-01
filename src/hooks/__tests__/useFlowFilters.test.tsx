@@ -12,6 +12,8 @@ import { useFlowFilters } from '@/hooks/useFlowFilters';
 import { apiClient } from '@/lib/api';
 import { createDefaultFlowFilters } from '@/test/helpers';
 import type { FlowFilters } from '@/components/FlowFilters';
+import { createMockNetworkFlow } from '@/lib/testHelpers';
+import { NetworkFlow } from '@/lib/types';
 
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
@@ -370,7 +372,7 @@ describe('useFlowFilters', () => {
 
   describe('Filter to API Parameters Conversion', () => {
     it('should convert single protocol filter to API params', async () => {
-      const mockFlows: unknown[] = [];
+      const mockFlows: NetworkFlow[] = [];
       vi.mocked(apiClient.getFlows).mockResolvedValue(mockFlows);
 
       const { result } = renderHook(() => useFlowFilters(), { wrapper });

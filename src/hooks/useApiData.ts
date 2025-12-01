@@ -82,67 +82,79 @@ export function useApiData(options: UseApiDataOptions = {}) {
       return;
     }
 
-    const disconnect = apiClient.connectWebSocket(data => {
+    const disconnect = apiClient.connectWebSocket((data: unknown) => {
       try {
-        switch (data.type) {
+        if (!data || typeof data !== 'object') return;
+        const message = data as Record<string, unknown>;
+
+        switch (message.type) {
           case 'initial_state':
-            if (data.devices) setDevices(data.devices);
-            if (data.flows) setFlows(data.flows);
-            if (data.threats) setThreats(data.threats);
+            if (message.devices && Array.isArray(message.devices)) {
+              setDevices(message.devices as Device[]);
+            }
+            if (message.flows && Array.isArray(message.flows)) {
+              setFlows(message.flows as NetworkFlow[]);
+            }
+            if (message.threats && Array.isArray(message.threats)) {
+              setThreats(message.threats as Threat[]);
+            }
             break;
 
           case 'flow_update':
-            if (data.flow) {
+            if (message.flow && typeof message.flow === 'object') {
+              const flow = message.flow as NetworkFlow;
               setFlows(current => {
-                const existing = current.findIndex(f => f.id === data.flow.id);
+                const existing = current.findIndex(f => f.id === flow.id);
                 if (existing >= 0) {
                   const updated = [...current];
-                  updated[existing] = data.flow;
+                  updated[existing] = flow;
                   return updated;
                 }
-                return [data.flow, ...current].slice(0, 100);
+                return [flow, ...current].slice(0, 100);
               });
             }
             break;
 
           case 'device_update':
-            if (data.device) {
+            if (message.device && typeof message.device === 'object') {
+              const device = message.device as Device;
               setDevices(current => {
-                const existing = current.findIndex(d => d.id === data.device.id);
+                const existing = current.findIndex(d => d.id === device.id);
                 if (existing >= 0) {
                   const updated = [...current];
-                  updated[existing] = data.device;
+                  updated[existing] = device;
                   return updated;
                 }
-                return [...current, data.device];
+                return [...current, device];
               });
             }
             break;
 
           case 'threat_update':
-            if (data.threat) {
+            if (message.threat && typeof message.threat === 'object') {
+              const threat = message.threat as Threat;
               setThreats(current => {
-                const existing = current.findIndex(t => t.id === data.threat.id);
+                const existing = current.findIndex(t => t.id === threat.id);
                 if (existing >= 0) {
                   const updated = [...current];
-                  updated[existing] = data.threat;
+                  updated[existing] = threat;
                   return updated;
                 }
 
                 // Show toast for new threats
-                if (data.threat.severity === 'critical' || data.threat.severity === 'high') {
-                  toast.error(`Threat detected: ${data.threat.description}`, {
-                    description: `Severity: ${data.threat.severity}`,
+                if (threat.severity === 'critical' || threat.severity === 'high') {
+                  toast.error(`Threat detected: ${threat.description}`, {
+                    description: `Severity: ${threat.severity}`,
                   });
                 }
 
-                return [data.threat, ...current].slice(0, 50);
+                return [threat, ...current].slice(0, 50);
               });
             }
             break;
 
           default:
-            console.log('Unknown WebSocket message type:', data.type);
+            console.log('Unknown WebSocket message type:', message.type);
         }
       } catch (err) {
         console.error('Error processing WebSocket message:', err);

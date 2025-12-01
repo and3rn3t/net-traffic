@@ -9,6 +9,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { SearchBar } from '@/components/SearchBar';
 import { apiClient } from '@/lib/api';
+import { createMockDevice, createMockNetworkFlow, createMockThreat } from '@/lib/testHelpers';
+import { Device, NetworkFlow, Threat } from '@/lib/types';
 
 // Mock dependencies
 vi.mock('@/lib/api', () => ({
@@ -151,7 +153,9 @@ describe('SearchBar', () => {
       const mockResults = {
         query: 'device',
         type: 'all',
-        devices: [{ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }],
+        devices: [
+          createMockDevice({ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }),
+        ],
         flows: [],
         threats: [],
       };
@@ -175,7 +179,9 @@ describe('SearchBar', () => {
       const mockResults = {
         query: 'device',
         type: 'all',
-        devices: [{ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }],
+        devices: [
+          createMockDevice({ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }),
+        ],
         flows: [],
         threats: [],
       };
@@ -218,11 +224,11 @@ describe('SearchBar', () => {
       const searchPromise = new Promise<{
         query: string;
         type: string;
-        devices: unknown[];
-        flows: unknown[];
-        threats: unknown[];
+        devices: Device[];
+        flows: NetworkFlow[];
+        threats: Threat[];
       }>(resolve => {
-        resolvePromise = resolve;
+        resolvePromise = resolve as typeof resolvePromise;
       });
 
       // Use mockImplementation to ensure the promise is returned and stays pending
@@ -297,30 +303,30 @@ describe('SearchBar', () => {
         query: 'test',
         type: 'all',
         devices: [
-          { id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' },
-          { id: '2', name: 'Device 2', ip: '192.168.1.2', type: 'router' },
+          createMockDevice({ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }),
+          createMockDevice({ id: '2', name: 'Device 2', ip: '192.168.1.2', type: 'server' }),
         ],
         flows: [
-          {
+          createMockNetworkFlow({
             id: '1',
             sourceIp: '192.168.1.1',
             sourcePort: 80,
             destIp: '10.0.0.1',
             destPort: 443,
             protocol: 'TCP',
-            timestamp: new Date().toISOString(),
+            timestamp: Date.now(),
             bytesIn: 1000,
             bytesOut: 500,
-          },
+          }),
         ],
         threats: [
-          {
+          createMockThreat({
             id: '1',
-            type: 'suspicious',
+            type: 'anomaly',
             severity: 'high',
             description: 'Suspicious activity detected',
-            timestamp: new Date().toISOString(),
-          },
+            timestamp: Date.now(),
+          }),
         ],
       };
 
@@ -355,11 +361,11 @@ describe('SearchBar', () => {
       const searchPromise = new Promise<{
         query: string;
         type: string;
-        devices: unknown[];
-        flows: unknown[];
-        threats: unknown[];
+        devices: Device[];
+        flows: NetworkFlow[];
+        threats: Threat[];
       }>(resolve => {
-        resolvePromise = resolve;
+        resolvePromise = resolve as typeof resolvePromise;
       });
 
       // Use mockImplementation to ensure the promise is returned and stays pending
@@ -459,28 +465,30 @@ describe('SearchBar', () => {
       const mockResults = {
         query: 'test',
         type: 'all',
-        devices: [{ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }],
+        devices: [
+          createMockDevice({ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }),
+        ],
         flows: [
-          {
+          createMockNetworkFlow({
             id: '1',
             sourceIp: '192.168.1.1',
             sourcePort: 80,
             destIp: '10.0.0.1',
             destPort: 443,
             protocol: 'TCP',
-            timestamp: new Date().toISOString(),
+            timestamp: Date.now(),
             bytesIn: 1000,
             bytesOut: 500,
-          },
+          }),
         ],
         threats: [
-          {
+          createMockThreat({
             id: '1',
-            type: 'suspicious',
+            type: 'anomaly',
             severity: 'high',
             description: 'Suspicious activity',
-            timestamp: new Date().toISOString(),
-          },
+            timestamp: Date.now(),
+          }),
         ],
       };
 
@@ -504,7 +512,9 @@ describe('SearchBar', () => {
       const mockResults = {
         query: 'device',
         type: 'all',
-        devices: [{ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }],
+        devices: [
+          createMockDevice({ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }),
+        ],
         flows: [],
         threats: [],
       };
@@ -536,7 +546,9 @@ describe('SearchBar', () => {
       const mockResults = {
         query: 'device',
         type: 'all',
-        devices: [{ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }],
+        devices: [
+          createMockDevice({ id: '1', name: 'Device 1', ip: '192.168.1.1', type: 'server' }),
+        ],
         flows: [],
         threats: [],
       };

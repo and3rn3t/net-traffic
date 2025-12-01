@@ -9,6 +9,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { useApiData } from '@/hooks/useApiData';
 import { apiClient } from '@/lib/api';
+import { createMockDevice, createMockNetworkFlow, createMockThreat } from '@/lib/testHelpers';
 
 // Mock the API client
 vi.mock('@/lib/api', () => ({
