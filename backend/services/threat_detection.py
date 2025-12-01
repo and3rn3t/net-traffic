@@ -8,6 +8,37 @@ import uuid
 
 from models.types import Threat
 from services.storage import StorageService
+from utils.constants import (
+    LARGE_UPLOAD_BYTES,
+    SUSPICIOUS_PORTS,
+    HIGH_PACKET_COUNT,
+    LOW_DATA_TRANSFER,
+    HIGH_JITTER_MS,
+    HIGH_RTT_MS,
+    THREAT_SCORE_CRITICAL,
+    THREAT_SCORE_HIGH,
+    THREAT_SCORE_MEDIUM,
+    THREAT_SCORE_LOW,
+    HIGH_RETRANSMISSION_RATE,
+    SUSPICIOUS_DOMAIN_PATTERNS,
+    HIGH_RISK_COUNTRIES,
+    ALLOWED_APPLICATIONS,
+    DNS_NOERROR,
+    THREAT_SCORE_EXFILTRATION,
+    THREAT_SCORE_SUSPICIOUS_PORT,
+    THREAT_SCORE_PORT_SCAN,
+    THREAT_SCORE_TCP_ANOMALY,
+    THREAT_SCORE_CONNECTION_RESET,
+    THREAT_SCORE_HIGH_RETRANSMISSION,
+    THREAT_SCORE_HIGH_JITTER,
+    THREAT_SCORE_HIGH_RTT,
+    THREAT_SCORE_SUSPICIOUS_DOMAIN,
+    THREAT_SCORE_HIGH_RISK_COUNTRY,
+    THREAT_SCORE_UNAUTHORIZED_APP,
+    THREAT_SCORE_DNS_ANOMALY,
+    DDoS_RETRANSMISSION_THRESHOLD,
+    DDoS_JITTER_THRESHOLD,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,90 +55,92 @@ class ThreatDetectionService:
 
         # 1. High data exfiltration
         bytes_out = flow_data.get("bytes_out", 0)
-        if bytes_out > 10000000:  # >10MB outbound
-            threat_score += 30
+        if bytes_out > LARGE_UPLOAD_BYTES:
+            threat_score += THREAT_SCORE_EXFILTRATION
             threat_level = "medium"
 
         # 2. Unusual ports
         dest_port = flow_data.get("dest_port", 0)
-        suspicious_ports = [4444, 5555, 6666, 6667, 31337]
-        if dest_port in suspicious_ports:
-            threat_score += 50
+        if dest_port in SUSPICIOUS_PORTS:
+            threat_score += THREAT_SCORE_SUSPICIOUS_PORT
             threat_level = "high"
 
         # 3. Port scanning pattern
         total_packets = flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
-        if total_packets > 1000 and flow_data.get("bytes_in", 0) < 1000:
-            threat_score += 20
+        if total_packets > HIGH_PACKET_COUNT and flow_data.get("bytes_in", 0) < LOW_DATA_TRANSFER:
+            threat_score += THREAT_SCORE_PORT_SCAN
             threat_level = "low"
 
         # 4. TCP connection anomalies (NEW)
         tcp_flags = flow_data.get("tcp_flags", [])
         if "RST" in tcp_flags and "SYN" not in tcp_flags:
             # RST without proper handshake = port scan
-            threat_score += 25
+            threat_score += THREAT_SCORE_TCP_ANOMALY
             if threat_level == "safe":
                 threat_level = "low"
 
         connection_state = flow_data.get("connection_state", "")
         if connection_state == "RESET":
-            threat_score += 15
+            threat_score += THREAT_SCORE_CONNECTION_RESET
 
         # 5. High retransmission rate (NEW) - indicates network attack
         retransmissions = flow_data.get("retransmissions", 0)
-        total_packets = flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
+        total_packets = (
+            flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
+        )
         if total_packets > 0:
             retransmission_rate = (retransmissions / total_packets) * 100
-            if retransmission_rate > 10:  # >10% retransmission
-                threat_score += 20
+            if retransmission_rate > HIGH_RETRANSMISSION_RATE:
+                threat_score += THREAT_SCORE_HIGH_RETRANSMISSION
                 if threat_level == "safe":
                     threat_level = "low"
 
         # 6. Poor connection quality (NEW) - could indicate DDoS
         jitter = flow_data.get("jitter")
         rtt = flow_data.get("rtt")
-        if jitter and jitter > 100:  # High jitter
-            threat_score += 10
-        if rtt and rtt > 1000:  # Very high RTT
-            threat_score += 10
+        if jitter and jitter > HIGH_JITTER_MS:
+            threat_score += THREAT_SCORE_HIGH_JITTER
+        if rtt and rtt > HIGH_RTT_MS:
+            threat_score += THREAT_SCORE_HIGH_RTT
 
         # 7. Suspicious SNI/domains (NEW)
         sni = flow_data.get("sni") or flow_data.get("domain")
         if sni:
             # Check for suspicious patterns
-            suspicious_patterns = [".tk", ".ml", ".ga", ".cf", ".xyz"]
-            if any(pattern in sni.lower() for pattern in suspicious_patterns):
-                threat_score += 30
+            has_suspicious_pattern = any(
+                pattern in sni.lower() for pattern in SUSPICIOUS_DOMAIN_PATTERNS
+            )
+            if has_suspicious_pattern:
+                threat_score += THREAT_SCORE_SUSPICIOUS_DOMAIN
                 if threat_level in ["safe", "low"]:
                     threat_level = "medium"
 
         # 8. High-risk geolocation (NEW)
         country = flow_data.get("country")
-        high_risk_countries = ["CN", "RU", "KP", "IR"]  # Example list
-        if country in high_risk_countries:
-            threat_score += 25
+        if country in HIGH_RISK_COUNTRIES:
+            threat_score += THREAT_SCORE_HIGH_RISK_COUNTRY
             if threat_level == "safe":
                 threat_level = "low"
 
         # 9. Unauthorized applications (NEW)
         application = flow_data.get("application")
-        if application and application not in ["HTTP", "HTTPS", "SSH", "DNS"]:
+        if application and application not in ALLOWED_APPLICATIONS:
             # Unknown/unusual application
-            threat_score += 15
+            threat_score += THREAT_SCORE_UNAUTHORIZED_APP
 
         # 10. DNS anomalies (NEW)
         dns_response_code = flow_data.get("dns_response_code")
-        if dns_response_code and dns_response_code not in ["NOERROR", None]:
-            threat_score += 10
+        if dns_response_code and dns_response_code not in [DNS_NOERROR, None]:
+            threat_score += THREAT_SCORE_DNS_ANOMALY
 
         # Determine final threat level based on score
-        if threat_score >= 70:
+        if threat_score >= THREAT_SCORE_CRITICAL:
             threat_level = "critical"
-        elif threat_score >= 50:
+        elif threat_score >= THREAT_SCORE_HIGH:
             threat_level = "high"
-        elif threat_score >= 30:
+        elif threat_score >= THREAT_SCORE_MEDIUM:
             threat_level = "medium"
-        elif threat_score >= 15:
+        elif threat_score >= THREAT_SCORE_LOW:
             threat_level = "low"
 
         # If threat detected, create threat record
@@ -154,7 +187,7 @@ class ThreatDetectionService:
     def _classify_threat(self, flow_data: Dict) -> str:
         """Classify threat type using enhanced data"""
         # Exfiltration
-        if flow_data.get("bytes_out", 0) > 10000000:
+        if flow_data.get("bytes_out", 0) > LARGE_UPLOAD_BYTES:
             return "exfiltration"
 
         # Port scan (enhanced detection)
@@ -163,20 +196,19 @@ class ThreatDetectionService:
             return "scan"
 
         total_packets = flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
-        if total_packets > 1000 and flow_data.get("bytes_in", 0) < 1000:
+        if total_packets > HIGH_PACKET_COUNT and flow_data.get("bytes_in", 0) < LOW_DATA_TRANSFER:
             return "scan"
 
         # DDoS/Network attack (high retransmissions + jitter)
         retransmissions = flow_data.get("retransmissions", 0)
         jitter = flow_data.get("jitter", 0)
-        if retransmissions > 10 and jitter > 100:
+        if retransmissions > DDoS_RETRANSMISSION_THRESHOLD and jitter > DDoS_JITTER_THRESHOLD:
             return "botnet"  # Could be DDoS
 
         # Phishing (suspicious domains)
         sni = flow_data.get("sni") or flow_data.get("domain")
         if sni:
-            suspicious_patterns = [".tk", ".ml", ".ga", ".cf"]
-            if any(pattern in sni.lower() for pattern in suspicious_patterns):
+            if any(pattern in sni.lower() for pattern in SUSPICIOUS_DOMAIN_PATTERNS):
                 return "phishing"
 
         # Default to anomaly

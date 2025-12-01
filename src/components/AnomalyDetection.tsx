@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Warning, CheckCircle, Info } from '@phosphor-icons/react';
 import { NetworkFlow, Device } from '@/lib/types';
+import { NETWORK_THRESHOLDS, DATA_THRESHOLDS } from '@/lib/constants';
 
 interface Anomaly {
   id: string;
@@ -67,8 +68,12 @@ export const AnomalyDetection = memo(function AnomalyDetection({
       });
     }
 
-    const portScans = flows.filter(f => f.packetsOut > 100 && f.bytesOut < 10000);
-    if (portScans.length > 20) {
+    const portScans = flows.filter(
+      f =>
+        f.packetsOut > NETWORK_THRESHOLDS.HIGH_PACKET_COUNT &&
+        f.bytesOut < NETWORK_THRESHOLDS.LOW_DATA_TRANSFER
+    );
+    if (portScans.length > NETWORK_THRESHOLDS.PORT_SCAN_THRESHOLD) {
       const scanningDevices = [...new Set(portScans.map(f => f.deviceId))];
       anomalies.push({
         id: 'anomaly-port-scan',
@@ -80,7 +85,11 @@ export const AnomalyDetection = memo(function AnomalyDetection({
       });
     }
 
-    const exfiltration = flows.filter(f => f.bytesOut > f.bytesIn * 5 && f.bytesOut > 10000000);
+    const exfiltration = flows.filter(
+      f =>
+        f.bytesOut > f.bytesIn * NETWORK_THRESHOLDS.EXFILTRATION_RATIO &&
+        f.bytesOut > DATA_THRESHOLDS.LARGE_UPLOAD
+    );
     if (exfiltration.length > 0) {
       const exfilDevices = [...new Set(exfiltration.map(f => f.deviceId))];
       anomalies.push({
@@ -102,7 +111,9 @@ export const AnomalyDetection = memo(function AnomalyDetection({
       {} as Record<string, number>
     );
 
-    const suspicious = Object.entries(repeatedConnections).filter(([_, count]) => count > 50);
+    const suspicious = Object.entries(repeatedConnections).filter(
+      ([_, count]) => count > NETWORK_THRESHOLDS.REPEATED_CONNECTION_THRESHOLD
+    );
     if (suspicious.length > 0) {
       const suspiciousDevices = [...new Set(suspicious.map(([key]) => key.split('-')[0]))];
       anomalies.push({

@@ -2,6 +2,7 @@
  * Enhanced TopSites component using API endpoints
  * Falls back to calculating from flows if API unavailable
  */
+import { useMemo } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
@@ -24,43 +25,45 @@ export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSite
   });
   const { useRealApi } = useApiConfig();
 
-  // Fallback: calculate from flows if API not available
-  const fallbackSites = flows.reduce(
-    (acc, flow) => {
-      const site = flow.domain || flow.destIp;
-      if (!acc[site]) {
-        acc[site] = {
-          site,
-          totalBytes: 0,
-          connections: 0,
-          uniqueDevices: new Set<string>(),
-        };
-      }
-      acc[site].totalBytes += flow.bytesIn + flow.bytesOut;
-      acc[site].connections++;
-      acc[site].uniqueDevices.add(flow.deviceId);
-      return acc;
-    },
-    {} as Record<
-      string,
-      {
-        site: string;
-        totalBytes: number;
-        connections: number;
-        uniqueDevices: Set<string>;
-      }
-    >
-  );
+  // Fallback: calculate from flows if API not available (memoized)
+  const fallbackTopSites = useMemo(() => {
+    const fallbackSites = flows.reduce(
+      (acc, flow) => {
+        const site = flow.domain || flow.destIp;
+        if (!acc[site]) {
+          acc[site] = {
+            site,
+            totalBytes: 0,
+            connections: 0,
+            uniqueDevices: new Set<string>(),
+          };
+        }
+        acc[site].totalBytes += flow.bytesIn + flow.bytesOut;
+        acc[site].connections++;
+        acc[site].uniqueDevices.add(flow.deviceId);
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          site: string;
+          totalBytes: number;
+          connections: number;
+          uniqueDevices: Set<string>;
+        }
+      >
+    );
 
-  const fallbackTopSites = Object.values(fallbackSites)
-    .map(stat => ({
-      domain: stat.site,
-      bytes: stat.totalBytes,
-      connections: stat.connections,
-      unique_devices: stat.uniqueDevices.size,
-    }))
-    .sort((a, b) => b.bytes - a.bytes)
-    .slice(0, limit);
+    return Object.values(fallbackSites)
+      .map(stat => ({
+        domain: stat.site,
+        bytes: stat.totalBytes,
+        connections: stat.connections,
+        unique_devices: stat.uniqueDevices.size,
+      }))
+      .sort((a, b) => b.bytes - a.bytes)
+      .slice(0, limit);
+  }, [flows, limit]);
 
   // Use API data if available, otherwise use fallback
   const sites = useRealApi && topDomains.length > 0 ? topDomains : fallbackTopSites;

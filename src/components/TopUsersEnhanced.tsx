@@ -2,6 +2,7 @@
  * Enhanced TopUsers component using API endpoints
  * Falls back to calculating from devices/flows if API unavailable
  */
+import { useMemo } from 'react';
 import { Device, NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
@@ -10,6 +11,7 @@ import { DeviceMobile, TrendUp, TrendDown, Minus, ArrowClockwise } from '@phosph
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
+import { TIME } from '@/lib/constants';
 
 interface TopUsersEnhancedProps {
   devices?: Device[]; // Fallback data
@@ -32,27 +34,29 @@ export function TopUsersEnhanced({
   });
   const { useRealApi } = useApiConfig();
 
-  // Fallback: calculate from devices/flows
-  const fallbackDeviceStats = devices.map(device => {
-    const deviceFlows = flows.filter(f => f.deviceId === device.id);
-    const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
-    const totalConnections = deviceFlows.length;
-    const recentActivity = deviceFlows.filter(f => Date.now() - f.timestamp < 3600000).length;
+  // Fallback: calculate from devices/flows (memoized)
+  const fallbackTopUsers = useMemo(() => {
+    const fallbackDeviceStats = devices.map(device => {
+      const deviceFlows = flows.filter(f => f.deviceId === device.id);
+      const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+      const totalConnections = deviceFlows.length;
+      const recentActivity = deviceFlows.filter(f => Date.now() - f.timestamp < TIME.HOUR).length;
 
-    return {
-      device_id: device.id,
-      device_name: device.name,
-      device_ip: device.ip,
-      device_type: device.type,
-      bytes: totalBytes,
-      connections: totalConnections,
-      threats: 0,
-      recentActivity,
-    };
-  });
+      return {
+        device_id: device.id,
+        device_name: device.name,
+        device_ip: device.ip,
+        device_type: device.type,
+        bytes: totalBytes,
+        connections: totalConnections,
+        threats: 0,
+        recentActivity,
+      };
+    });
 
-  fallbackDeviceStats.sort((a, b) => b.bytes - a.bytes);
-  const fallbackTopUsers = fallbackDeviceStats.slice(0, limit);
+    fallbackDeviceStats.sort((a, b) => b.bytes - a.bytes);
+    return fallbackDeviceStats.slice(0, limit);
+  }, [devices, flows, limit]);
 
   // Use API data if available, otherwise use fallback
   const users = useRealApi && topDevices.length > 0 ? topDevices : fallbackTopUsers;

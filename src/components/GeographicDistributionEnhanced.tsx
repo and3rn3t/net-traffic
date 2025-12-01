@@ -1,6 +1,7 @@
 /**
  * Enhanced GeographicDistribution component using API endpoints
  */
+import { useMemo } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
@@ -26,31 +27,31 @@ export function GeographicDistributionEnhanced({
   });
   const { useRealApi } = useApiConfig();
 
-  // Fallback: calculate from flows
-  const fallbackStats = flows.reduce(
-    (acc, flow) => {
-      if (!flow.country) return acc;
-      if (!acc[flow.country]) {
-        acc[flow.country] = {
-          country: flow.country,
-          connections: 0,
-          bytes: 0,
-          threats: 0,
-        };
-      }
-      acc[flow.country].connections++;
-      acc[flow.country].bytes += flow.bytesIn + flow.bytesOut;
-      if (flow.threatLevel in ['medium', 'high', 'critical']) {
-        acc[flow.country].threats++;
-      }
-      return acc;
-    },
-    {} as Record<string, { country: string; connections: number; bytes: number; threats: number }>
-  );
+  // Fallback: calculate from flows (memoized)
+  const fallbackGeographic = useMemo(() => {
+    const fallbackStats = flows.reduce(
+      (acc, flow) => {
+        if (!flow.country) return acc;
+        if (!acc[flow.country]) {
+          acc[flow.country] = {
+            country: flow.country,
+            connections: 0,
+            bytes: 0,
+            threats: 0,
+          };
+        }
+        acc[flow.country].connections++;
+        acc[flow.country].bytes += flow.bytesIn + flow.bytesOut;
+        if (['medium', 'high', 'critical'].includes(flow.threatLevel)) {
+          acc[flow.country].threats++;
+        }
+        return acc;
+      },
+      {} as Record<string, { country: string; connections: number; bytes: number; threats: number }>
+    );
 
-  const fallbackGeographic = Object.values(fallbackStats).sort(
-    (a, b) => b.connections - a.connections
-  );
+    return Object.values(fallbackStats).sort((a, b) => b.connections - a.connections);
+  }, [flows]);
 
   // Use API data if available, otherwise use fallback
   const stats = useRealApi && geographicStats.length > 0 ? geographicStats : fallbackGeographic;

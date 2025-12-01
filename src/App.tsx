@@ -23,29 +23,33 @@ import { DataExporterEnhanced } from '@/components/DataExporterEnhanced';
 import { SearchBar } from '@/components/SearchBar';
 import { TrafficChart } from '@/components/TrafficChart';
 import { ProtocolBreakdown } from '@/components/ProtocolBreakdown';
-import { NetworkGraph } from '@/components/NetworkGraph';
-import { FlowPipeVisualization } from '@/components/FlowPipeVisualization';
-import { HeatmapTimeline } from '@/components/HeatmapTimeline';
 import { PacketBurst } from '@/components/PacketBurst';
 import { BandwidthGauge } from '@/components/BandwidthGauge';
-import { GeographicMap } from '@/components/GeographicMap';
-import { ProtocolSankey } from '@/components/ProtocolSankey';
-import { RadarChart } from '@/components/RadarChart';
 import { TopUsersEnhanced } from '@/components/TopUsersEnhanced';
 import { TopSitesEnhanced } from '@/components/TopSitesEnhanced';
 import { GeographicDistributionEnhanced } from '@/components/GeographicDistributionEnhanced';
 import { SummaryStatsCard } from '@/components/SummaryStatsCard';
-import { HistoricalTrends } from '@/components/HistoricalTrends';
-import { UserActivityTimeline } from '@/components/UserActivityTimeline';
-import { BandwidthPatterns } from '@/components/BandwidthPatterns';
-import { ProtocolTimeline } from '@/components/ProtocolTimeline';
 import { InsightsSummary } from '@/components/InsightsSummary';
 import { ConnectionQuality } from '@/components/ConnectionQuality';
 import { ConnectionHealthMonitor } from '@/components/ConnectionHealthMonitor';
-import { PeakUsageAnalysis } from '@/components/PeakUsageAnalysis';
-import { AnomalyDetection } from '@/components/AnomalyDetection';
-import { BandwidthCostEstimator } from '@/components/BandwidthCostEstimator';
-import { SecurityPosture } from '@/components/SecurityPosture';
+// Lazy-loaded heavy components
+import {
+  NetworkGraphLazy,
+  GeographicMapLazy,
+  FlowPipeVisualizationLazy,
+  HeatmapTimelineLazy,
+  ProtocolSankeyLazy,
+  RadarChartLazy,
+  HistoricalTrendsLazy,
+  PeakUsageAnalysisLazy,
+  BandwidthPatternsLazy,
+  ProtocolTimelineLazy,
+  UserActivityTimelineLazy,
+  AnomalyDetectionLazy,
+  SecurityPostureLazy,
+  BandwidthCostEstimatorLazy,
+  LazyWrapper,
+} from '@/components/lazy';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -326,7 +330,7 @@ function App() {
               <MetricCard
                 title="Active Devices"
                 value={devices.length}
-                subtitle={`${devices.filter(d => Date.now() - d.lastSeen < 300000).length} online now`}
+                subtitle={`${devices.filter(d => Date.now() - d.lastSeen < 5 * 60 * 1000).length} online now`}
                 icon={<DeviceMobile size={24} />}
                 trend="neutral"
               />
@@ -362,7 +366,9 @@ function App() {
             <ErrorBoundary>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <ErrorBoundary>
-                  <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices || []} />
+                  <LazyWrapper>
+                    <NetworkGraphLazy flows={activeFlows.slice(0, 20)} devices={devices || []} />
+                  </LazyWrapper>
                 </ErrorBoundary>
                 <ErrorBoundary>
                   <TrafficChart data={analyticsData} />
@@ -371,7 +377,9 @@ function App() {
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <FlowPipeVisualization flows={flows} devices={devices} />
+              <LazyWrapper>
+                <FlowPipeVisualizationLazy flows={flows} devices={devices} />
+              </LazyWrapper>
             </ErrorBoundary>
 
             <ErrorBoundary>
@@ -398,7 +406,9 @@ function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ConnectionQuality flows={flows} />
-              <PeakUsageAnalysis flows={flows} devices={devices} />
+              <LazyWrapper>
+                <PeakUsageAnalysisLazy flows={flows} devices={devices} />
+              </LazyWrapper>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -413,17 +423,25 @@ function App() {
             </div>
 
             <ErrorBoundary>
-              <HistoricalTrends data={analyticsData} useApi={USE_REAL_API && isConnected} />
+              <LazyWrapper>
+                <HistoricalTrendsLazy data={analyticsData} useApi={USE_REAL_API && isConnected} />
+              </LazyWrapper>
             </ErrorBoundary>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BandwidthPatterns flows={flows} />
+              <LazyWrapper>
+                <BandwidthPatternsLazy flows={flows} />
+              </LazyWrapper>
               <GeographicDistributionEnhanced flows={flows} hours={24} />
             </div>
 
-            <ProtocolTimeline flows={flows} />
+            <LazyWrapper>
+              <ProtocolTimelineLazy flows={flows} />
+            </LazyWrapper>
 
-            <UserActivityTimeline flows={flows} />
+            <LazyWrapper>
+              <UserActivityTimelineLazy flows={flows} />
+            </LazyWrapper>
           </TabsContent>
 
           <TabsContent value="advanced" className="space-y-6">
@@ -446,34 +464,52 @@ function App() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SecurityPosture flows={flows} devices={devices} threats={threats} />
-              <AnomalyDetection flows={flows} devices={devices} />
+              <LazyWrapper>
+                <SecurityPostureLazy flows={flows} devices={devices} threats={threats} />
+              </LazyWrapper>
+              <LazyWrapper>
+                <AnomalyDetectionLazy flows={flows} devices={devices} />
+              </LazyWrapper>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BandwidthCostEstimator flows={flows} />
+              <LazyWrapper>
+                <BandwidthCostEstimatorLazy flows={flows} />
+              </LazyWrapper>
               <DataExporterEnhanced flows={flows} devices={devices} threats={threats} />
             </div>
           </TabsContent>
 
           <TabsContent value="visualizations" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <HeatmapTimeline flows={flows} />
+              <LazyWrapper>
+                <HeatmapTimelineLazy flows={flows} />
+              </LazyWrapper>
               <PacketBurst flows={flows} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BandwidthGauge currentBytes={totalBytes} maxBytes={totalBytes * 1.5} />
-              <RadarChart devices={devices} />
+              <LazyWrapper>
+                <RadarChartLazy devices={devices} />
+              </LazyWrapper>
             </div>
 
-            <GeographicMap flows={flows} />
+            <LazyWrapper>
+              <GeographicMapLazy flows={flows} />
+            </LazyWrapper>
 
-            <ProtocolSankey flows={flows} devices={devices} />
+            <LazyWrapper>
+              <ProtocolSankeyLazy flows={flows} devices={devices} />
+            </LazyWrapper>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <NetworkGraph flows={activeFlows.slice(0, 20)} devices={devices} />
-              <FlowPipeVisualization flows={flows} devices={devices} />
+              <LazyWrapper>
+                <NetworkGraphLazy flows={activeFlows.slice(0, 20)} devices={devices} />
+              </LazyWrapper>
+              <LazyWrapper>
+                <FlowPipeVisualizationLazy flows={flows} devices={devices} />
+              </LazyWrapper>
             </div>
           </TabsContent>
 
