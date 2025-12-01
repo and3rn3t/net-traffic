@@ -28,6 +28,7 @@ from services.geolocation import GeolocationService
 from services.network_quality_analytics import NetworkQualityAnalyticsService
 from services.application_analytics import ApplicationAnalyticsService
 from services.auth_service import AuthService
+from services.cache_service import CacheService
 from models.types import (
     NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
 )
@@ -64,6 +65,7 @@ geolocation_service: Optional[GeolocationService] = None
 network_quality_analytics: Optional[NetworkQualityAnalyticsService] = None
 application_analytics: Optional[ApplicationAnalyticsService] = None
 auth_service: Optional[AuthService] = None
+cache_service: Optional[CacheService] = None
 
 # Service manager for centralized lifecycle management
 service_manager: Optional[ServiceManager] = None
@@ -78,6 +80,9 @@ async def on_device_update(device: Device):
         "type": "device_update",
         "device": device.dict()
     })
+    # Invalidate device caches
+    if cache_service and cache_service.is_enabled():
+        await cache_service.invalidate_devices()
 
 
 # Callback for threat updates
@@ -87,6 +92,18 @@ async def on_threat_update(threat: Threat):
         "type": "threat_update",
         "threat": threat.dict()
     })
+    # Invalidate threat caches
+    if cache_service and cache_service.is_enabled():
+        await cache_service.invalidate_threats()
+
+
+# Callback for flow updates
+async def on_flow_update(data: dict):
+    """Callback when flow data is updated"""
+    await notify_clients(data)
+    # Invalidate flow and analytics caches
+    if cache_service and cache_service.is_enabled():
+        await cache_service.invalidate_flows()
 
 
 # Import error messages from constants
@@ -130,6 +147,7 @@ async def lifespan(app: FastAPI):
     global network_quality_analytics
     global application_analytics
     global auth_service
+    global cache_service
     global service_manager
 
     logger.info("Starting NetInsight Backend...")
@@ -137,6 +155,14 @@ async def lifespan(app: FastAPI):
     # Initialize storage
     storage = StorageService(db_path=config.db_path)
     await storage.initialize()
+
+    # Initialize cache service (Redis)
+    cache_service = CacheService(
+        host=config.redis_host if hasattr(config, 'redis_host') else 'localhost',
+        port=config.redis_port if hasattr(config, 'redis_port') else 6379,
+        default_ttl=300  # 5 minutes
+    )
+    await cache_service.initialize()
 
     # Initialize authentication service
     auth_service = AuthService(db_path=config.db_path)
@@ -151,7 +177,7 @@ async def lifespan(app: FastAPI):
     service_manager.initialize_services(
         on_device_update=on_device_update,
         on_threat_update=on_threat_update,
-        on_flow_update=notify_clients,
+        on_flow_update=on_flow_update,
         network_interface=config.network_interface,
     )
 
@@ -203,6 +229,10 @@ async def lifespan(app: FastAPI):
     # Cleanup auth service
     if auth_service:
         await auth_service.close()
+
+    # Cleanup cache service
+    if cache_service:
+        await cache_service.close()
 
     logger.info("NetInsight Backend stopped")
 
@@ -473,6 +503,85 @@ async def health_threat():
         "service": "threat_detection",
         "timestamp": datetime.now().isoformat(),
     }
+
+
+@app.get("/api/health/cache")
+@handle_endpoint_error
+async def health_cache():
+    """Health check for cache service"""
+    if not cache_service:
+        return {
+            "status": "disabled",
+            "service": "cache",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Cache service not initialized"
+        }
+
+    if not cache_service.is_enabled():
+        return {
+            "status": "disabled",
+            "service": "cache",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Redis connection unavailable - caching disabled"
+        }
+
+    stats = await cache_service.get_stats()
+
+    return {
+        "status": "healthy",
+        "service": "cache",
+        "timestamp": datetime.now().isoformat(),
+        "stats": stats
+    }
+
+
+# ============================================================================
+# CACHE MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/cache/stats")
+async def get_cache_stats(current_user: User = Depends(get_current_active_user)):
+    """Get cache statistics (requires authentication)"""
+    if not cache_service or not cache_service.is_enabled():
+        return {
+            "enabled": False,
+            "message": "Caching disabled or unavailable"
+        }
+
+    return await cache_service.get_stats()
+
+
+@app.post("/api/cache/invalidate")
+async def invalidate_cache(
+    pattern: Optional[str] = Query(None, description="Pattern to invalidate (e.g., 'analytics:*')"),
+    current_user: User = Depends(require_operator_or_admin)
+):
+    """
+    Invalidate cache entries (requires operator or admin role)
+
+    - pattern: Optional pattern to match keys (e.g., 'analytics:*', 'devices:*')
+    - If no pattern provided, invalidates all analytics caches
+    """
+    if not cache_service or not cache_service.is_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="Cache service not available"
+        )
+
+    if pattern:
+        deleted = await cache_service.delete_pattern(pattern)
+        return {
+            "status": "success",
+            "message": f"Invalidated cache entries matching pattern: {pattern}",
+            "keys_deleted": deleted
+        }
+    else:
+        # Default: invalidate all analytics caches
+        await cache_service.invalidate_analytics()
+        return {
+            "status": "success",
+            "message": "Invalidated all analytics caches"
+        }
 
 
 # ============================================================================
@@ -875,10 +984,24 @@ async def get_analytics(hours: int = HoursQuery(24, 720)):
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = cache_service.key_analytics_summary(hours)
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: analytics.get_analytics_data(hours_back=hours),
         "Failed to retrieve analytics data"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/protocols", response_model=List[ProtocolStats])
@@ -889,10 +1012,24 @@ async def get_protocol_stats():
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = cache_service.key_protocol_distribution(24)
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: analytics.get_protocol_stats(),
         "Failed to retrieve protocol statistics"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/summary")
@@ -917,12 +1054,26 @@ async def get_geographic_stats(hours: int = HoursQuery(24, 720)):
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = cache_service.key_geographic_data(hours)
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_geographic_distribution(
             hours_back=hours
         ),
         "Failed to retrieve geographic statistics"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/top/domains")
@@ -936,12 +1087,26 @@ async def get_top_domains(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = f"analytics:top_domains:{hours}h:{limit}"
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_top_domains(
             limit=limit, hours_back=hours
         ),
         "Failed to retrieve top domains"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/top/devices")
@@ -956,12 +1121,26 @@ async def get_top_devices(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = f"analytics:top_devices:{hours}h:{limit}:{sort_by}"
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_top_devices(
             limit=limit, hours_back=hours, sort_by=sort_by
         ),
         "Failed to retrieve top devices"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/bandwidth")
@@ -975,12 +1154,26 @@ async def get_bandwidth_timeline(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = f"analytics:bandwidth:{hours}h:{interval_minutes}m"
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_bandwidth_timeline(
             hours_back=hours, interval_minutes=interval_minutes
         ),
         "Failed to retrieve bandwidth timeline"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 # Network Quality Analytics Endpoints
