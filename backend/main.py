@@ -27,8 +27,14 @@ from services.advanced_analytics import AdvancedAnalyticsService
 from services.geolocation import GeolocationService
 from services.network_quality_analytics import NetworkQualityAnalyticsService
 from services.application_analytics import ApplicationAnalyticsService
+from services.auth_service import AuthService
+from services.cache_service import CacheService
 from models.types import (
     NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
+)
+from models.auth import (
+    User, UserCreate, UserUpdate, LoginRequest, Token,
+    APIKeyCreate, APIKey, PasswordChange, UserRole
 )
 from models.requests import DeviceUpdateRequest
 from utils.config import config
@@ -40,13 +46,15 @@ from utils.validators import (
 from utils.error_handler import handle_endpoint_error
 from utils.constants import SECONDS_PER_HOUR, CLEANUP_INTERVAL_HOURS
 from utils.service_manager import ServiceManager
+from utils.logging_config import setup_logging, StructuredLogger, log_event, log_security_event
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Configure structured logging
+setup_logging(
+    level=config.log_level if hasattr(config, 'log_level') else 'INFO',
+    use_json=config.use_json_logging if hasattr(config, 'use_json_logging') else True,
+    log_file=config.log_file if hasattr(config, 'log_file') else None
 )
-logger = logging.getLogger(__name__)
+logger = StructuredLogger(__name__)
 
 # Global services (maintained for backward compatibility with endpoints)
 packet_capture: Optional[PacketCaptureService] = None
@@ -58,6 +66,8 @@ advanced_analytics: Optional[AdvancedAnalyticsService] = None
 geolocation_service: Optional[GeolocationService] = None
 network_quality_analytics: Optional[NetworkQualityAnalyticsService] = None
 application_analytics: Optional[ApplicationAnalyticsService] = None
+auth_service: Optional[AuthService] = None
+cache_service: Optional[CacheService] = None
 
 # Service manager for centralized lifecycle management
 service_manager: Optional[ServiceManager] = None
@@ -72,6 +82,9 @@ async def on_device_update(device: Device):
         "type": "device_update",
         "device": device.dict()
     })
+    # Invalidate device caches
+    if cache_service and cache_service.is_enabled():
+        await cache_service.invalidate_devices()
 
 
 # Callback for threat updates
@@ -81,6 +94,18 @@ async def on_threat_update(threat: Threat):
         "type": "threat_update",
         "threat": threat.dict()
     })
+    # Invalidate threat caches
+    if cache_service and cache_service.is_enabled():
+        await cache_service.invalidate_threats()
+
+
+# Callback for flow updates
+async def on_flow_update(data: dict):
+    """Callback when flow data is updated"""
+    await notify_clients(data)
+    # Invalidate flow and analytics caches
+    if cache_service and cache_service.is_enabled():
+        await cache_service.invalidate_flows()
 
 
 # Import error messages from constants
@@ -123,6 +148,8 @@ async def lifespan(app: FastAPI):
     global geolocation_service
     global network_quality_analytics
     global application_analytics
+    global auth_service
+    global cache_service
     global service_manager
 
     logger.info("Starting NetInsight Backend...")
@@ -131,12 +158,29 @@ async def lifespan(app: FastAPI):
     storage = StorageService(db_path=config.db_path)
     await storage.initialize()
 
+    # Initialize cache service (Redis)
+    cache_service = CacheService(
+        host=config.redis_host,
+        port=config.redis_port,
+        default_ttl=300  # 5 minutes
+    )
+    await cache_service.initialize()
+    logger.info("Cache service initialized", redis_host=config.redis_host, redis_port=config.redis_port)
+
+    # Initialize authentication service
+    auth_service = AuthService(db_path=config.db_path)
+    await auth_service.initialize()
+
+    # Set auth service for dependencies
+    from utils.auth_dependencies import set_auth_service
+    set_auth_service(auth_service)
+
     # Initialize services using ServiceManager
     service_manager = ServiceManager(storage)
     service_manager.initialize_services(
         on_device_update=on_device_update,
         on_threat_update=on_threat_update,
-        on_flow_update=notify_clients,
+        on_flow_update=on_flow_update,
         network_interface=config.network_interface,
     )
 
@@ -184,6 +228,14 @@ async def lifespan(app: FastAPI):
     # Cleanup services using ServiceManager
     if service_manager:
         await service_manager.cleanup()
+
+    # Cleanup auth service
+    if auth_service:
+        await auth_service.close()
+
+    # Cleanup cache service
+    if cache_service:
+        await cache_service.close()
 
     logger.info("NetInsight Backend stopped")
 
@@ -456,6 +508,357 @@ async def health_threat():
     }
 
 
+@app.get("/api/health/cache")
+@handle_endpoint_error
+async def health_cache():
+    """Health check for cache service"""
+    if not cache_service:
+        return {
+            "status": "disabled",
+            "service": "cache",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Cache service not initialized"
+        }
+
+    if not cache_service.is_enabled():
+        return {
+            "status": "disabled",
+            "service": "cache",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Redis connection unavailable - caching disabled"
+        }
+
+    stats = await cache_service.get_stats()
+
+    return {
+        "status": "healthy",
+        "service": "cache",
+        "timestamp": datetime.now().isoformat(),
+        "stats": stats
+    }
+
+
+@app.get("/api/health/db-pool")
+@handle_endpoint_error
+async def health_db_pool():
+    """Health check for database connection pool"""
+    if not storage:
+        return {
+            "status": "unavailable",
+            "service": "db_pool",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Storage service not initialized"
+        }
+
+    stats = storage.get_pool_stats()
+
+    if stats.get("pool_enabled") is False:
+        return {
+            "status": "disabled",
+            "service": "db_pool",
+            "timestamp": datetime.now().isoformat(),
+            **stats
+        }
+
+    return {
+        "status": "healthy",
+        "service": "db_pool",
+        "timestamp": datetime.now().isoformat(),
+        **stats
+    }
+
+
+# ============================================================================
+# CACHE MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/cache/stats")
+async def get_cache_stats(current_user: User = Depends(get_current_active_user)):
+    """Get cache statistics (requires authentication)"""
+    if not cache_service or not cache_service.is_enabled():
+        return {
+            "enabled": False,
+            "message": "Caching disabled or unavailable"
+        }
+
+    return await cache_service.get_stats()
+
+
+@app.post("/api/cache/invalidate")
+async def invalidate_cache(
+    pattern: Optional[str] = Query(None, description="Pattern to invalidate (e.g., 'analytics:*')"),
+    current_user: User = Depends(require_operator_or_admin)
+):
+    """
+    Invalidate cache entries (requires operator or admin role)
+
+    - pattern: Optional pattern to match keys (e.g., 'analytics:*', 'devices:*')
+    - If no pattern provided, invalidates all analytics caches
+    """
+    if not cache_service or not cache_service.is_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="Cache service not available"
+        )
+
+    if pattern:
+        deleted = await cache_service.delete_pattern(pattern)
+        return {
+            "status": "success",
+            "message": f"Invalidated cache entries matching pattern: {pattern}",
+            "keys_deleted": deleted
+        }
+    else:
+        # Default: invalidate all analytics caches
+        await cache_service.invalidate_analytics()
+        return {
+            "status": "success",
+            "message": "Invalidated all analytics caches"
+        }
+
+
+# ============================================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================================
+
+from utils.auth_dependencies import (
+    get_current_user, get_current_active_user,
+    require_admin, require_operator_or_admin, get_current_user_optional
+)
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import Depends, status
+
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Login with username and password to get JWT token
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    user = await auth_service.authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Create access token
+    from datetime import timedelta
+    access_token_expires = timedelta(minutes=30)
+    token = auth_service.create_access_token(
+        data={"sub": user.username, "role": user.role.value},
+        expires_delta=access_token_expires
+    )
+
+    return token
+
+
+@app.post("/api/auth/register", response_model=User, status_code=status.HTTP_201_CREATED)
+async def register(
+    user_create: UserCreate,
+    current_user: User = Depends(require_admin)
+):
+    """
+    Register a new user (admin only)
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    # Check if username already exists
+    existing_user = await auth_service.get_user(user_create.username)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already registered"
+        )
+
+    user = await auth_service.create_user(user_create)
+    return user
+
+
+@app.get("/api/auth/me", response_model=User)
+async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
+    """
+    Get current authenticated user information
+    """
+    return current_user
+
+
+@app.get("/api/auth/users", response_model=List[User])
+async def list_users(current_user: User = Depends(require_admin)):
+    """
+    List all users (admin only)
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    users = await auth_service.list_users()
+    return users
+
+
+@app.patch("/api/auth/users/{username}", response_model=User)
+async def update_user(
+    username: str,
+    user_update: UserUpdate,
+    current_user: User = Depends(require_admin)
+):
+    """
+    Update user information (admin only)
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    updated_user = await auth_service.update_user(username, user_update)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return updated_user
+
+
+@app.delete("/api/auth/users/{username}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    username: str,
+    current_user: User = Depends(require_admin)
+):
+    """
+    Delete a user (admin only)
+    Cannot delete yourself
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    if username == current_user.username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account"
+        )
+
+    success = await auth_service.delete_user(username)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    return None
+
+
+@app.post("/api/auth/change-password")
+async def change_password(
+    password_change: PasswordChange,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Change current user's password
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    # Verify old password
+    user_in_db = await auth_service.get_user(current_user.username)
+    if not user_in_db or not auth_service.verify_password(password_change.old_password, user_in_db.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect password"
+        )
+
+    # Update password
+    await auth_service.update_user(
+        current_user.username,
+        UserUpdate(password=password_change.new_password)
+    )
+
+    return {"message": "Password updated successfully"}
+
+
+@app.post("/api/auth/api-keys", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_api_key(
+    api_key_create: APIKeyCreate,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Create a new API key for current user
+    Returns the API key once - store it securely!
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    api_key_obj, raw_key = await auth_service.create_api_key(current_user.id, api_key_create)
+
+    return {
+        "id": api_key_obj.id,
+        "name": api_key_obj.name,
+        "api_key": raw_key,  # Only shown once!
+        "created_at": api_key_obj.created_at,
+        "expires_at": api_key_obj.expires_at,
+        "message": "Store this API key securely - it will not be shown again"
+    }
+
+
+@app.get("/api/auth/api-keys", response_model=List[APIKey])
+async def list_api_keys(current_user: User = Depends(get_current_active_user)):
+    """
+    List current user's API keys
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    keys = await auth_service.list_user_api_keys(current_user.id)
+    return keys
+
+
+@app.delete("/api/auth/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_api_key(
+    key_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Revoke (delete) an API key
+    """
+    if not auth_service:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not available"
+        )
+
+    await auth_service.revoke_api_key(key_id, current_user.id)
+    return None
+
+
+# ============================================================================
+# DEVICE ENDPOINTS
+# ============================================================================
+
 @app.get("/api/devices", response_model=List[Device])
 async def get_devices():
     """Get all discovered devices"""
@@ -574,8 +977,11 @@ async def get_threats(active_only: bool = True):
 
 
 @app.post("/api/threats/{threat_id}/dismiss")
-async def dismiss_threat(threat_id: str = ThreatIdPath()):
-    """Dismiss a threat alert"""
+async def dismiss_threat(
+    threat_id: str = ThreatIdPath(),
+    current_user: User = Depends(require_operator_or_admin)
+):
+    """Dismiss a threat alert - Requires operator or admin role"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
@@ -611,10 +1017,24 @@ async def get_analytics(hours: int = HoursQuery(24, 720)):
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = cache_service.key_analytics_summary(hours)
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: analytics.get_analytics_data(hours_back=hours),
         "Failed to retrieve analytics data"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/protocols", response_model=List[ProtocolStats])
@@ -625,10 +1045,24 @@ async def get_protocol_stats():
             status_code=503, detail=ERR_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = cache_service.key_protocol_distribution(24)
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: analytics.get_protocol_stats(),
         "Failed to retrieve protocol statistics"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/summary")
@@ -653,12 +1087,26 @@ async def get_geographic_stats(hours: int = HoursQuery(24, 720)):
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = cache_service.key_geographic_data(hours)
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_geographic_distribution(
             hours_back=hours
         ),
         "Failed to retrieve geographic statistics"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/top/domains")
@@ -672,12 +1120,26 @@ async def get_top_domains(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = f"analytics:top_domains:{hours}h:{limit}"
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_top_domains(
             limit=limit, hours_back=hours
         ),
         "Failed to retrieve top domains"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/top/devices")
@@ -692,12 +1154,26 @@ async def get_top_devices(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = f"analytics:top_devices:{hours}h:{limit}:{sort_by}"
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_top_devices(
             limit=limit, hours_back=hours, sort_by=sort_by
         ),
         "Failed to retrieve top devices"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 @app.get("/api/stats/bandwidth")
@@ -711,12 +1187,26 @@ async def get_bandwidth_timeline(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    # Try cache first
+    if cache_service and cache_service.is_enabled():
+        cache_key = f"analytics:bandwidth:{hours}h:{interval_minutes}m"
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
+    result = await handle_endpoint_error(
         lambda: advanced_analytics.get_bandwidth_timeline(
             hours_back=hours, interval_minutes=interval_minutes
         ),
         "Failed to retrieve bandwidth timeline"
     )
+
+    # Cache the result
+    if cache_service and cache_service.is_enabled():
+        await cache_service.set(cache_key, result)
+
+    return result
 
 
 # Network Quality Analytics Endpoints
@@ -856,9 +1346,10 @@ async def get_device_analytics(
 @app.patch("/api/devices/{device_id}")
 async def update_device(
     device_id: str = DeviceIdPath(),
-    update: DeviceUpdateRequest = ...
+    update: DeviceUpdateRequest = ...,
+    current_user: User = Depends(require_operator_or_admin)
 ):
-    """Update device information (name, notes, type)"""
+    """Update device information (name, notes, type) - Requires operator or admin role"""
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
@@ -1017,8 +1508,8 @@ async def export_flows(
 
 
 @app.post("/api/capture/start")
-async def start_capture():
-    """Start packet capture"""
+async def start_capture(current_user: User = Depends(require_operator_or_admin)):
+    """Start packet capture - Requires operator or admin role"""
     if not packet_capture:
         raise HTTPException(
             status_code=503, detail=ERR_CAPTURE_NOT_INIT
@@ -1030,8 +1521,8 @@ async def start_capture():
 
 
 @app.post("/api/capture/stop")
-async def stop_capture():
-    """Stop packet capture"""
+async def stop_capture(current_user: User = Depends(require_operator_or_admin)):
+    """Stop packet capture - Requires operator or admin role"""
     if not packet_capture:
         raise HTTPException(
             status_code=503, detail=ERR_CAPTURE_NOT_INIT
