@@ -27,9 +27,13 @@ export function useApiData(options: UseApiDataOptions = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
 
-  // Fetch all data
-  const fetchAll = useCallback(async () => {
+  const maxRetries = 3;
+
+  // Fetch all data with automatic retry
+  const fetchAll = useCallback(async (attemptNum = 0) => {
     if (!USE_REAL_API) {
       setIsLoading(false);
       return;
@@ -37,6 +41,9 @@ export function useApiData(options: UseApiDataOptions = {}) {
 
     try {
       setIsLoading(true);
+      if (attemptNum > 0) {
+        setIsRetrying(true);
+      }
       setError(null);
 
       // Check backend health
@@ -59,22 +66,51 @@ export function useApiData(options: UseApiDataOptions = {}) {
       setThreats(threatsData || []);
       setAnalyticsData(analyticsDataResult || []);
       setProtocolStats(protocolStatsData || []);
+
+      // Reset retry count on success
+      setRetryCount(0);
+      setIsRetrying(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
       setError(errorMessage);
       setIsConnected(false);
       console.error('API fetch error:', err);
 
-      if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
-        toast.error('Backend unavailable', {
-          description:
-            'Cannot connect to Raspberry Pi backend. Check connection and ensure the service is running.',
+      // Auto-retry logic with exponential backoff
+      if (attemptNum < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attemptNum), 10000); // Max 10 seconds
+        const nextAttempt = attemptNum + 1;
+        setRetryCount(nextAttempt);
+
+        toast.info(`Retrying connection... (${nextAttempt}/${maxRetries})`, {
+          description: `Waiting ${delay / 1000} seconds before retry`,
         });
+
+        setTimeout(() => {
+          fetchAll(nextAttempt);
+        }, delay);
+      } else {
+        // Max retries reached
+        setIsRetrying(false);
+        setRetryCount(0);
+
+        if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
+          toast.error('Backend unavailable', {
+            description:
+              'Cannot connect to backend after multiple attempts. Check connection and ensure the service is running.',
+            action: {
+              label: 'Retry Now',
+              onClick: () => fetchAll(0),
+            },
+          });
+        }
       }
     } finally {
-      setIsLoading(false);
+      if (attemptNum >= maxRetries || retryCount === 0) {
+        setIsLoading(false);
+      }
     }
-  }, []);
+  }, [maxRetries, retryCount]);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -233,12 +269,15 @@ export function useApiData(options: UseApiDataOptions = {}) {
     isLoading,
     isConnected,
     error,
+    isRetrying,
+    retryCount,
 
     // Actions
     startCapture,
     stopCapture,
     dismissThreat,
-    refresh: fetchAll,
+    refresh: () => fetchAll(0),
+    retryNow: () => fetchAll(0),
 
     // Metadata
     useRealApi: USE_REAL_API,

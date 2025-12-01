@@ -56,6 +56,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { NetworkQualityDashboard } from '@/components/NetworkQualityDashboard';
 import { ApplicationUsageDashboard } from '@/components/ApplicationUsageDashboard';
 import { MaintenancePanel } from '@/components/MaintenancePanel';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useApiData } from '@/hooks/useApiData';
 import { toast } from 'sonner';
@@ -201,7 +203,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="border-b border-border/50 bg-card/30 backdrop-blur">
+      <header className="border-b border-border/50 bg-card/30 backdrop-blur" role="banner">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -224,6 +226,10 @@ function App() {
                   }}
                 />
               </div>
+              {/* Theme Toggle */}
+              <ThemeToggle />
+              {/* Keyboard Shortcuts */}
+              <KeyboardShortcuts />
               {/* Connection Status Indicator */}
               {USE_REAL_API && (
                 <Badge
@@ -265,10 +271,10 @@ function App() {
             </div>
           )}
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto px-6 py-6">
-        <Tabs defaultValue="dashboard" className="space-y-6">
+      <main className="container mx-auto px-6 py-6" role="main">
+        <Tabs defaultValue="dashboard" className="space-y-6" aria-label="Main navigation tabs">
           <TabsList className="bg-card border border-border/50">
             <TabsTrigger value="dashboard" className="gap-2">
               <Pulse size={16} />
@@ -621,7 +627,7 @@ function App() {
             <MaintenancePanel />
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
     </div>
   );
 }

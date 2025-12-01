@@ -231,9 +231,14 @@ export function ConnectionsTableEnhanced({
                               RTT: {flow.rtt}ms
                             </span>
                           )}
+                          {flow.jitter && (
+                            <span className="text-muted-foreground" title="Network jitter">
+                              Jitter: {flow.jitter.toFixed(1)}ms
+                            </span>
+                          )}
                           {flow.retransmissions !== undefined && flow.retransmissions > 0 && (
                             <span className="text-warning" title="Retransmissions">
-                              ⚠ {flow.retransmissions}
+                              ⚠ Retrans: {flow.retransmissions}
                             </span>
                           )}
                           {flow.tcpFlags && flow.tcpFlags.length > 0 && (
