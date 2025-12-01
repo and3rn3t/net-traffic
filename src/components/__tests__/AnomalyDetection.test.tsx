@@ -19,7 +19,11 @@ describe('AnomalyDetection', () => {
     });
 
     it('should display no anomalies message when no anomalies detected', () => {
-      const flows = [createMockNetworkFlow()];
+      // Create a flow with timestamp during normal hours (10 AM) to avoid triggering
+      // "Unusual Activity Hours" anomaly detection (which checks for 2AM-5AM)
+      const normalHour = new Date();
+      normalHour.setHours(10, 0, 0, 0);
+      const flows = [createMockNetworkFlow({ timestamp: normalHour.getTime() })];
       const devices = [createMockDevice()];
       render(<AnomalyDetection flows={flows} devices={devices} />);
 
@@ -436,11 +440,15 @@ describe('AnomalyDetection', () => {
     });
 
     it('should handle flows with no anomalies', () => {
+      // Use normal hours (10 AM) to avoid triggering "Unusual Activity Hours" anomaly
+      const normalHour = new Date();
+      normalHour.setHours(10, 0, 0, 0);
       const flows = Array.from({ length: 10 }, (_, i) =>
         createMockNetworkFlow({
           id: `flow-${i}`,
           bytesIn: 1000,
           bytesOut: 500,
+          timestamp: normalHour.getTime() + i * 1000, // Spread timestamps slightly
         })
       );
       render(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
@@ -449,8 +457,13 @@ describe('AnomalyDetection', () => {
     });
 
     it('should handle single device with normal traffic', () => {
+      // Use normal hours (10 AM) to avoid triggering "Unusual Activity Hours" anomaly
+      const normalHour = new Date();
+      normalHour.setHours(10, 0, 0, 0);
       const device = createMockDevice();
-      const flows = [createMockNetworkFlow({ deviceId: device.id })];
+      const flows = [
+        createMockNetworkFlow({ deviceId: device.id, timestamp: normalHour.getTime() }),
+      ];
       render(<AnomalyDetection flows={flows} devices={[device]} />);
 
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
@@ -503,7 +516,15 @@ describe('AnomalyDetection', () => {
 
   describe('Icon Display', () => {
     it('should show check circle icon when no anomalies', () => {
-      render(<AnomalyDetection flows={[createMockNetworkFlow()]} devices={[createMockDevice()]} />);
+      // Use normal hours (10 AM) to avoid triggering "Unusual Activity Hours" anomaly
+      const normalHour = new Date();
+      normalHour.setHours(10, 0, 0, 0);
+      render(
+        <AnomalyDetection
+          flows={[createMockNetworkFlow({ timestamp: normalHour.getTime() })]}
+          devices={[createMockDevice()]}
+        />
+      );
 
       // Component uses CheckCircle icon when no anomalies
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
