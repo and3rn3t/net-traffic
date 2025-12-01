@@ -238,7 +238,10 @@ describe('SearchBar', () => {
         expect(input).toHaveValue('test');
       });
 
-      // Wait for debounced query to update and React Query to start (500ms debounce + render cycle)
+      // Wait for debounced query to update (500ms debounce) so React Query can start
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Wait for React Query to start the query
       await waitFor(
         () => {
           expect(apiClient.search).toHaveBeenCalledWith('test', 'all', 20);
@@ -249,12 +252,14 @@ describe('SearchBar', () => {
       // Press Enter to trigger search - this sets showResults to true
       // The dialog should open when showResults is true and query has text
       await act(async () => {
-        fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
-        // Allow React to process the state update and render the dialog
-        await new Promise(resolve => setTimeout(resolve, 100));
+        input.focus();
+        fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
+        // Allow React to process the state update
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
-      // Wait for the dialog to open
+      // Wait for the dialog to open and render
       // The dialog opens when showResults is true AND (totalResults > 0 OR isSearching OR query has text)
       await waitFor(
         () => {
@@ -369,7 +374,10 @@ describe('SearchBar', () => {
         expect(input).toHaveValue('nonexistent');
       });
 
-      // Wait for debounced query to update and React Query to start (500ms debounce + render cycle)
+      // Wait for debounced query to update (500ms debounce) so React Query can start
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      // Wait for React Query to start the query
       await waitFor(
         () => {
           expect(apiClient.search).toHaveBeenCalledWith('nonexistent', 'all', 20);
@@ -380,12 +388,14 @@ describe('SearchBar', () => {
       // Press Enter to trigger search - this sets showResults to true
       // The dialog should open when showResults is true and query has text
       await act(async () => {
-        fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
-        // Allow React to process the state update and render the dialog
-        await new Promise(resolve => setTimeout(resolve, 100));
+        input.focus();
+        fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
+        // Allow React to process the state update
+        await Promise.resolve();
+        await Promise.resolve();
       });
 
-      // Wait for the dialog to open
+      // Wait for the dialog to open and render
       // The dialog opens when showResults is true AND (totalResults > 0 OR isSearching OR query has text)
       await waitFor(
         () => {

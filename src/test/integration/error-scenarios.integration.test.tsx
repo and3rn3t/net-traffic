@@ -192,8 +192,9 @@ describe('Error Scenario Integration Tests', () => {
       );
 
       // Advance timers to allow retry delays to complete
+      // The retry has a 50ms delay, so we need to advance timers
       await act(async () => {
-        await vi.runAllTimersAsync();
+        vi.advanceTimersByTime(200); // Advance enough to cover the retry delay
         // Flush promises
         await Promise.resolve();
         await Promise.resolve();
