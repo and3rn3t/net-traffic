@@ -535,6 +535,36 @@ async def health_cache():
     }
 
 
+@app.get("/api/health/db-pool")
+@handle_endpoint_error
+async def health_db_pool():
+    """Health check for database connection pool"""
+    if not storage:
+        return {
+            "status": "unavailable",
+            "service": "db_pool",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Storage service not initialized"
+        }
+
+    stats = storage.get_pool_stats()
+
+    if stats.get("pool_enabled") is False:
+        return {
+            "status": "disabled",
+            "service": "db_pool",
+            "timestamp": datetime.now().isoformat(),
+            **stats
+        }
+
+    return {
+        "status": "healthy",
+        "service": "db_pool",
+        "timestamp": datetime.now().isoformat(),
+        **stats
+    }
+
+
 # ============================================================================
 # CACHE MANAGEMENT ENDPOINTS
 # ============================================================================

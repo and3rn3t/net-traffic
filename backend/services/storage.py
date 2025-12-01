@@ -10,25 +10,50 @@ from datetime import datetime, timedelta
 
 from models.types import NetworkFlow, Device, Threat
 from utils.migrations import run_migrations
+from services.db_pool import DatabasePool
 
 logger = logging.getLogger(__name__)
 
 
 class StorageService:
-    def __init__(self, db_path: str = "netinsight.db"):
+    def __init__(self, db_path: str = "netinsight.db", use_pool: bool = True):
         self.db_path = db_path
+        self.use_pool = use_pool
+
+        # Legacy single connection (for backward compatibility)
         self.db: Optional[aiosqlite.Connection] = None
         self._connection_lock = asyncio.Lock()
         self._max_retries = 3
         self._retry_delay = 1.0  # seconds
 
+        # Connection pool (new approach)
+        self.pool: Optional[DatabasePool] = None
+
     async def initialize(self):
         """Initialize database and create tables"""
-        await self._ensure_connection()
-        await self._create_tables()
-        # Run migrations to handle schema updates
-        await run_migrations(self.db)
-        logger.info(f"Database initialized: {self.db_path}")
+        if self.use_pool:
+            # Initialize connection pool
+            self.pool = DatabasePool(
+                db_path=self.db_path,
+                max_connections=5,
+                enable_wal=True
+            )
+            await self.pool.initialize()
+
+            # Use first connection from pool for setup
+            async with self.pool.acquire() as conn:
+                self.db = conn  # Temporary assignment for migrations
+                await self._create_tables()
+                await run_migrations(self.db)
+                self.db = None  # Clear temporary assignment
+
+            logger.info(f"Database initialized with connection pool: {self.db_path}")
+        else:
+            # Legacy single connection mode
+            await self._ensure_connection()
+            await self._create_tables()
+            await run_migrations(self.db)
+            logger.info(f"Database initialized: {self.db_path}")
 
     async def _ensure_connection(self):
         """Ensure database connection is active, reconnect if needed"""
@@ -86,6 +111,17 @@ class StorageService:
 
     async def _execute_with_retry(self, query: str, params=None):
         """Execute query with automatic reconnection on failure"""
+        # Use connection pool if available
+        if self.pool:
+            # Pool handles retry logic internally
+            if params:
+                async with self.pool.acquire() as conn:
+                    return await conn.execute(query, params)
+            else:
+                async with self.pool.acquire() as conn:
+                    return await conn.execute(query)
+
+        # Legacy single connection mode with retry
         for attempt in range(self._max_retries):
             try:
                 await self._ensure_connection()
@@ -352,9 +388,22 @@ class StorageService:
 
     async def close(self):
         """Close database connection"""
-        if self.db:
+        if self.pool:
+            await self.pool.close()
+            logger.info("Database connection pool closed")
+        elif self.db:
             await self.db.close()
             logger.info("Database connection closed")
+
+    def get_pool_stats(self) -> dict:
+        """Get connection pool statistics"""
+        if self.pool:
+            return self.pool.get_stats()
+        else:
+            return {
+                "pool_enabled": False,
+                "message": "Connection pooling not enabled"
+            }
 
     # Device methods
     async def get_devices(self) -> List[Device]:
