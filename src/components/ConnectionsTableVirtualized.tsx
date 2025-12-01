@@ -71,6 +71,27 @@ const FlowRow = memo(
                   {formatTimestamp(flow.timestamp)}
                 </span>
               </div>
+
+              {/* Network Quality Metrics */}
+              {(flow.rtt || flow.jitter || (flow.retransmissions !== undefined && flow.retransmissions > 0)) && (
+                <div className="flex items-center gap-3 text-xs">
+                  {flow.rtt && (
+                    <span className="text-muted-foreground" title="Round-Trip Time">
+                      RTT: {flow.rtt}ms
+                    </span>
+                  )}
+                  {flow.jitter && (
+                    <span className="text-muted-foreground" title="Network Jitter">
+                      Jitter: {flow.jitter.toFixed(1)}ms
+                    </span>
+                  )}
+                  {flow.retransmissions !== undefined && flow.retransmissions > 0 && (
+                    <span className="text-warning" title="Retransmissions">
+                      ⚠ Retrans: {flow.retransmissions}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             <Badge className={getThreatBgColor(flow.threatLevel)}>

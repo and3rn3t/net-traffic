@@ -91,3 +91,11 @@ export interface ProtocolStats {
   connections: number;
   percentage: number;
 }
+
+export interface CaptureStatus {
+  running: boolean;
+  interface: string;
+  packets_captured: number;
+  flows_detected: number;
+  start_time?: number;
+}

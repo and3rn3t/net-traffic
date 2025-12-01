@@ -252,6 +252,36 @@ class Config:
             return [s.strip() for s in servers.split(",") if s.strip()]
         return []
 
+    @property
+    def log_level(self) -> str:
+        """Get logging level"""
+        level = os.getenv("LOG_LEVEL", "INFO").upper()
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        return level if level in valid_levels else "INFO"
+
+    @property
+    def use_json_logging(self) -> bool:
+        """Use JSON formatted logging for structured logs"""
+        return os.getenv("USE_JSON_LOGGING", "true").lower() == "true"
+
+    @property
+    def log_file(self) -> Optional[str]:
+        """Get log file path (None to disable file logging)"""
+        return os.getenv("LOG_FILE", None)
+
+    @property
+    def redis_host(self) -> str:
+        """Get Redis host for caching"""
+        return os.getenv("REDIS_HOST", "localhost")
+
+    @property
+    def redis_port(self) -> int:
+        """Get Redis port"""
+        try:
+            return int(os.getenv("REDIS_PORT", "6379"))
+        except ValueError:
+            return 6379
+
 
 # Global config instance
 config = Config()
