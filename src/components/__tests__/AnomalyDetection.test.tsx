@@ -3,7 +3,7 @@
  * Tests anomaly detection logic, rendering, and edge cases
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { AnomalyDetection } from '@/components/AnomalyDetection';
@@ -353,9 +353,8 @@ describe('AnomalyDetection', () => {
   describe('Affected Devices', () => {
     it('should display affected device names', async () => {
       const device1 = createMockDevice({ id: 'device-1', name: 'Device One' });
-      const device2 = createMockDevice({ id: 'device-2', name: 'Device Two' });
 
-      // Create flows where device-1 has much higher traffic than device-2
+      // Create flows where device-1 has much higher traffic than normal devices
       // Create multiple normal devices to make threshold calculation work
       const normalDevices = Array.from({ length: 5 }, (_, i) =>
         createMockDevice({ id: `device-normal-${i}`, name: `Normal Device ${i}` })
@@ -390,14 +389,17 @@ describe('AnomalyDetection', () => {
       await waitFor(
         () => {
           // Component shows "Affected: {device names}" or device names in description
-          const affectedText = screen.queryByText(/Affected:/i);
+          // Use queryAllByText since there may be multiple anomalies with "Affected:" text
+          const affectedTexts = screen.queryAllByText(/Affected:/i);
           // Device names might appear multiple times (in description, badge, etc.)
           // Use getAllByText to handle multiple occurrences - we just need at least one
           const deviceOneElements = screen.queryAllByText(/Device One/i);
           // Or the anomaly type should be present
           const excessiveBandwidth = screen.queryByText(/Excessive Bandwidth/i);
           // At least one of these should be present
-          expect(affectedText || deviceOneElements.length > 0 || excessiveBandwidth).toBeTruthy();
+          expect(
+            affectedTexts.length > 0 || deviceOneElements.length > 0 || excessiveBandwidth
+          ).toBeTruthy();
         },
         { timeout: 2000 }
       );
