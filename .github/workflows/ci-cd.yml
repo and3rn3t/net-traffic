@@ -23,6 +23,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Normalize line endings
+        run: |
+          # Ensure all source files have LF line endings
+          find src -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec dos2unix {} + 2>/dev/null || true
+          # Alternative: use sed if dos2unix not available
+          find src -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/\r$//' {} + 2>/dev/null || true
+
       - name: Run type check
         run: npm run type-check
 
@@ -31,6 +38,7 @@ jobs:
 
       - name: Check formatting
         run: npm run format:check
+        continue-on-error: false
 
       - name: Run unit tests
         run: npm run test:run

@@ -14,12 +14,28 @@ Instead of building images on the Raspberry Pi (which takes 5-10 minutes), you c
 
 ### Step 1: Build and Push Images
 
+**On Windows:**
+
+```powershell
+# PowerShell script (recommended)
+.\scripts\build-and-push-images.ps1 ghcr.io/your-username
+# or
+npm run build:images:win
+
+# Or use Git Bash/WSL
+bash scripts/build-and-push-images.sh ghcr.io/your-username
+```
+
+**On Linux/Mac:**
+
 ```bash
 # Build and push to your registry
 npm run build:images
 # or
 ./scripts/build-and-push-images.sh ghcr.io/your-username
 ```
+
+**See [Windows Build Guide](./WINDOWS_BUILD_GUIDE.md) for Windows-specific instructions.**
 
 This will:
 

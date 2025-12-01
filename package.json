@@ -40,6 +40,7 @@
     "ensure-env": "bash scripts/ensure-env.sh",
     "pre-install": "bash scripts/pre-install-setup.sh",
     "build:images": "bash scripts/build-and-push-images.sh",
+    "build:images:win": "powershell -ExecutionPolicy Bypass -File scripts/build-and-push-images.ps1",
     "setup:registry": "bash scripts/setup-registry-deployment.sh"
   },
   "dependencies": {

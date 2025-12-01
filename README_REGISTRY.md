@@ -8,12 +8,25 @@ Deploy NetInsight using pre-built images from a container registry for faster in
 
 On your development machine:
 
+**Windows:**
+
+```powershell
+# PowerShell script (recommended)
+.\scripts\build-and-push-images.ps1 ghcr.io/your-username
+# or
+npm run build:images:win
+```
+
+**Linux/Mac:**
+
 ```bash
 # Build and push to registry
 npm run build:images
 # or
 ./scripts/build-and-push-images.sh ghcr.io/your-username
 ```
+
+**See [Windows Build Guide](./docs/WINDOWS_BUILD_GUIDE.md) for Windows-specific help.**
 
 This builds ARM64 images and pushes them to your registry.
 
