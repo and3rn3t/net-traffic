@@ -3,6 +3,8 @@
  * Connects frontend to Raspberry Pi 5 backend service
  */
 
+import type { Device, NetworkFlow, Threat } from './types';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export interface ApiConfig {
@@ -16,7 +18,7 @@ export class ApiClient {
   private ws: WebSocket | null = null;
   private wsReconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private wsListeners: Map<string, Set<(data: any) => void>> = new Map();
+  private wsListeners: Map<string, Set<(data: unknown) => void>> = new Map();
 
   constructor(config: ApiConfig = { baseURL: API_BASE_URL, timeout: 30000 }) {
     this.baseURL = config.baseURL;
@@ -508,9 +510,9 @@ export class ApiClient {
   ): Promise<{
     query: string;
     type: string;
-    devices: any[];
-    flows: any[];
-    threats: any[];
+    devices: Device[];
+    flows: NetworkFlow[];
+    threats: Threat[];
   }> {
     return this.request(`/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=${limit}`);
   }
@@ -568,7 +570,7 @@ export class ApiClient {
   }
 
   // WebSocket connection for real-time updates
-  connectWebSocket(onMessage: (data: any) => void): () => void {
+  connectWebSocket(onMessage: (data: unknown) => void): () => void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return () => this.disconnectWebSocket();
     }
@@ -640,7 +642,7 @@ export class ApiClient {
   }
 
   // Subscribe to specific event types
-  on(event: string, callback: (data: any) => void): () => void {
+  on(event: string, callback: (data: unknown) => void): () => void {
     if (!this.wsListeners.has(event)) {
       this.wsListeners.set(event, new Set());
     }

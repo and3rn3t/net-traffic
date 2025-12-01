@@ -762,12 +762,8 @@ async def update_device(
         device.name = update.name
     if update.type is not None:
         device.type = update.type
-    # Note: notes field would need to be added to Device model
-    # For now, we can store it in behavioral dict
     if update.notes is not None:
-        behavioral = device.behavioral.copy() if isinstance(device.behavioral, dict) else {}
-        behavioral["notes"] = update.notes
-        device.behavioral = behavioral
+        device.notes = update.notes
 
     await storage.upsert_device(device)
 

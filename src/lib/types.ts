@@ -62,6 +62,7 @@ export interface Device {
   avgRtt?: number;
   connectionQuality?: 'good' | 'fair' | 'poor';
   applications?: string[];
+  notes?: string; // User-added notes about the device
 }
 
 export interface Threat {

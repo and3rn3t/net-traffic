@@ -57,7 +57,8 @@ class Device(BaseModel):
     bytesTotal: int
     connectionsCount: int
     threatScore: float
-    behavioral: dict  # Contains peakHours, commonPorts, commonDomains, anomalyCount, applications
+    behavioral: dict  # Contains peakHours, commonPorts, commonDomains, anomalyCount, applications, notes
+    notes: Optional[str] = None  # User-added notes about the device
     # Enhanced fields
     ipv6Support: Optional[bool] = None
     avgRtt: Optional[float] = None  # Average round-trip time

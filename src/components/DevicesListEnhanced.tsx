@@ -70,7 +70,7 @@ export function DevicesListEnhanced({
     setEditForm({
       name: device.name,
       type: device.type,
-      notes: (device.behavioral as any)?.notes || '',
+      notes: device.notes || '',
     });
   };
 
@@ -140,7 +140,7 @@ export function DevicesListEnhanced({
               {devices.map((device, idx) => {
                 const threatPercent = Math.min(device.threatScore, 100);
                 const isHighThreat = device.threatScore > 60;
-                const notes = (device.behavioral as any)?.notes;
+                const notes = device.notes;
 
                 return (
                   <motion.div
