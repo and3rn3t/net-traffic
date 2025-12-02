@@ -68,17 +68,40 @@ fi
 
 # Set packet capture capabilities
 echo "Setting packet capture capabilities..."
+
+# Check if setcap is installed
+if ! command -v setcap &> /dev/null; then
+    echo "Installing libcap2-bin (required for setcap)..."
+    apt-get update -qq && apt-get install -y libcap2-bin > /dev/null 2>&1 || {
+        echo "Warning: Could not install libcap2-bin. Install manually with:"
+        echo "  sudo apt install -y libcap2-bin"
+    }
+fi
+
 PYTHON_BIN="$BACKEND_DIR/venv/bin/python3"
 if [ -f "$PYTHON_BIN" ]; then
-    setcap cap_net_raw,cap_net_admin=eip "$PYTHON_BIN" 2>/dev/null || {
-        echo "Warning: Could not set capabilities. You may need to run:"
-        echo "  sudo setcap cap_net_raw,cap_net_admin=eip $PYTHON_BIN"
-    }
-    # Verify capabilities were set
-    if getcap "$PYTHON_BIN" | grep -q "cap_net_raw"; then
-        echo "✓ Packet capture capabilities set"
+    # Resolve symlink if it exists
+    RESOLVED_PATH=$(readlink -f "$PYTHON_BIN" 2>/dev/null || echo "$PYTHON_BIN")
+
+    echo "Setting capabilities on: $RESOLVED_PATH"
+    if setcap cap_net_raw,cap_net_admin=eip "$RESOLVED_PATH" 2>/dev/null; then
+        # Verify capabilities were set
+        if getcap "$RESOLVED_PATH" 2>/dev/null | grep -q "cap_net_raw"; then
+            echo "✓ Packet capture capabilities set"
+        else
+            echo "⚠ Could not verify capabilities were set"
+        fi
     else
-        echo "⚠ Packet capture capabilities not set - packet capture may not work"
+        echo "⚠ Could not set capabilities. Trying alternative method..."
+        # Try setting on the original path if resolved path failed
+        if [ "$RESOLVED_PATH" != "$PYTHON_BIN" ]; then
+            setcap cap_net_raw,cap_net_admin=eip "$PYTHON_BIN" 2>/dev/null && echo "✓ Capabilities set on symlink" || {
+                echo "Warning: Could not set capabilities. The service may need to run with sudo for packet capture."
+                echo "  You can try manually: sudo setcap cap_net_raw,cap_net_admin=eip $RESOLVED_PATH"
+            }
+        else
+            echo "Warning: Could not set capabilities. The service may need to run with sudo for packet capture."
+        fi
     fi
 else
     echo "Warning: Python binary not found at $PYTHON_BIN"
