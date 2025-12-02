@@ -17,7 +17,7 @@ echo "=========================================="
 echo ""
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo "This script must be run as root (use sudo)"
     exit 1
 fi
@@ -66,6 +66,25 @@ if [ ! -f "$BACKEND_DIR/main.py" ]; then
     exit 1
 fi
 
+# Set packet capture capabilities
+echo "Setting packet capture capabilities..."
+PYTHON_BIN="$BACKEND_DIR/venv/bin/python3"
+if [ -f "$PYTHON_BIN" ]; then
+    setcap cap_net_raw,cap_net_admin=eip "$PYTHON_BIN" 2>/dev/null || {
+        echo "Warning: Could not set capabilities. You may need to run:"
+        echo "  sudo setcap cap_net_raw,cap_net_admin=eip $PYTHON_BIN"
+    }
+    # Verify capabilities were set
+    if getcap "$PYTHON_BIN" | grep -q "cap_net_raw"; then
+        echo "✓ Packet capture capabilities set"
+    else
+        echo "⚠ Packet capture capabilities not set - packet capture may not work"
+    fi
+else
+    echo "Warning: Python binary not found at $PYTHON_BIN"
+fi
+echo ""
+
 # Create a temporary service file with updated paths
 TEMP_SERVICE=$(mktemp)
 sed "s|/home/pi/net-traffic|$PROJECT_DIR|g" "$SERVICE_FILE" | \
@@ -91,7 +110,7 @@ if systemctl is-enabled "$SERVICE_NAME" >/dev/null 2>&1; then
 else
     echo "Enabling service to start on boot..."
     systemctl enable "$SERVICE_NAME"
-    
+
     echo "Starting service..."
     systemctl start "$SERVICE_NAME"
 fi
