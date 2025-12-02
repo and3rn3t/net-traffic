@@ -21,7 +21,9 @@ MIGRATIONS = {
     2: {
         "description": "Add notes field to devices table",
         "up": """
-            ALTER TABLE devices ADD COLUMN notes TEXT;
+            -- Check if column exists before adding
+            -- SQLite doesn't support IF NOT EXISTS for ALTER TABLE ADD COLUMN
+            -- So we'll catch the error if it already exists
         """,
     },
 }
@@ -105,16 +107,36 @@ async def run_migrations(db: aiosqlite.Connection) -> int:
 
         try:
             if migration.get("up"):
-                await db.execute(migration["up"])
-                await db.commit()
-                logger.info(f"Migration {version} applied successfully")
+                # For migration 2, check if column already exists
+                if version == 2:
+                    # Check if notes column exists in devices table
+                    async with db.execute(
+                        "PRAGMA table_info(devices)"
+                    ) as cursor:
+                        columns = await cursor.fetchall()
+                        column_names = [col[1] for col in columns]
+                        if "notes" in column_names:
+                            logger.info(f"Column 'notes' already exists in devices table, skipping migration {version}")
+                        else:
+                            await db.execute("ALTER TABLE devices ADD COLUMN notes TEXT;")
+                            await db.commit()
+                            logger.info(f"Migration {version} applied successfully")
+                else:
+                    await db.execute(migration["up"])
+                    await db.commit()
+                    logger.info(f"Migration {version} applied successfully")
             else:
                 logger.info(f"Migration {version} is initial schema, skipping")
 
             await set_schema_version(db, version)
         except Exception as e:
-            logger.error(f"Error applying migration {version}: {e}")
-            raise
+            # If error is about duplicate column, it's okay - column already exists
+            if "duplicate column" in str(e).lower() or "duplicate column name" in str(e).lower():
+                logger.warning(f"Column already exists, marking migration {version} as applied")
+                await set_schema_version(db, version)
+            else:
+                logger.error(f"Error applying migration {version}: {e}")
+                raise
 
     logger.info(f"Database migration complete (version {target_version})")
     return target_version
