@@ -1145,7 +1145,7 @@ async def get_top_domains(
 async def get_top_devices(
     limit: int = LimitQuery(10, 100),
     hours: int = HoursQuery(24, 720),
-    sort_by: str = Query("bytes", regex="^(bytes|connections|threats)$")
+    sort_by: str = Query("bytes", pattern="^(bytes|connections|threats)$")
 ):
     """Get top devices by traffic"""
     if not advanced_analytics:
@@ -1388,7 +1388,7 @@ async def update_device(
 @app.get("/api/search")
 async def search(
     q: str = Query(..., min_length=1, max_length=200),
-    type: str = Query("all", regex="^(all|devices|flows|threats)$"),
+    type: str = Query("all", pattern="^(all|devices|flows|threats)$"),
     limit: int = LimitQuery(50, 200)
 ):
     """Search across devices, flows, and threats"""
@@ -1423,7 +1423,7 @@ async def search(
 
 @app.get("/api/export/flows")
 async def export_flows(
-    format: str = Query("json", regex="^(json|csv)$"),
+    format: str = Query("json", pattern="^(json|csv)$"),
     start_time: Optional[int] = Query(None, ge=0),
     end_time: Optional[int] = Query(None, ge=0),
     device_id: Optional[str] = Query(None, min_length=1, max_length=100)
