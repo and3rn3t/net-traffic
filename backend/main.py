@@ -43,7 +43,7 @@ from utils.validators import (
     ThreatLevelQuery, DeviceIdPath, FlowIdPath, ThreatIdPath,
     validate_time_range, validate_min_bytes, validate_string_param
 )
-from utils.error_handler import handle_endpoint_error
+from utils.error_handler import handle_endpoint_error, handle_endpoint_error_call
 from utils.constants import SECONDS_PER_HOUR, CLEANUP_INTERVAL_HOURS
 from utils.service_manager import ServiceManager
 from utils.logging_config import setup_logging, StructuredLogger, log_event, log_security_event
@@ -868,7 +868,7 @@ async def get_devices():
             detail=ERR_STORAGE_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: storage.get_devices(),
         "Failed to retrieve devices"
     )
@@ -880,7 +880,7 @@ async def get_device(device_id: str = DeviceIdPath()):
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
-    device = await handle_endpoint_error(
+    device = await handle_endpoint_error_call(
         lambda: storage.get_device(device_id),
         f"Failed to retrieve device {device_id}"
     )
@@ -925,7 +925,7 @@ async def get_flows(
     if min_bytes is not None:
         min_bytes = validate_min_bytes(min_bytes)
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: storage.get_flows(
             limit=limit,
             offset=offset,
@@ -958,7 +958,7 @@ async def get_flow(flow_id: str = FlowIdPath()):
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
-    flow = await handle_endpoint_error(
+    flow = await handle_endpoint_error_call(
         lambda: storage.get_flow(flow_id),
         f"Failed to retrieve flow {flow_id}"
     )
@@ -985,7 +985,7 @@ async def dismiss_threat(
     if not storage:
         raise HTTPException(status_code=503, detail=ERR_STORAGE_NOT_INIT)
 
-    threat = await handle_endpoint_error(
+    threat = await handle_endpoint_error_call(
         lambda: storage.get_threat(threat_id),
         f"Failed to retrieve threat {threat_id}"
     )
@@ -995,7 +995,7 @@ async def dismiss_threat(
 
     threat.dismissed = True
 
-    await handle_endpoint_error(
+    await handle_endpoint_error_call(
         lambda: storage.upsert_threat(threat),
         f"Failed to dismiss threat {threat_id}"
     )
@@ -1025,7 +1025,7 @@ async def get_analytics(hours: int = HoursQuery(24, 720)):
             return cached
 
     # Fetch from database
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: analytics.get_analytics_data(hours_back=hours),
         "Failed to retrieve analytics data"
     )
@@ -1053,7 +1053,7 @@ async def get_protocol_stats():
             return cached
 
     # Fetch from database
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: analytics.get_protocol_stats(),
         "Failed to retrieve protocol statistics"
     )
@@ -1073,7 +1073,7 @@ async def get_summary_stats():
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: advanced_analytics.get_summary_stats(),
         "Failed to retrieve summary statistics"
     )
@@ -1095,7 +1095,7 @@ async def get_geographic_stats(hours: int = HoursQuery(24, 720)):
             return cached
 
     # Fetch from database
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: advanced_analytics.get_geographic_distribution(
             hours_back=hours
         ),
@@ -1128,7 +1128,7 @@ async def get_top_domains(
             return cached
 
     # Fetch from database
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: advanced_analytics.get_top_domains(
             limit=limit, hours_back=hours
         ),
@@ -1162,7 +1162,7 @@ async def get_top_devices(
             return cached
 
     # Fetch from database
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: advanced_analytics.get_top_devices(
             limit=limit, hours_back=hours, sort_by=sort_by
         ),
@@ -1195,7 +1195,7 @@ async def get_bandwidth_timeline(
             return cached
 
     # Fetch from database
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: advanced_analytics.get_bandwidth_timeline(
             hours_back=hours, interval_minutes=interval_minutes
         ),
@@ -1221,7 +1221,7 @@ async def get_rtt_trends(
     if not network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: network_quality_analytics.get_rtt_trends(hours, device_id, country, interval_minutes),
         "Failed to retrieve RTT trends"
     )
@@ -1236,7 +1236,7 @@ async def get_jitter_analysis(
     if not network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: network_quality_analytics.get_jitter_analysis(hours, device_id),
         "Failed to retrieve jitter analysis"
     )
@@ -1251,7 +1251,7 @@ async def get_retransmission_report(
     if not network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: network_quality_analytics.get_retransmission_report(hours, device_id),
         "Failed to retrieve retransmission report"
     )
@@ -1266,7 +1266,7 @@ async def get_connection_quality_summary(
     if not network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: network_quality_analytics.get_connection_quality_summary(hours, device_id),
         "Failed to retrieve connection quality summary"
     )
@@ -1283,7 +1283,7 @@ async def get_application_breakdown(
     if not application_analytics:
         raise HTTPException(status_code=503, detail="Application analytics not initialized")
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: application_analytics.get_application_breakdown(hours, device_id, limit),
         "Failed to retrieve application breakdown"
     )
@@ -1299,7 +1299,7 @@ async def get_application_trends(
     if not application_analytics:
         raise HTTPException(status_code=503, detail="Application analytics not initialized")
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: application_analytics.get_application_trends(hours, application, interval_minutes),
         "Failed to retrieve application trends"
     )
@@ -1314,7 +1314,7 @@ async def get_device_application_profile(
     if not application_analytics:
         raise HTTPException(status_code=503, detail="Application analytics not initialized")
 
-    return await handle_endpoint_error(
+    return await handle_endpoint_error_call(
         lambda: application_analytics.get_device_application_profile(device_id, hours),
         "Failed to retrieve device application profile"
     )
@@ -1331,7 +1331,7 @@ async def get_device_analytics(
             status_code=503, detail=ERR_ADV_ANALYTICS_NOT_INIT
         )
 
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: advanced_analytics.get_device_analytics(
             device_id, hours_back=hours
         ),
@@ -1414,7 +1414,7 @@ async def search(
         results["flows"] = await storage.search_flows(q, limit)
 
     if type in ["all", "threats"]:
-        results["threats"] = await handle_endpoint_error(
+        results["threats"] = await handle_endpoint_error_call(
             lambda: storage.search_threats(q, limit, active_only=False),
             "Failed to search threats"
         )
@@ -1570,7 +1570,7 @@ async def trigger_cleanup(
             detail="retention_days must be between 1 and 365"
         )
 
-    result = await handle_endpoint_error(
+    result = await handle_endpoint_error_call(
         lambda: storage.cleanup_old_data(days=retention_days),
         "Failed to cleanup old data"
     )

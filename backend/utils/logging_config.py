@@ -16,16 +16,20 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 
     def add_fields(self, log_record, record, message_dict):
         """Add custom fields to log records"""
+        # Ensure levelname exists before calling super (python-json-logger may rename it)
+        if 'levelname' not in log_record and hasattr(record, 'levelname'):
+            log_record['levelname'] = record.levelname
+
         super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
 
         # Add timestamp in ISO format
         if not log_record.get('timestamp'):
             log_record['timestamp'] = datetime.utcnow().isoformat() + 'Z'
 
-        # Add log level
+        # Add log level (use renamed 'level' if available, otherwise use levelname)
         if log_record.get('level'):
             log_record['level'] = log_record['level'].upper()
-        else:
+        elif record.levelname:
             log_record['level'] = record.levelname
 
         # Add application name
@@ -76,10 +80,10 @@ def setup_logging(
 
     if use_json:
         # JSON formatter for structured logging
+        # Note: Don't rename levelname to avoid issues with python-json-logger
         formatter = CustomJsonFormatter(
             '%(timestamp)s %(level)s %(name)s %(message)s',
             rename_fields={
-                'levelname': 'level',
                 'name': 'logger',
             }
         )
