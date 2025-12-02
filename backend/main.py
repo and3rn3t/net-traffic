@@ -377,7 +377,11 @@ async def health():
                 else 0
             ),
             "performance_stats": (
-                packet_capture.get_performance_stats()
+                {
+                    "packets_dropped": getattr(packet_capture, "_packets_dropped", 0),
+                    "packets_duplicate": getattr(packet_capture, "_packets_duplicate", 0),
+                    "active_flows_count": len(getattr(packet_capture, "_active_flows", {})),
+                }
                 if packet_capture
                 else {}
             ),
