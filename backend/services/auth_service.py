@@ -96,7 +96,7 @@ class AuthService:
                 # Create default admin user
                 admin_user = UserCreate(
                     username="admin",
-                    email="admin@netinsight.localhost",
+                    email="admin@netinsight.com",
                     password="Admin123!",  # CHANGE THIS IN PRODUCTION
                     full_name="Administrator",
                     role=UserRole.ADMIN
