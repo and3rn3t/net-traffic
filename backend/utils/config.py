@@ -63,7 +63,7 @@ class Config:
         else:
             db_path_obj = Path(db_path)
             db_dir = db_path_obj.parent
-            
+
             # Check if directory exists and is writable
             if db_dir.exists():
                 if not os.access(db_dir, os.W_OK):
@@ -267,7 +267,11 @@ class Config:
     @property
     def log_file(self) -> Optional[str]:
         """Get log file path (None to disable file logging)"""
-        return os.getenv("LOG_FILE", None)
+        log_file = os.getenv("LOG_FILE", "").strip()
+        # Return None if empty, starts with # (comment), or is just whitespace
+        if not log_file or log_file.startswith("#"):
+            return None
+        return log_file
 
     @property
     def redis_host(self) -> str:

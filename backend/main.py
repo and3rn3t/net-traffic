@@ -11,7 +11,7 @@ from io import StringIO
 import logging
 
 from fastapi import (
-    FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
+    FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query, Depends, status
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -410,7 +410,7 @@ async def health_storage():
             status_code=503,
             detail=ErrorMessages.STORAGE_NOT_INIT
         )
-    
+
     try:
         stats = await storage.get_database_stats()
         return {
@@ -440,7 +440,7 @@ async def health_capture():
             status_code=503,
             detail=ErrorMessages.CAPTURE_NOT_INIT
         )
-    
+
     return {
         "status": "healthy" if packet_capture.is_running() else "inactive",
         "service": "packet_capture",
@@ -463,9 +463,9 @@ async def health_analytics():
         "network_quality_analytics": network_quality_analytics is not None,
         "application_analytics": application_analytics is not None,
     }
-    
+
     all_healthy = all(services_status.values())
-    
+
     return {
         "status": "healthy" if all_healthy else "degraded",
         "service": "analytics",
@@ -483,7 +483,7 @@ async def health_device():
             status_code=503,
             detail="Device service not initialized"
         )
-    
+
     return {
         "status": "healthy",
         "service": "device_fingerprinting",
@@ -500,7 +500,7 @@ async def health_threat():
             status_code=503,
             detail="Threat detection service not initialized"
         )
-    
+
     return {
         "status": "healthy",
         "service": "threat_detection",
@@ -626,7 +626,6 @@ from utils.auth_dependencies import (
     require_admin, require_operator_or_admin, get_current_user_optional
 )
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi import Depends, status
 
 
 @app.post("/api/auth/login", response_model=Token)
