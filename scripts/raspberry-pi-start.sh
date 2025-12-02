@@ -52,10 +52,10 @@ if grep -q "pull_policy:" docker-compose.yml || (grep -q "image:" docker-compose
     }
 else
     # Using local build - build images with --pull for latest base images
-    echo "Building/updating images (pulling latest base images)..."
+    echo "Building/updating images (pulling latest base images, no cache)..."
     $COMPOSE_CMD build --pull --no-cache || {
-        echo "Warning: Build with --pull failed, trying without --pull..."
-        $COMPOSE_CMD build
+        echo "Warning: Build with --pull --no-cache failed, trying without --pull..."
+        $COMPOSE_CMD build --no-cache
     }
 fi
 
