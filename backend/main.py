@@ -47,6 +47,10 @@ from utils.error_handler import handle_endpoint_error, handle_endpoint_error_cal
 from utils.constants import SECONDS_PER_HOUR, CLEANUP_INTERVAL_HOURS
 from utils.service_manager import ServiceManager
 from utils.logging_config import setup_logging, StructuredLogger, log_event, log_security_event
+from utils.auth_dependencies import (
+    get_current_user, get_current_active_user,
+    require_admin, require_operator_or_admin, get_current_user_optional
+)
 
 # Configure structured logging
 setup_logging(
@@ -621,10 +625,6 @@ async def invalidate_cache(
 # AUTHENTICATION ENDPOINTS
 # ============================================================================
 
-from utils.auth_dependencies import (
-    get_current_user, get_current_active_user,
-    require_admin, require_operator_or_admin, get_current_user_optional
-)
 from fastapi.security import OAuth2PasswordRequestForm
 
 

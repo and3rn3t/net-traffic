@@ -9,14 +9,14 @@ User=pi
 Group=pi
 WorkingDirectory=/home/pi/net-traffic/backend
 Environment="PATH=/home/pi/net-traffic/backend/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/home/pi/net-traffic/backend/venv/bin/python /home/pi/net-traffic/backend/main.py
+ExecStart=/home/pi/net-traffic/backend/venv/bin/python3 /home/pi/net-traffic/backend/main.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
-# Security settings
-NoNewPrivileges=true
+# Security settings (commented out to allow packet capture)
+# NoNewPrivileges=true
 PrivateTmp=true
 
 # Resource limits (adjust as needed)
