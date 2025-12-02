@@ -88,10 +88,10 @@ class StorageService:
                     timeout=5.0
                 )
                 self.db.row_factory = aiosqlite.Row
-                
+
                 # Optimize SQLite for Raspberry Pi 5
                 await self._optimize_sqlite()
-                
+
                 logger.info(f"Database connected: {self.db_path}")
                 return
             except Exception as e:
@@ -303,7 +303,7 @@ class StorageService:
         """Optimize SQLite settings for Raspberry Pi 5"""
         # Enable WAL mode for better concurrency (readers don't block writers)
         await self.db.execute("PRAGMA journal_mode=WAL")
-        
+
         # Optimize for Pi's limited resources
         await self.db.execute("PRAGMA synchronous=NORMAL")  # Balance safety/performance
         await self.db.execute("PRAGMA cache_size=-32000")  # 32MB cache (adjust for Pi RAM)
@@ -311,7 +311,7 @@ class StorageService:
         await self.db.execute("PRAGMA mmap_size=268435456")  # 256MB memory-mapped I/O
         await self.db.execute("PRAGMA page_size=4096")  # Optimal page size
         await self.db.execute("PRAGMA optimize")  # Run query optimizer
-        
+
         await self.db.commit()
         logger.debug("SQLite optimized for Raspberry Pi 5")
 
@@ -446,9 +446,16 @@ class StorageService:
 
     async def count_devices(self) -> int:
         """Count total devices"""
-        async with self.db.execute("SELECT COUNT(*) FROM devices") as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute("SELECT COUNT(*) FROM devices") as cursor:
+                    row = await cursor.fetchone()
+                    return row[0] if row else 0
+        else:
+            await self._ensure_connection()
+            async with self.db.execute("SELECT COUNT(*) FROM devices") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
 
     # Flow methods
     async def add_flow(self, flow: NetworkFlow):
@@ -618,9 +625,16 @@ class StorageService:
 
     async def count_flows(self) -> int:
         """Count total flows"""
-        async with self.db.execute("SELECT COUNT(*) FROM flows") as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute("SELECT COUNT(*) FROM flows") as cursor:
+                    row = await cursor.fetchone()
+                    return row[0] if row else 0
+        else:
+            await self._ensure_connection()
+            async with self.db.execute("SELECT COUNT(*) FROM flows") as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
 
     # Threat methods
     async def add_threat(self, threat: Threat):
