@@ -1,0 +1,26 @@
+services:
+  # Frontend Web Application
+  # Backend runs via systemd service (netinsight-backend.service)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+      args:
+        # Build-time environment variables for Vite
+        - VITE_API_BASE_URL=http://192.168.1.22:8000
+        - VITE_USE_REAL_API=true
+    image: netinsight-frontend:latest
+    platform: linux/arm64
+    container_name: netinsight-frontend
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
