@@ -591,7 +591,13 @@ export class ApiClient {
       return () => this.disconnectWebSocket();
     }
 
-    const wsUrl = this.baseURL.replace(/^http/, 'ws') + '/ws';
+    // Convert http/https to ws/wss for WebSocket
+    let wsUrl: string;
+    if (this.baseURL.startsWith('https://')) {
+      wsUrl = this.baseURL.replace(/^https/, 'wss') + '/ws';
+    } else {
+      wsUrl = this.baseURL.replace(/^http/, 'ws') + '/ws';
+    }
 
     try {
       this.ws = new WebSocket(wsUrl);

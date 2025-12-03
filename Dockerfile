@@ -33,15 +33,22 @@ FROM --platform=linux/arm64 nginx:alpine
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Verify files were copied
+RUN ls -la /usr/share/nginx/html/ || (echo "ERROR: No files in /usr/share/nginx/html" && exit 1)
+RUN test -f /usr/share/nginx/html/index.html || (echo "ERROR: index.html not found" && exit 1)
+
 # Copy nginx configuration
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Test nginx configuration
+RUN nginx -t || (echo "ERROR: Nginx configuration test failed" && exit 1)
 
 # Expose port
 EXPOSE 80
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+# Health check (simplified - just check if nginx is running)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost/health || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

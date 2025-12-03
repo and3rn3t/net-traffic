@@ -7,9 +7,9 @@ on:
     branches: [main, master]
 
 jobs:
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
-    name: Test & Quality Checks
+    name: Unit Tests & Quality Checks
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,13 +41,40 @@ jobs:
         run: npm run test:run
         env:
           VITE_USE_REAL_API: 'false'
-        continue-on-error: true
 
       - name: Run integration tests
         run: npm run test:integration
         env:
           VITE_USE_REAL_API: 'false'
         continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: |
+            coverage/
+            test-results/
+          retention-days: 7
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: E2E Tests
+    # Only run E2E tests on push to main/master, not on PRs (to save CI time)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -63,17 +90,28 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: e2e-test-results
           path: |
             test-results/
             playwright-report/
           retention-days: 7
 
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
   deploy:
     runs-on: ubuntu-latest
     name: Build & Deploy
-    needs: test
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: [unit-tests]
+    if: |
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      needs.unit-tests.result == 'success'
     permissions:
       contents: read
       deployments: write
@@ -90,10 +128,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build for Cloudflare Pages
         run: npm run build
         env:
           NODE_ENV: production
+          # Build-time environment variables (optional - can be set in GitHub secrets)
+          # If not set, defaults are used. Recommended: Set in Cloudflare Dashboard instead.
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_USE_REAL_API: ${{ secrets.VITE_USE_REAL_API }}
 
       - name: Create Cloudflare Pages Project (if not exists)
         run: |
@@ -179,3 +221,79 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Verify Deployment
+        run: |
+          PROJECT_NAME="net-traffic"
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
+          CUSTOM_DOMAIN="${{ secrets.CLOUDFLARE_CUSTOM_DOMAIN }}"
+
+          echo "Waiting 10 seconds for deployment to propagate..."
+          sleep 10
+
+          echo "Checking deployment status..."
+          DEPLOYMENTS=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/deployments" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json")
+
+          LATEST_DEPLOYMENT=$(echo "$DEPLOYMENTS" | jq -r '.result[0].url // empty')
+
+          if [ -n "$LATEST_DEPLOYMENT" ]; then
+            echo "✅ Deployment successful!"
+            echo "🌐 Pages URL: $LATEST_DEPLOYMENT"
+            if [ -n "$CUSTOM_DOMAIN" ]; then
+              echo "🌐 Custom Domain: https://${CUSTOM_DOMAIN}"
+              echo "::notice title=Deployment Success::Deployed to https://${CUSTOM_DOMAIN}"
+            else
+              echo "::notice title=Deployment Success::Deployed to $LATEST_DEPLOYMENT"
+            fi
+          else
+            echo "⚠️ Could not verify deployment URL"
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        continue-on-error: true
+
+      - name: Setup Custom Domain (if configured)
+        run: |
+          PROJECT_NAME="net-traffic"
+          DOMAIN="${{ secrets.CLOUDFLARE_CUSTOM_DOMAIN }}"
+          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
+
+          if [ -z "$DOMAIN" ]; then
+            echo "ℹ️  No custom domain configured (CLOUDFLARE_CUSTOM_DOMAIN secret not set)"
+            echo "   Skipping custom domain setup"
+            exit 0
+          fi
+
+          echo "🌐 Configuring custom domain: ${DOMAIN}"
+
+          # Check if domain already exists
+          EXISTING_DOMAINS=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/domains" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json")
+
+          if echo "$EXISTING_DOMAINS" | grep -q "\"${DOMAIN}\""; then
+            echo "✅ Domain ${DOMAIN} is already configured"
+          else
+            # Add custom domain
+            RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/domains" \
+              -H "Authorization: Bearer ${API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"domain\":\"${DOMAIN}\"}")
+
+            if echo "$RESPONSE" | grep -q '"success":true'; then
+              echo "✅ Custom domain ${DOMAIN} added successfully!"
+              echo "📝 Note: Ensure DNS CNAME record is configured in Cloudflare DNS"
+            else
+              echo "⚠️ Failed to add custom domain (may already exist or need manual setup)"
+              echo "$RESPONSE" | jq -r '.errors[0].message // "Unknown error"' 2>/dev/null || echo "Check Cloudflare Dashboard"
+            fi
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        continue-on-error: true

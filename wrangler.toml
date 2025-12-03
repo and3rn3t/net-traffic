@@ -1,0 +1,17 @@
+# Cloudflare Workers/Pages configuration for NetInsight
+# This file configures deployment to Cloudflare Pages
+
+name = "netinsight"
+compatibility_date = "2024-01-01"
+
+# Pages configuration
+pages_build_output_dir = "dist"
+
+[env.production]
+name = "netinsight"
+
+# Environment variables for Cloudflare Pages
+# These should be set in Cloudflare Dashboard > Pages > Settings > Environment Variables
+# VITE_API_BASE_URL = "http://your-raspberry-pi-ip:8000"
+# VITE_USE_REAL_API = "true"
+

@@ -21,7 +21,7 @@ export default defineConfig({
   fullyParallel: true, // Run all tests in parallel
   forbidOnly: !!process.env.CI, // Fail CI if test.only is used
   retries: process.env.CI ? 2 : 0, // Retry on CI
-  workers: process.env.CI ? 2 : '50%', // Use 50% of CPUs locally, 2 workers on CI
+  workers: process.env.CI ? 4 : '50%', // Use 4 workers on CI for faster execution, 50% of CPUs locally
   reporter: [
     ['html'],
     ['list'],

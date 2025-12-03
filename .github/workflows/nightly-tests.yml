@@ -1,0 +1,137 @@
+name: Nightly Tests
+
+on:
+  schedule:
+    # Run every night at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Normalize line endings
+        run: |
+          # Ensure all source files have LF line endings (fixes Windows CRLF issues)
+          find src -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/\r$//' {} +
+
+      - name: Run type check
+        run: npm run type-check
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+        env:
+          VITE_USE_REAL_API: 'false'
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          VITE_USE_REAL_API: 'false'
+
+      - name: Upload coverage reports
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-unit-test-results
+          path: |
+            coverage/
+            test-results/
+          retention-days: 30
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: E2E Tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+          VITE_USE_REAL_API: 'false'
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-e2e-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 30
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  test-summary:
+    runs-on: ubuntu-latest
+    name: Test Summary
+    needs: [unit-tests, e2e-tests]
+    if: always()
+    steps:
+      - name: Download unit test results
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-unit-test-results
+          path: unit-results/
+
+      - name: Download E2E test results
+        uses: actions/download-artifact@v4
+        with:
+          name: nightly-e2e-test-results
+          path: e2e-results/
+
+      - name: Generate test summary
+        run: |
+          echo "## 🧪 Nightly Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Unit Tests:** ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**E2E Tests:** ${{ needs.e2e-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Results are available as artifacts." >> $GITHUB_STEP_SUMMARY

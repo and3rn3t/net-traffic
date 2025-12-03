@@ -2,6 +2,15 @@
 
 A comprehensive network traffic analysis dashboard built with React, TypeScript, and Vite.
 
+## 🏗️ Architecture
+
+**Frontend**: Deployed to Cloudflare Pages (CDN, global distribution)  
+**Backend**: Runs on Raspberry Pi 5 (packet capture, database, API)
+
+This architecture simplifies deployment and improves performance by serving the frontend from Cloudflare's edge network while keeping the backend on your local Raspberry Pi for packet capture and data processing.
+
+> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions.
+
 ## 🚀 Features
 
 - Real-time network traffic monitoring
@@ -114,9 +123,30 @@ VITE_USE_REAL_API=true
 VITE_API_BASE_URL=http://192.168.1.100:8000
 ```
 
-## 📦 Deployment to Cloudflare Pages
+## 📦 Deployment
 
-This project is configured for automatic deployment to Cloudflare Pages via GitHub Actions.
+### Architecture
+
+**Frontend**: Deployed to Cloudflare Pages (CDN, global distribution)  
+**Backend**: Runs on Raspberry Pi 5 (packet capture, database, API, all processing)
+
+This architecture simplifies deployment and improves performance by serving the frontend from Cloudflare's edge network while keeping **all backend components** (database, packet capture, processing) on your local Raspberry Pi for optimal privacy, performance, and cost.
+
+**Why keep everything on Pi?**
+
+- **Packet Capture**: Requires direct network interface access (cannot run on Cloudflare)
+- **Database**: Privacy (data stays local), performance (<1ms vs 100-500ms), cost ($0 vs egress fees)
+- **Real-time Processing**: Needs low latency for immediate packet analysis
+- See [docs/ARCHITECTURE_DECISION_DATABASE.md](docs/ARCHITECTURE_DECISION_DATABASE.md) for detailed analysis
+
+> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions.  
+> 📖 **Enhanced Deployment**: See [docs/ENHANCED_DEPLOYMENT.md](docs/ENHANCED_DEPLOYMENT.md) for automated CI/CD setup.  
+> 📖 **Custom Domain**: See [docs/CUSTOM_DOMAIN_SETUP.md](docs/CUSTOM_DOMAIN_SETUP.md) to set up `net.andernet.dev`.  
+> 📖 **Migration Guide**: See [docs/MIGRATION_TO_CLOUDFLARE.md](docs/MIGRATION_TO_CLOUDFLARE.md) if migrating from Docker deployment.
+
+### Cloudflare Pages Deployment
+
+This project is configured for deployment to Cloudflare Pages.
 
 ### Initial Setup
 
@@ -170,6 +200,18 @@ npm run build
 wrangler pages deploy dist --project-name=net-traffic
 ```
 
+## 🧪 Testing
+
+The project uses a comprehensive testing strategy:
+
+- **Unit Tests**: Run on every push and PR (must pass for deployment)
+- **E2E Tests**: Run on push to main/master with 4 workers for fast parallel execution
+  - Don't block deployment if they fail (results still saved)
+  - Not run on PRs to save CI time
+- **Nightly Tests**: Full test suite runs every night at 2 AM UTC
+
+See [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) for complete testing documentation.
+
 ## 📚 Documentation
 
 Comprehensive documentation is available in the project:
@@ -184,6 +226,7 @@ Comprehensive documentation is available in the project:
 - **[AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md)** - Instructions for AI agents and developers
 - **[INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)** - Frontend-backend integration guide
 - **[PERFORMANCE_OPTIMIZATIONS.md](./docs/PERFORMANCE_OPTIMIZATIONS.md)** - Performance optimization guide
+- **[TESTING_STRATEGY.md](./docs/TESTING_STRATEGY.md)** - Complete testing strategy and workflows
 - **[TESTING_SETUP.md](./docs/TESTING_SETUP.md)** - Vitest and integration testing setup
 - **[UNIT_TESTING_SUMMARY.md](./docs/UNIT_TESTING_SUMMARY.md)** - Summary of unit tests and coverage
 - **[E2E Tests Guide](./tests/e2e/README.md)** - Playwright E2E testing guide
@@ -198,7 +241,7 @@ See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of a
 
 ## 📁 Project Structure
 
-```
+```text
 ├── src/
 │   ├── components/     # React components
 │   ├── lib/           # Utilities and types

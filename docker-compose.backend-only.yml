@@ -1,3 +1,7 @@
+# Docker Compose configuration for backend-only deployment
+# Frontend is now deployed to Cloudflare Pages
+# Use this file for production backend deployment on Raspberry Pi
+
 services:
   # Backend API Service
   backend:
@@ -17,6 +21,8 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - DB_PATH=/app/data/netinsight.db
+      # Update ALLOWED_ORIGINS to include your Cloudflare Pages domain
+      # Example: https://your-app.pages.dev,https://your-custom-domain.com
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000}
       - DEBUG=${DEBUG:-false}
       - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
@@ -46,40 +52,6 @@ services:
       retries: 3
       start_period: 40s
 
-  # Frontend Web Application
-  # NOTE: Frontend is now deployed to Cloudflare Pages
-  # This service is kept for local development only
-  # To use locally: docker-compose up frontend
-  # For production: Deploy to Cloudflare Pages (see docs/CLOUDFLARE_DEPLOYMENT.md)
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      platforms:
-        - linux/arm64
-      args:
-        # Build-time environment variables for Vite
-        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
-        - VITE_USE_REAL_API=${VITE_USE_REAL_API:-true}
-    image: netinsight-frontend:latest
-    platform: linux/arm64
-    container_name: netinsight-frontend
-    restart: unless-stopped
-    ports:
-      - '80:80'
-    networks:
-      - netinsight-network
-    healthcheck:
-      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-    depends_on:
-      - backend
-    profiles:
-      - local-dev  # Only start with --profile local-dev
-
 volumes:
   backend-data:
     driver: local
@@ -89,3 +61,4 @@ networks:
   netinsight-network:
     driver: bridge
     name: netinsight-network
+
