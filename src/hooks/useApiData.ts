@@ -83,17 +83,23 @@ export function useApiData(options: UseApiDataOptions = {}) {
           const nextAttempt = attemptNum + 1;
           setRetryCount(nextAttempt);
 
-          toast.info(`Retrying connection... (${nextAttempt}/${maxRetries})`, {
+          toast(`Retrying connection... (${nextAttempt}/${maxRetries})`, {
             description: `Waiting ${delay / 1000} seconds before retry`,
           });
+
+          // Set loading to false before retry (retry will set it back to true)
+          setIsLoading(false);
+          setIsRetrying(true);
 
           setTimeout(() => {
             fetchAll(nextAttempt);
           }, delay);
+          return; // Exit early, don't set loading in finally during retries
         } else {
           // Max retries reached
           setIsRetrying(false);
           setRetryCount(0);
+          setIsLoading(false);
 
           if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
             toast.error('Backend unavailable', {
@@ -107,7 +113,9 @@ export function useApiData(options: UseApiDataOptions = {}) {
           }
         }
       } finally {
-        if (attemptNum >= maxRetries || retryCount === 0) {
+        // Ensure loading is false after max retries are exhausted
+        // (During retries, we return early so this doesn't run)
+        if (attemptNum >= maxRetries) {
           setIsLoading(false);
         }
       }

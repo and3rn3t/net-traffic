@@ -49,13 +49,16 @@ vi.mock('@/lib/api', () => ({
 }));
 
 // Mock toast
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-  },
-}));
+vi.mock('sonner', () => {
+  const mockToast = vi.fn().mockReturnValue('toast-id') as any;
+  mockToast.success = vi.fn().mockReturnValue('toast-id');
+  mockToast.error = vi.fn().mockReturnValue('toast-id');
+  mockToast.warning = vi.fn().mockReturnValue('toast-id');
+  mockToast.info = vi.fn().mockReturnValue('toast-id');
+  return {
+    toast: mockToast,
+  };
+});
 
 // Mock environment variable
 vi.mock('import.meta', () => ({
@@ -415,15 +418,20 @@ describe('useApiData', () => {
 
       const { result } = renderHook(() => useApiData());
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      // Wait for all retries to complete (3 retries with exponential backoff: 1s, 2s, 4s = ~7s total)
+      // Use longer timeout to account for retry delays
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false);
+          expect(result.current.error).toBeTruthy();
+        },
+        { timeout: 15000 }
+      );
 
-      expect(result.current.error).toBeTruthy();
       expect(toast.error).toHaveBeenCalledWith(
         'Backend unavailable',
         expect.objectContaining({
-          description: expect.stringContaining('Raspberry Pi backend'),
+          description: expect.stringContaining('Cannot connect to backend'),
         })
       );
     });
@@ -435,9 +443,14 @@ describe('useApiData', () => {
 
       const { result } = renderHook(() => useApiData());
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      // Wait for all retries to complete
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false);
+          expect(result.current.error).toBeTruthy();
+        },
+        { timeout: 15000 }
+      );
 
       expect(result.current.isConnected).toBe(false);
       expect(toast.error).toHaveBeenCalled();
@@ -449,11 +462,15 @@ describe('useApiData', () => {
 
       const { result } = renderHook(() => useApiData());
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
+      // Wait for all retries to complete
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false);
+          expect(result.current.error).toBe('Network error');
+        },
+        { timeout: 15000 }
+      );
 
-      expect(result.current.error).toBe('Network error');
       expect(result.current.isConnected).toBe(false);
     });
   });

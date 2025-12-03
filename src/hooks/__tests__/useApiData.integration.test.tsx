@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useApiData } from '../useApiData';
 import { apiClient } from '@/lib/api';
 
@@ -51,13 +51,16 @@ vi.mock('@/lib/api', () => {
 });
 
 // Mock toast
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn(),
-  },
-}));
+vi.mock('sonner', () => {
+  const mockToast = vi.fn().mockReturnValue('toast-id') as any;
+  mockToast.success = vi.fn().mockReturnValue('toast-id');
+  mockToast.error = vi.fn().mockReturnValue('toast-id');
+  mockToast.warning = vi.fn().mockReturnValue('toast-id');
+  mockToast.info = vi.fn().mockReturnValue('toast-id');
+  return {
+    toast: mockToast,
+  };
+});
 
 describe('useApiData Integration Tests', () => {
   beforeEach(() => {
@@ -115,12 +118,13 @@ describe('useApiData Integration Tests', () => {
 
       const { result } = renderHook(() => useApiData());
 
+      // Wait for all retries to complete (3 retries with delays: ~7s total)
       await waitFor(
         () => {
           expect(result.current.isLoading).toBe(false);
           expect(result.current.error).toBeTruthy();
         },
-        { timeout: 3000 }
+        { timeout: 15000 }
       );
 
       expect(result.current.isConnected).toBe(false);
