@@ -408,21 +408,42 @@ class StorageService:
     # Device methods
     async def get_devices(self) -> List[Device]:
         """Get all devices"""
-        async with self.db.execute("SELECT * FROM devices ORDER BY last_seen DESC") as cursor:
-            rows = await cursor.fetchall()
-            return [self._row_to_device(row) for row in rows]
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute("SELECT * FROM devices ORDER BY last_seen DESC") as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_device(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute("SELECT * FROM devices ORDER BY last_seen DESC") as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_device(row) for row in rows]
 
     async def get_device(self, device_id: str) -> Optional[Device]:
         """Get device by ID"""
-        async with self.db.execute("SELECT * FROM devices WHERE id = ?", (device_id,)) as cursor:
-            row = await cursor.fetchone()
-            return self._row_to_device(row) if row else None
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)) as cursor:
+                    row = await cursor.fetchone()
+                    return self._row_to_device(row) if row else None
+        else:
+            await self._ensure_connection()
+            async with self.db.execute("SELECT * FROM devices WHERE id = ?", (device_id,)) as cursor:
+                row = await cursor.fetchone()
+                return self._row_to_device(row) if row else None
 
     async def get_device_by_mac(self, mac: str) -> Optional[Device]:
         """Get device by MAC address"""
-        async with self.db.execute("SELECT * FROM devices WHERE mac = ?", (mac,)) as cursor:
-            row = await cursor.fetchone()
-            return self._row_to_device(row) if row else None
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute("SELECT * FROM devices WHERE mac = ?", (mac,)) as cursor:
+                    row = await cursor.fetchone()
+                    return self._row_to_device(row) if row else None
+        else:
+            await self._ensure_connection()
+            async with self.db.execute("SELECT * FROM devices WHERE mac = ?", (mac,)) as cursor:
+                row = await cursor.fetchone()
+                return self._row_to_device(row) if row else None
 
     async def upsert_device(self, device: Device):
         """Insert or update device"""
@@ -579,9 +600,16 @@ class StorageService:
         query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
-        async with self.db.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-            return [self._row_to_flow(row) for row in rows]
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_flow(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_flow(row) for row in rows]
 
     async def search_flows(self, query_text: str, limit: int = 50) -> List[NetworkFlow]:
         """Search flows by IP address or domain"""
@@ -619,9 +647,16 @@ class StorageService:
 
     async def get_flow(self, flow_id: str) -> Optional[NetworkFlow]:
         """Get flow by ID"""
-        async with self.db.execute("SELECT * FROM flows WHERE id = ?", (flow_id,)) as cursor:
-            row = await cursor.fetchone()
-            return self._row_to_flow(row) if row else None
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute("SELECT * FROM flows WHERE id = ?", (flow_id,)) as cursor:
+                    row = await cursor.fetchone()
+                    return self._row_to_flow(row) if row else None
+        else:
+            await self._ensure_connection()
+            async with self.db.execute("SELECT * FROM flows WHERE id = ?", (flow_id,)) as cursor:
+                row = await cursor.fetchone()
+                return self._row_to_flow(row) if row else None
 
     async def count_flows(self) -> int:
         """Count total flows"""
@@ -658,9 +693,16 @@ class StorageService:
             query += " WHERE dismissed = 0"
         query += " ORDER BY timestamp DESC"
 
-        async with self.db.execute(query) as cursor:
-            rows = await cursor.fetchall()
-            return [self._row_to_threat(row) for row in rows]
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query) as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_threat(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_threat(row) for row in rows]
 
     async def search_threats(
         self, query_text: str, limit: int = 50, active_only: bool = False
@@ -689,18 +731,34 @@ class StorageService:
         """
         params.append(limit)
 
-        async with self.db.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-            return [self._row_to_threat(row) for row in rows]
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_threat(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_threat(row) for row in rows]
 
     async def get_threat(self, threat_id: str) -> Optional[Threat]:
         """Get a specific threat by ID"""
         query = "SELECT * FROM threats WHERE id = ?"
-        async with self.db.execute(query, (threat_id,)) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                return self._row_to_threat(row)
-            return None
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, (threat_id,)) as cursor:
+                    row = await cursor.fetchone()
+                    if row:
+                        return self._row_to_threat(row)
+                    return None
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, (threat_id,)) as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    return self._row_to_threat(row)
+                return None
 
     async def upsert_threat(self, threat: Threat):
         """Update or insert a threat"""
