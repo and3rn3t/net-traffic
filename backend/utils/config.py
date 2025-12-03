@@ -194,9 +194,9 @@ class Config:
     def rate_limit_per_minute(self) -> int:
         """Get rate limit per minute"""
         try:
-            return int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
+            return int(os.getenv("RATE_LIMIT_PER_MINUTE", "600"))  # Increased default to 600/min
         except ValueError:
-            return 120
+            return 600
 
     @property
     def enable_dns_tracking(self) -> bool:
