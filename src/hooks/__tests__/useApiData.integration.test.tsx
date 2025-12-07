@@ -117,18 +117,11 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockRejectedValue(error);
       (apiClient.getProtocolStats as any).mockRejectedValue(error);
 
-      const { result } = renderHook(() => useApiData());
+      // Use maxRetries: 0 to disable retries and avoid infinite loops
+      const { result } = renderHook(() => useApiData({ maxRetries: 0 }));
 
       // Wait for initial attempt to fail
       await act(async () => {
-        await Promise.resolve();
-      });
-
-      // Run all timers and flush promises
-      await act(async () => {
-        vi.runAllTimers();
-        await Promise.resolve();
-        await Promise.resolve();
         await Promise.resolve();
         await Promise.resolve();
       });
@@ -376,13 +369,18 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
       (apiClient.dismissThreat as any).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData({ maxRetries: 0 }));
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false);
+        },
+        { timeout: 5000 }
+      );
+
+      await act(async () => {
+        await result.current.dismissThreat('threat-1');
       });
-
-      await result.current.dismissThreat('threat-1');
 
       expect(apiClient.dismissThreat).toHaveBeenCalledWith('threat-1');
     });

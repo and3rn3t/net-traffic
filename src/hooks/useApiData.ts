@@ -12,10 +12,11 @@ const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 interface UseApiDataOptions {
   pollingInterval?: number; // ms, 0 to disable
   useWebSocket?: boolean;
+  maxRetries?: number; // Maximum number of retry attempts (default: 3)
 }
 
 export function useApiData(options: UseApiDataOptions = {}) {
-  const { pollingInterval = 5000, useWebSocket = true } = options;
+  const { pollingInterval = 5000, useWebSocket = true, maxRetries: maxRetriesOption = 3 } = options;
 
   const [devices, setDevices] = useState<Device[]>([]);
   const [flows, setFlows] = useState<NetworkFlow[]>([]);
@@ -30,7 +31,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  const maxRetries = 3;
+  const maxRetries = maxRetriesOption;
 
   // Fetch all data with automatic retry
   const fetchAll = useCallback(
