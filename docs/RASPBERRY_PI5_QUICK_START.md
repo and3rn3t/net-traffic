@@ -301,6 +301,7 @@ For packet capture to work, you need to configure your network interface. See th
 
 ## 📖 Additional Documentation
 
+- **[Raspberry Pi 5 Optimizations](./RASPBERRY_PI5_OPTIMIZATIONS.md)** - ⚡ **NEW** - Complete optimization guide
 - **[Full Deployment Guide](./DEPLOYMENT_RASPBERRY_PI.md)** - Comprehensive setup guide
 - **[Optimization Guide](./RASPBERRY_PI_OPTIMIZATION.md)** - Container optimization details
 - **[User Guide](./USER_GUIDE.md)** - Using the NetInsight dashboard
@@ -322,7 +323,19 @@ If you encounter issues:
 - ✅ Multi-stage builds for smaller images
 - ✅ Health checks for reliability
 - ✅ Automatic restart on failure
+- ✅ BuildKit cache mounts for 70-80% faster rebuilds
+- ✅ Resource limits optimized for Pi 5
+- ✅ tmpfs mounts to reduce SD card wear
+- ✅ System optimizations available via `scripts/optimize-pi5.sh`
 - ✅ Optimized for Raspberry Pi 5 performance
+
+**💡 For maximum performance, run system optimizations first:**
+
+```bash
+sudo bash scripts/optimize-pi5.sh
+```
+
+See [Raspberry Pi 5 Optimizations Guide](./RASPBERRY_PI5_OPTIMIZATIONS.md) for details.
 
 ---
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Raspberry Pi Startup Script for NetInsight
-# This script ensures the latest container images are pulled before starting
+# Optimized for Raspberry Pi 5 with BuildKit and enhanced caching
 # Usage: ./scripts/raspberry-pi-start.sh
 
 set -e
@@ -11,13 +11,41 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
 echo "=========================================="
-echo "NetInsight Raspberry Pi Startup Script"
+echo "NetInsight Raspberry Pi 5 Startup Script"
 echo "=========================================="
+echo ""
+
+# Enable BuildKit for faster builds with better caching
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Detect Pi 5 and show optimization info
+if [ -f /proc/device-tree/model ]; then
+    PI_MODEL=$(tr -d '\0' < /proc/device-tree/model)
+    echo "📱 Detected: $PI_MODEL"
+    if echo "$PI_MODEL" | grep -qi "raspberry pi 5"; then
+        echo "✅ Raspberry Pi 5 detected - using optimized build settings"
+        # Set Pi 5 specific build parameters
+        export BUILDKIT_PROGRESS=plain  # Better progress visibility
+    fi
+    echo ""
+fi
+
+# Check system resources
+echo "💻 System Resources:"
+TOTAL_MEM=$(free -m | awk '/^Mem:/{print $2}')
+AVAIL_MEM=$(free -m | awk '/^Mem:/{print $7}')
+echo "   Total RAM: ${TOTAL_MEM}MB"
+echo "   Available RAM: ${AVAIL_MEM}MB"
+
+if [ "$TOTAL_MEM" -lt 2048 ]; then
+    echo "⚠️  Warning: Low memory detected (< 2GB). Consider upgrading to 4GB+ Pi 5."
+fi
 echo ""
 
 # Ensure .env file exists for backend
 if [ -f "$PROJECT_DIR/scripts/ensure-env.sh" ]; then
-    echo "Ensuring .env file exists..."
+    echo "📝 Ensuring .env file exists..."
     bash "$PROJECT_DIR/scripts/ensure-env.sh" || echo "Warning: Could not create .env file"
     echo ""
 fi
@@ -39,6 +67,7 @@ else
 fi
 
 echo "Using: $COMPOSE_CMD"
+echo "BuildKit: $([ -n "$DOCKER_BUILDKIT" ] && echo "Enabled ✅" || echo "Disabled")"
 echo ""
 
 # Check if using registry mode (has pull_policy or image from registry, no build:)
@@ -51,11 +80,16 @@ if grep -q "pull_policy:" docker-compose.yml || (grep -q "image:" docker-compose
         $COMPOSE_CMD build --pull
     }
 else
-    # Using local build - build images with --pull for latest base images
-    echo "Building/updating images (pulling latest base images, no cache)..."
-    $COMPOSE_CMD build --pull --no-cache || {
-        echo "Warning: Build with --pull --no-cache failed, trying without --pull..."
-        $COMPOSE_CMD build --no-cache
+    # Using local build - build images with BuildKit cache mounts for faster rebuilds
+    echo "🔨 Building/updating images with BuildKit optimization..."
+    echo "   - Using cache mounts for faster rebuilds (pip/npm)"
+    echo "   - Pulling latest base images..."
+
+    # First build: use cache if available, but pull latest base images
+    # Subsequent builds will be much faster due to BuildKit cache mounts
+    $COMPOSE_CMD build --pull || {
+        echo "⚠️  Warning: Build with --pull failed, trying without..."
+        $COMPOSE_CMD build
     }
 fi
 

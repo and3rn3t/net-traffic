@@ -1,9 +1,18 @@
 # Frontend Dockerfile for NetInsight
 # Multi-stage build: build stage and nginx serving stage
-# Optimized for ARM64 (Raspberry Pi)
+# Optimized for ARM64 (Raspberry Pi 5)
+
+# Enable BuildKit features
+# syntax=docker/dockerfile:1.4
+
+# Build arguments for conditional optimizations
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION=latest
+ARG NODE_ENV=production
 
 # Stage 1: Build the application
-FROM --platform=linux/arm64 node:20-alpine as builder
+FROM --platform=linux/arm64 node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -15,26 +24,46 @@ ARG VITE_USE_REAL_API=true
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_USE_REAL_API=$VITE_USE_REAL_API
 
-# Copy package files
+# Set npm configuration for better Pi 5 performance
+ENV npm_config_cache=/root/.npm \
+    npm_config_progress=false \
+    npm_config_loglevel=warn \
+    NODE_ENV=production
+
+# Copy package files first for better layer caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with BuildKit cache mount (speeds up rebuilds significantly)
+# --prefer-offline: Use cached packages when available
+# --no-audit: Skip audit (faster, security scans can be done separately)
+# --no-fund: Skip funding messages
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund --no-optional
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the application (use cache mount for node_modules/.cache)
+RUN --mount=type=cache,target=/app/node_modules/.cache \
+    npm run build
 
 # Stage 2: Serve with nginx
 FROM --platform=linux/arm64 nginx:alpine
 
+# Labels for image metadata
+LABEL maintainer="NetInsight" \
+      org.opencontainers.image.title="NetInsight Frontend" \
+      org.opencontainers.image.description="NetInsight Frontend Web Application" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.architecture="arm64" \
+      org.opencontainers.image.platform="linux/arm64"
+
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Verify files were copied
-RUN ls -la /usr/share/nginx/html/ || (echo "ERROR: No files in /usr/share/nginx/html" && exit 1)
+# Verify files were copied (combined into single RUN for smaller image)
 RUN test -f /usr/share/nginx/html/index.html || (echo "ERROR: index.html not found" && exit 1)
 
 # Copy nginx configuration

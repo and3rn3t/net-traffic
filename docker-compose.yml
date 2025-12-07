@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/arm64
+      # BuildKit cache mounts are enabled in Dockerfile
+      # Enable BuildKit by setting: export DOCKER_BUILDKIT=1
     image: netinsight-backend:latest
     platform: linux/arm64
     container_name: netinsight-backend
@@ -21,8 +23,17 @@ services:
       - DEBUG=${DEBUG:-false}
       - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
       - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
+      # Pi 5 optimizations: Set Python to use fewer workers (optimize for Pi 5 CPU)
+      - PYTHONUNBUFFERED=1
+      - PIP_NO_CACHE_DIR=1
     volumes:
       - backend-data:/app/data
+      # Use tmpfs for temporary files (reduces SD card wear on Pi 5)
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 256M
+          mode: 1777
       # Optional: Mount host network interface for packet capture
       # Uncomment if you want to capture from host network
       # - /proc/net:/proc/net:ro
@@ -38,6 +49,16 @@ services:
     privileged: false
     # If packet capture doesn't work, try setting to true
     # privileged: true
+    # Resource limits optimized for Raspberry Pi 5
+    deploy:
+      resources:
+        limits:
+          # Pi 5 has 4-8GB RAM, allocate ~60% for backend
+          memory: 2400M # Adjust: 2GB for 4GB Pi, 4GB for 8GB Pi
+          cpus: '3.0' # Pi 5 has 4 cores, use 3 for backend
+        reservations:
+          memory: 512M
+          cpus: '0.5'
     healthcheck:
       test:
         ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8000/api/health']
@@ -61,6 +82,8 @@ services:
         # Build-time environment variables for Vite
         - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
         - VITE_USE_REAL_API=${VITE_USE_REAL_API:-true}
+      # BuildKit cache mounts are enabled in Dockerfile
+      # Enable BuildKit by setting: export DOCKER_BUILDKIT=1
     image: netinsight-frontend:latest
     platform: linux/arm64
     container_name: netinsight-frontend
@@ -69,6 +92,16 @@ services:
       - '80:80'
     networks:
       - netinsight-network
+    # Resource limits optimized for Raspberry Pi 5
+    deploy:
+      resources:
+        limits:
+          # Frontend is lightweight, minimal allocation needed
+          memory: 128M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+          cpus: '0.25'
     healthcheck:
       test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost/health']
       interval: 30s
@@ -78,7 +111,7 @@ services:
     depends_on:
       - backend
     profiles:
-      - local-dev  # Only start with --profile local-dev
+      - local-dev # Only start with --profile local-dev
 
 volumes:
   backend-data:

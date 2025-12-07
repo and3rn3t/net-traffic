@@ -1,5 +1,6 @@
 #!/bin/bash
 # Raspberry Pi Update Script for NetInsight
+# Optimized for Raspberry Pi 5 with BuildKit
 # This script pulls the latest code and rebuilds containers
 # Usage: ./scripts/raspberry-pi-update.sh
 
@@ -10,8 +11,12 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_DIR"
 
+# Enable BuildKit for faster builds with better caching
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 echo "=========================================="
-echo "NetInsight Raspberry Pi Update Script"
+echo "NetInsight Raspberry Pi 5 Update Script"
 echo "=========================================="
 echo ""
 
@@ -38,8 +43,10 @@ if grep -q "pull_policy:" docker-compose.yml || (grep -q "image:" docker-compose
     echo "Pulling latest images from registry..."
     $COMPOSE_CMD pull || echo "Warning: Could not pull images from registry"
 else
-    # Using local build - rebuild images with latest base images
-    echo "Rebuilding images with latest base images..."
+    # Using local build - rebuild images with BuildKit cache (much faster on Pi 5)
+    echo "🔨 Rebuilding images with BuildKit optimization..."
+    echo "   - Using cache mounts for faster rebuilds"
+    echo "   - Pulling latest base images..."
     $COMPOSE_CMD build --pull
 fi
 
