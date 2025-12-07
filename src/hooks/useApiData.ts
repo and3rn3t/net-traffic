@@ -71,6 +71,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
         // Reset retry count on success
         setRetryCount(0);
         setIsRetrying(false);
+        setIsLoading(false);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
         setError(errorMessage);
@@ -101,6 +102,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
           setRetryCount(0);
           setIsLoading(false);
 
+          // Show error toast for timeout/unavailable errors
           if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
             toast.error('Backend unavailable', {
               description:
@@ -110,17 +112,16 @@ export function useApiData(options: UseApiDataOptions = {}) {
                 onClick: () => fetchAll(0),
               },
             });
+          } else {
+            // Show generic error toast for other errors
+            toast.error('Failed to fetch data', {
+              description: errorMessage,
+            });
           }
-        }
-      } finally {
-        // Ensure loading is false after max retries are exhausted
-        // (During retries, we return early so this doesn't run)
-        if (attemptNum >= maxRetries) {
-          setIsLoading(false);
         }
       }
     },
-    [maxRetries, retryCount]
+    [maxRetries]
   );
 
   // WebSocket connection for real-time updates

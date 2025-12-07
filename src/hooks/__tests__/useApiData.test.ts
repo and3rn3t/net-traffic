@@ -412,20 +412,36 @@ describe('useApiData', () => {
 
   describe('Error Handling', () => {
     it('should handle timeout errors with specific message', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const { toast } = await import('sonner');
       const error = new Error('Request timeout');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
       const { result } = renderHook(() => useApiData());
 
-      // Wait for all retries to complete (3 retries with exponential backoff: 1s, 2s, 4s = ~7s total)
-      // Use longer timeout to account for retry delays
+      // Wait for initial attempt to fail
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Advance timers to complete all retries (3 retries with exponential backoff: 1s, 2s, 4s = ~7s total)
+      // Run all timers and flush promises multiple times to ensure all retries complete
+      await act(async () => {
+        // Run all pending timers (this will execute all setTimeout callbacks)
+        vi.runAllTimers();
+        // Flush promises to allow async operations to complete
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       await waitFor(
         () => {
           expect(result.current.isLoading).toBe(false);
           expect(result.current.error).toBeTruthy();
         },
-        { timeout: 15000 }
+        { timeout: 1000 }
       );
 
       expect(toast.error).toHaveBeenCalledWith(
@@ -434,44 +450,78 @@ describe('useApiData', () => {
           description: expect.stringContaining('Cannot connect to backend'),
         })
       );
+
+      vi.useRealTimers();
     });
 
     it('should handle unavailable errors', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const { toast } = await import('sonner');
       const error = new Error('Service unavailable');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
       const { result } = renderHook(() => useApiData());
 
-      // Wait for all retries to complete
+      // Wait for initial attempt to fail
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Run all timers and flush promises
+      await act(async () => {
+        vi.runAllTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       await waitFor(
         () => {
           expect(result.current.isLoading).toBe(false);
           expect(result.current.error).toBeTruthy();
         },
-        { timeout: 15000 }
+        { timeout: 1000 }
       );
 
       expect(result.current.isConnected).toBe(false);
       expect(toast.error).toHaveBeenCalled();
+
+      vi.useRealTimers();
     });
 
     it('should set error state on fetch failure', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const error = new Error('Network error');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
       const { result } = renderHook(() => useApiData());
 
-      // Wait for all retries to complete
+      // Wait for initial attempt to fail
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Run all timers and flush promises
+      await act(async () => {
+        vi.runAllTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       await waitFor(
         () => {
           expect(result.current.isLoading).toBe(false);
           expect(result.current.error).toBe('Network error');
         },
-        { timeout: 15000 }
+        { timeout: 1000 }
       );
 
       expect(result.current.isConnected).toBe(false);
+
+      vi.useRealTimers();
     });
   });
 

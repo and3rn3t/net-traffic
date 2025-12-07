@@ -108,6 +108,7 @@ describe('useApiData Integration Tests', () => {
     });
 
     it('should handle API errors gracefully', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
       const error = new Error('Network error');
       (apiClient.healthCheck as any).mockRejectedValue(error);
       (apiClient.getDevices as any).mockRejectedValue(error);
@@ -118,16 +119,30 @@ describe('useApiData Integration Tests', () => {
 
       const { result } = renderHook(() => useApiData());
 
-      // Wait for all retries to complete (3 retries with delays: ~7s total)
+      // Wait for initial attempt to fail
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Run all timers and flush promises
+      await act(async () => {
+        vi.runAllTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
       await waitFor(
         () => {
           expect(result.current.isLoading).toBe(false);
           expect(result.current.error).toBeTruthy();
         },
-        { timeout: 15000 }
+        { timeout: 1000 }
       );
 
       expect(result.current.isConnected).toBe(false);
+      vi.useRealTimers();
     });
   });
 
