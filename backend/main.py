@@ -199,15 +199,30 @@ async def lifespan(app: FastAPI):
     packet_capture = service_manager.packet_capture
 
     # Start packet capture in background
-    capture_task = asyncio.create_task(packet_capture.start())
+    try:
+        capture_task = asyncio.create_task(packet_capture.start())
+        # Give capture a moment to start
+        await asyncio.sleep(0.5)
+        if packet_capture.is_running():
+            logger.info(
+                f"Packet capture started successfully on interface: {config.network_interface}"
+            )
+        else:
+            logger.warning(
+                f"Packet capture task started but not running. "
+                f"Check SCAPY installation and interface: {config.network_interface}"
+            )
+    except Exception as e:
+        logger.error(
+            f"Failed to start packet capture: {e}. "
+            f"Backend will continue but packet capture will be unavailable."
+        )
+        # Create a dummy task to avoid errors on shutdown
+        capture_task = asyncio.create_task(asyncio.sleep(0))
 
     # Start periodic cleanup task
     cleanup_task = asyncio.create_task(
         _periodic_cleanup(storage, CLEANUP_INTERVAL_HOURS)
-    )
-
-    logger.info(
-        f"Packet capture started on interface: {config.network_interface}"
     )
 
     yield

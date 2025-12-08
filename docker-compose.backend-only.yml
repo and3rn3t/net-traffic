@@ -1,6 +1,10 @@
 # Docker Compose configuration for backend-only deployment
 # Frontend is now deployed to Cloudflare Pages
 # Use this file for production backend deployment on Raspberry Pi
+#
+# This includes:
+# - Backend API service
+# - Cloudflare Tunnel (optional) - Exposes backend securely to internet
 
 services:
   # Backend API Service
@@ -22,8 +26,8 @@ services:
       - PORT=8000
       - DB_PATH=/app/data/netinsight.db
       # Update ALLOWED_ORIGINS to include your Cloudflare Pages domain
-      # Example: https://your-app.pages.dev,https://your-custom-domain.com
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000}
+      # Configured for: net.andernet.dev, net-traffic.pages.dev, and net-backend.andernet.dev
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://net.andernet.dev,https://net-traffic.pages.dev,https://net-backend.andernet.dev,http://localhost,http://localhost:80,http://localhost:3000}
       - DEBUG=${DEBUG:-false}
       - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
       - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
@@ -52,6 +56,33 @@ services:
       retries: 3
       start_period: 40s
 
+  # Cloudflare Tunnel Service (Optional)
+  # Exposes backend API securely to internet via Cloudflare
+  # To use:
+  # 1. Run: cloudflared tunnel login (on host or in container)
+  # 2. Run: cloudflared tunnel create netinsight-backend
+  # 3. Run: cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
+  # 4. Mount config: -v ~/.cloudflared:/home/nonroot/.cloudflared:ro
+  # 5. Uncomment this service below
+  #
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: netinsight-cloudflared
+  #   restart: unless-stopped
+  #   command: tunnel --config /home/nonroot/.cloudflared/config.yml run netinsight-backend
+  #   volumes:
+  #     # Mount cloudflared config directory from host
+  #     # Create config at ~/.cloudflared/config.yml on host
+  #     - ~/.cloudflared:/home/nonroot/.cloudflared:ro
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - netinsight-network
+  #   # Optional: Add labels for service discovery
+  #   labels:
+  #     - "com.netinsight.service=cloudflared"
+  #     - "com.netinsight.description=Cloudflare Tunnel for backend API"
+
 volumes:
   backend-data:
     driver: local
@@ -61,4 +92,3 @@ networks:
   netinsight-network:
     driver: bridge
     name: netinsight-network
-

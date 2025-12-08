@@ -1,0 +1,94 @@
+# Docker Compose configuration for backend with Cloudflare Tunnel
+# This setup includes both the backend API and Cloudflare Tunnel
+# Frontend is deployed to Cloudflare Pages
+#
+# Prerequisites:
+# 1. Authenticate: cloudflared tunnel login (run on host, creates ~/.cloudflared/cert.pem)
+# 2. Create tunnel: cloudflared tunnel create netinsight-backend
+# 3. Create DNS route: cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
+# 4. Create config file ~/.cloudflared/config.yml (see example below)
+
+services:
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    image: netinsight-backend:latest
+    platform: linux/arm64
+    container_name: netinsight-backend
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    environment:
+      - NETWORK_INTERFACE=${NETWORK_INTERFACE:-eth0}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DB_PATH=/app/data/netinsight.db
+      # CORS: Include your Cloudflare Pages domain and tunnel URL
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://net.andernet.dev,https://net-traffic.pages.dev,https://net-backend.andernet.dev,http://localhost,http://localhost:80,http://localhost:3000}
+      - DEBUG=${DEBUG:-false}
+      - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-120}
+    volumes:
+      - backend-data:/app/data
+    networks:
+      - netinsight-network
+    # Packet capture requires special privileges
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    privileged: false
+    healthcheck:
+      test:
+        ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Cloudflare Tunnel Service
+  # Exposes backend API securely to internet via Cloudflare
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: netinsight-cloudflared
+    restart: unless-stopped
+    command: tunnel --config /home/nonroot/.cloudflared/config.yml run netinsight-backend
+    volumes:
+      # Mount cloudflared config directory from host
+      # Config file should be at ~/.cloudflared/config.yml
+      - ~/.cloudflared:/home/nonroot/.cloudflared:ro
+    depends_on:
+      - backend
+    networks:
+      - netinsight-network
+    # Optional: Set log level
+    environment:
+      - TUNNEL_LOGLEVEL=info
+    labels:
+      - 'com.netinsight.service=cloudflared'
+      - 'com.netinsight.description=Cloudflare Tunnel for backend API'
+
+volumes:
+  backend-data:
+    driver: local
+    name: netinsight-backend-data
+
+networks:
+  netinsight-network:
+    driver: bridge
+    name: netinsight-network
+# Example ~/.cloudflared/config.yml:
+#
+# tunnel: netinsight-backend
+# credentials-file: /home/nonroot/.cloudflared/<tunnel-uuid>.json
+#
+# ingress:
+#   - hostname: net-backend.andernet.dev
+#     service: http://backend:8000
+#   - service: http_status:404
+#
+# Note: Use 'backend' as hostname (Docker service name) not 'localhost'
+

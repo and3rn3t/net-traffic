@@ -48,14 +48,22 @@ LABEL maintainer="NetInsight" \
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies including cloudflared (Cloudflare Tunnel)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
     iputils-ping \
     libpcap0.8 \
     net-tools \
     tcpdump \
     wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Install cloudflared (Cloudflare Tunnel) for ARM64
+# Note: This image targets linux/arm64 (Raspberry Pi 5)
+RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -o /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared && \
+    cloudflared --version
 
 # Copy Python packages from builder
 COPY --from=builder /root/.local /root/.local
