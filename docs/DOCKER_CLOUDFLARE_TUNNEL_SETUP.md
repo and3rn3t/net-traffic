@@ -17,7 +17,17 @@ Two deployment options:
 2. ✅ Cloudflare account
 3. ✅ Domain added to Cloudflare (optional, for custom subdomain)
 
+> 💡 **Quick Setup**: Use the automated setup script:
+>
+> ```bash
+> ./scripts/setup-cloudflared-config.sh
+> ```
+>
+> This script guides you through all the steps below automatically.
+
 ### Step 1: Authenticate Cloudflare Tunnel
+
+**Important**: Run these commands on your Raspberry Pi host (not in Docker).
 
 **On your Raspberry Pi host** (not in container):
 

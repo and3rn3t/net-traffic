@@ -1,23 +1,30 @@
 # Cloudflare Tunnel Configuration Example
-# Copy this to ~/.cloudflared/config.yml on your Raspberry Pi
+# Copy this to ~/.cloudflared/config.yml on your Raspberry Pi HOST
+#
+# IMPORTANT: This file is on the HOST, not in Docker!
+# The Docker container mounts ~/.cloudflared from the host
 #
 # Setup steps:
-# 1. Run: cloudflared tunnel login
-# 2. Run: cloudflared tunnel create netinsight-backend
-# 3. Run: cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
-# 4. Copy this file to ~/.cloudflared/config.yml
-# 5. Replace <tunnel-uuid> with the UUID from step 2
-# 6. Adjust hostname if needed
+# 1. Run on host: cloudflared tunnel login
+# 2. Run on host: cloudflared tunnel create netinsight-backend
+# 3. Run on host: cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
+# 4. Get tunnel UUID: cloudflared tunnel list | grep netinsight-backend
+# 5. Copy this file to ~/.cloudflared/config.yml on HOST
+# 6. Replace <tunnel-uuid> below with the actual UUID from step 4
+# 7. Update the credentials-file path to match your home directory
+#
+# Example UUID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
 tunnel: netinsight-backend
 credentials-file: /home/pi/.cloudflared/<tunnel-uuid>.json
 
 ingress:
   # For Docker Compose: use service name 'backend' as hostname
+  # The service name 'backend' resolves via Docker network
   - hostname: net-backend.andernet.dev
     service: http://backend:8000
 
-  # For direct host installation: use localhost
+  # For direct host installation (not using Docker):
   # - hostname: net-backend.andernet.dev
   #   service: http://localhost:8000
 
