@@ -24,6 +24,7 @@ cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
 ```
 
 The `cloudflared tunnel route dns` command automatically:
+
 - ✅ Creates a CNAME record in Cloudflare DNS
 - ✅ Points `net-backend.andernet.dev` to the tunnel
 - ✅ Enables proxy (orange cloud)
@@ -39,7 +40,7 @@ credentials-file: /home/pi/.cloudflared/<tunnel-uuid>.json
 
 ingress:
   - hostname: net-backend.andernet.dev
-    service: http://localhost:8000  # Or http://backend:8000 for Docker
+    service: http://localhost:8000 # Or http://backend:8000 for Docker
   - service: http_status:404
 ```
 
@@ -56,6 +57,7 @@ dig net-backend.andernet.dev CNAME
 ```
 
 **In Cloudflare Dashboard:**
+
 - Go to **DNS** > **Records**
 - You should see a CNAME record:
   - **Name**: `net-backend`
@@ -65,21 +67,24 @@ dig net-backend.andernet.dev CNAME
 ### 4. Test Domain
 
 ```bash
-# Test health endpoint
+# Test health endpoint (note: use dot, not hyphen!)
 curl https://net-backend.andernet.dev/api/health
 
 # Should return JSON with backend status
 ```
 
+**Common mistake**: Using `net-backend-andernet.dev` (hyphen) instead of `net-backend.andernet.dev` (dot)
+
 ## DNS Record Details
 
 The tunnel route command creates:
 
-| Type | Name | Target | Proxy |
-|------|------|--------|-------|
+| Type  | Name          | Target                         | Proxy      |
+| ----- | ------------- | ------------------------------ | ---------- |
 | CNAME | `net-backend` | `<tunnel-id>.cfargotunnel.com` | ✅ Proxied |
 
 **Important Notes:**
+
 - The record is automatically managed by Cloudflare Tunnel
 - Don't manually create or delete this DNS record
 - To remove: `cloudflared tunnel route dns delete net-backend.andernet.dev`
@@ -87,12 +92,14 @@ The tunnel route command creates:
 ## SSL/TLS Certificate
 
 Cloudflare automatically provisions SSL certificates:
+
 - ✅ Automatic HTTPS
 - ✅ Valid certificate (usually ready in 1-5 minutes)
 - ✅ Auto-renewal
 - ✅ No manual certificate management needed
 
 Check SSL:
+
 ```bash
 curl -vI https://net-backend.andernet.dev/api/health
 ```
@@ -102,6 +109,7 @@ curl -vI https://net-backend.andernet.dev/api/health
 ### Backend Configuration
 
 **CORS (`docker-compose.yml` or `.env`):**
+
 ```env
 ALLOWED_ORIGINS=https://net.andernet.dev,https://net-traffic.pages.dev,https://net-backend.andernet.dev,http://localhost,http://localhost:80,http://localhost:3000
 ```
@@ -109,6 +117,7 @@ ALLOWED_ORIGINS=https://net.andernet.dev,https://net-traffic.pages.dev,https://n
 ### Frontend Configuration
 
 **Cloudflare Pages Environment Variables:**
+
 ```
 VITE_API_BASE_URL=https://net-backend.andernet.dev
 VITE_USE_REAL_API=true
@@ -117,13 +126,14 @@ VITE_USE_REAL_API=true
 ### Tunnel Configuration
 
 **`~/.cloudflared/config.yml`:**
+
 ```yaml
 tunnel: netinsight-backend
 credentials-file: /home/pi/.cloudflared/<tunnel-uuid>.json
 
 ingress:
   - hostname: net-backend.andernet.dev
-    service: http://localhost:8000  # Adjust for your setup
+    service: http://localhost:8000 # Adjust for your setup
   - service: http_status:404
 ```
 
@@ -132,12 +142,14 @@ ingress:
 ### DNS Not Resolving
 
 **Check DNS record exists:**
+
 ```bash
 dig net-backend.andernet.dev CNAME
 cloudflared tunnel route dns list
 ```
 
 **Recreate route:**
+
 ```bash
 # Delete existing route
 cloudflared tunnel route dns delete net-backend.andernet.dev
@@ -151,6 +163,7 @@ cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
 Wait 1-5 minutes after creating the DNS route. Cloudflare needs time to provision the certificate.
 
 Check certificate:
+
 ```bash
 openssl s_client -connect net-backend.andernet.dev:443 -servername net-backend.andernet.dev < /dev/null
 ```
@@ -158,6 +171,7 @@ openssl s_client -connect net-backend.andernet.dev:443 -servername net-backend.a
 ### CORS Errors
 
 Ensure `ALLOWED_ORIGINS` includes all domains:
+
 - Frontend: `https://net.andernet.dev`
 - Pages: `https://net-traffic.pages.dev`
 - Backend: `https://net-backend.andernet.dev`
@@ -177,4 +191,3 @@ net.andernet.dev (Frontend - Cloudflare Pages)
 - [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md) - Complete tunnel setup
 - [DOCKER_CLOUDFLARE_TUNNEL_SETUP.md](./DOCKER_CLOUDFLARE_TUNNEL_SETUP.md) - Docker-specific setup
 - [CUSTOM_DOMAIN_SETUP.md](./CUSTOM_DOMAIN_SETUP.md) - Frontend domain setup
-
