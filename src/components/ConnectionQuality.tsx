@@ -21,15 +21,11 @@ export const ConnectionQuality = memo(function ConnectionQuality({
   hours = 24,
 }: ConnectionQualityProps) {
   const { useRealApi } = useApiConfig();
-  const { 
-    connectionQualitySummary, 
-    isLoading, 
-    error, 
-    fetchConnectionQualitySummary 
-  } = useEnhancedAnalytics({
-    autoFetch: useRealApi,
-    hours,
-  });
+  const { connectionQualitySummary, isLoading, error, fetchConnectionQualitySummary } =
+    useEnhancedAnalytics({
+      autoFetch: useRealApi,
+      hours,
+    });
 
   // Use API data if available, otherwise calculate from flows
   const metrics = useMemo(() => {
@@ -38,11 +34,15 @@ export const ConnectionQuality = memo(function ConnectionQuality({
       return {
         qualityScore: Math.round(connectionQualitySummary.quality_score),
         activeConnections: connectionQualitySummary.total_flows,
-        closedConnections: connectionQualitySummary.total_flows - connectionQualitySummary.flows_with_metrics,
+        closedConnections:
+          connectionQualitySummary.total_flows - connectionQualitySummary.flows_with_metrics,
         avgDuration: 0, // Not in API response
         avgPacketSize: 0, // Not in API response
         retransmissionRate: connectionQualitySummary.avg_retransmissions.toFixed(2),
-        connectionStability: ((connectionQualitySummary.flows_with_metrics / connectionQualitySummary.total_flows) * 100).toFixed(1),
+        connectionStability: (
+          (connectionQualitySummary.flows_with_metrics / connectionQualitySummary.total_flows) *
+          100
+        ).toFixed(1),
         avgBandwidthUtilization: 0, // Not in API response
         protocolEfficiency: {}, // Not in API response
         avgRtt: connectionQualitySummary.avg_rtt || 0,
@@ -184,7 +184,9 @@ export const ConnectionQuality = memo(function ConnectionQuality({
             <Gauge size={20} />
             Connection Quality
           </CardTitle>
-          <CardDescription>Overall network performance and connection health metrics</CardDescription>
+          <CardDescription>
+            Overall network performance and connection health metrics
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[400px] w-full" />
@@ -202,7 +204,9 @@ export const ConnectionQuality = memo(function ConnectionQuality({
               <Gauge size={20} />
               Connection Quality
             </CardTitle>
-            <CardDescription>Overall network performance and connection health metrics</CardDescription>
+            <CardDescription>
+              Overall network performance and connection health metrics
+            </CardDescription>
           </div>
           {useRealApi && (
             <Button
@@ -358,28 +362,53 @@ export const ConnectionQuality = memo(function ConnectionQuality({
                   <span>Excellent</span>
                   <span className="font-semibold">{metrics.qualityDistribution.excellent}</span>
                 </div>
-                <Progress value={(metrics.qualityDistribution.excellent / Math.max(metrics.activeConnections, 1)) * 100} className="h-1" />
+                <Progress
+                  value={
+                    (metrics.qualityDistribution.excellent /
+                      Math.max(metrics.activeConnections, 1)) *
+                    100
+                  }
+                  className="h-1"
+                />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span>Good</span>
                   <span className="font-semibold">{metrics.qualityDistribution.good}</span>
                 </div>
-                <Progress value={(metrics.qualityDistribution.good / Math.max(metrics.activeConnections, 1)) * 100} className="h-1" />
+                <Progress
+                  value={
+                    (metrics.qualityDistribution.good / Math.max(metrics.activeConnections, 1)) *
+                    100
+                  }
+                  className="h-1"
+                />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span>Fair</span>
                   <span className="font-semibold">{metrics.qualityDistribution.fair}</span>
                 </div>
-                <Progress value={(metrics.qualityDistribution.fair / Math.max(metrics.activeConnections, 1)) * 100} className="h-1" />
+                <Progress
+                  value={
+                    (metrics.qualityDistribution.fair / Math.max(metrics.activeConnections, 1)) *
+                    100
+                  }
+                  className="h-1"
+                />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span>Poor</span>
                   <span className="font-semibold">{metrics.qualityDistribution.poor}</span>
                 </div>
-                <Progress value={(metrics.qualityDistribution.poor / Math.max(metrics.activeConnections, 1)) * 100} className="h-1" />
+                <Progress
+                  value={
+                    (metrics.qualityDistribution.poor / Math.max(metrics.activeConnections, 1)) *
+                    100
+                  }
+                  className="h-1"
+                />
               </div>
             </div>
           </div>

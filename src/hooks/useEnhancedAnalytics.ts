@@ -75,7 +75,8 @@ export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: num
   const [topDevices, setTopDevices] = useState<TopDevice[]>([]);
   const [geographicStats, setGeographicStats] = useState<GeographicStat[]>([]);
   const [bandwidthTimeline, setBandwidthTimeline] = useState<BandwidthTimeline[]>([]);
-  const [connectionQualitySummary, setConnectionQualitySummary] = useState<ConnectionQualitySummary | null>(null);
+  const [connectionQualitySummary, setConnectionQualitySummary] =
+    useState<ConnectionQualitySummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
