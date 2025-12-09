@@ -60,6 +60,8 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useApiData } from '@/hooks/useApiData';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -81,6 +83,12 @@ function App() {
     pollingInterval: 5000, // Poll every 5 seconds as backup
     useWebSocket: true, // Enable real-time WebSocket updates
   });
+
+  // Enhanced analytics for summary stats
+  const { summaryStats } = useEnhancedAnalytics({
+    autoFetch: USE_REAL_API,
+  });
+  const { useRealApi } = useApiConfig();
 
   // Fallback mock data state (used when API is disabled)
   const [mockDevices, setMockDevices] = useState<Device[]>([]);
@@ -198,7 +206,25 @@ function App() {
 
   const activeThreats = threats.filter(t => !t.dismissed);
   const activeFlows = flows.filter(f => f.status === 'active');
-  const totalBytes = flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+
+  // Use summary stats from API when available, otherwise calculate from flows
+  const totalBytes =
+    useRealApi && summaryStats
+      ? summaryStats.total_bytes
+      : flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+
+  const totalFlows = useRealApi && summaryStats ? summaryStats.total_flows : flows.length;
+
+  const activeFlowsCount =
+    useRealApi && summaryStats ? summaryStats.active_flows : activeFlows.length;
+
+  const totalDevices = useRealApi && summaryStats ? summaryStats.total_devices : devices.length;
+
+  const activeDevicesCount =
+    useRealApi && summaryStats
+      ? summaryStats.active_devices
+      : devices.filter(d => Date.now() - d.lastSeen < 5 * 60 * 1000).length;
+
   const avgThreatScore = devices.reduce((sum, d) => sum + d.threatScore, 0) / (devices.length || 1);
 
   return (
@@ -319,24 +345,36 @@ function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricCard
                 title="Active Connections"
-                value={activeFlows.length}
-                subtitle={`${flows.length} total`}
+                value={activeFlowsCount.toString()}
+                subtitle={`${totalFlows} total`}
                 icon={<Graph size={24} />}
                 trend="up"
-                trendValue={`${Math.floor(Math.random() * 20)}% from last hour`}
+                trendValue={
+                  useRealApi && summaryStats
+                    ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
+                    : `${Math.floor(Math.random() * 20)}% from last hour`
+                }
               />
               <MetricCard
                 title="Network Throughput"
                 value={formatBytesShort(totalBytes)}
-                subtitle="Last 24 hours"
+                subtitle={
+                  useRealApi && summaryStats
+                    ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
+                    : 'Last 24 hours'
+                }
                 icon={<Pulse size={24} />}
                 trend="up"
-                trendValue={`${Math.floor(Math.random() * 30)}% increase`}
+                trendValue={
+                  useRealApi && summaryStats
+                    ? `${formatBytesShort(totalBytes / Math.max(summaryStats.capture_duration_hours, 1))}/hr`
+                    : `${Math.floor(Math.random() * 30)}% increase`
+                }
               />
               <MetricCard
                 title="Active Devices"
-                value={devices.length}
-                subtitle={`${devices.filter(d => Date.now() - d.lastSeen < 5 * 60 * 1000).length} online now`}
+                value={totalDevices.toString()}
+                subtitle={`${activeDevicesCount} online now`}
                 icon={<DeviceMobile size={24} />}
                 trend="neutral"
               />
@@ -377,7 +415,11 @@ function App() {
                   </LazyWrapper>
                 </ErrorBoundary>
                 <ErrorBoundary>
-                  <TrafficChart data={analyticsData} />
+                  <TrafficChart
+                    data={analyticsData}
+                    useApi={USE_REAL_API && isConnected}
+                    hours={24}
+                  />
                 </ErrorBoundary>
               </div>
             </ErrorBoundary>
@@ -523,7 +565,7 @@ function App() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <DevicesListEnhanced
                 devices={devices}
-                onDeviceUpdate={updatedDevice => {
+                onDeviceUpdate={_updatedDevice => {
                   // Update device in local state
                   if (USE_REAL_API && apiData) {
                     // Refresh devices from API
@@ -588,7 +630,7 @@ function App() {
 
             {/* Existing Analytics Components */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TrafficChart data={analyticsData} />
+              <TrafficChart data={analyticsData} useApi={USE_REAL_API && isConnected} hours={24} />
               <ProtocolBreakdown data={protocolStats} />
             </div>
 

@@ -52,6 +52,21 @@ interface BandwidthTimeline {
   connections: number;
 }
 
+interface ConnectionQualitySummary {
+  total_flows: number;
+  flows_with_metrics: number;
+  quality_score: number;
+  avg_rtt: number;
+  avg_jitter: number;
+  avg_retransmissions: number;
+  quality_distribution: {
+    excellent: number;
+    good: number;
+    fair: number;
+    poor: number;
+  };
+}
+
 export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: number } = {}) {
   const { autoFetch = true, hours = 24 } = options;
 
@@ -60,6 +75,7 @@ export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: num
   const [topDevices, setTopDevices] = useState<TopDevice[]>([]);
   const [geographicStats, setGeographicStats] = useState<GeographicStat[]>([]);
   const [bandwidthTimeline, setBandwidthTimeline] = useState<BandwidthTimeline[]>([]);
+  const [connectionQualitySummary, setConnectionQualitySummary] = useState<ConnectionQualitySummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,6 +155,24 @@ export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: num
     [hours]
   );
 
+  const fetchConnectionQualitySummary = useCallback(
+    async (hoursBack: number = hours, deviceId?: string) => {
+      if (!USE_REAL_API) return null;
+      try {
+        setIsLoading(true);
+        const summary = await apiClient.getConnectionQualitySummary(hoursBack, deviceId);
+        setConnectionQualitySummary(summary);
+        return summary;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch connection quality summary');
+        return null;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [hours]
+  );
+
   const fetchAll = useCallback(async () => {
     if (!USE_REAL_API) return;
     setIsLoading(true);
@@ -177,6 +211,7 @@ export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: num
     topDevices,
     geographicStats,
     bandwidthTimeline,
+    connectionQualitySummary,
     isLoading,
     error,
     fetchSummaryStats,
@@ -184,6 +219,7 @@ export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: num
     fetchTopDevices,
     fetchGeographicStats,
     fetchBandwidthTimeline,
+    fetchConnectionQualitySummary,
     refresh: fetchAll,
   };
 }
