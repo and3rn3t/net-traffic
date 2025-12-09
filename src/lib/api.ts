@@ -537,8 +537,14 @@ export class ApiClient {
     return this.request('/api/maintenance/stats');
   }
 
-  async runCleanup(): Promise<void> {
-    return this.request('/api/maintenance/cleanup', { method: 'POST' });
+  async runCleanup(days?: number): Promise<{
+    status: string;
+    retention_days: number;
+    flows_deleted?: number;
+    devices_deleted?: number;
+  }> {
+    const params = days ? `?days=${days}` : '';
+    return this.request(`/api/maintenance/cleanup${params}`, { method: 'POST' });
   }
 
   // Export Flows

@@ -1,29 +1,56 @@
 import { useMemo } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarBlank } from '@phosphor-icons/react';
+import { CalendarBlank, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface UserActivityTimelineProps {
-  flows: NetworkFlow[];
+  readonly flows: NetworkFlow[];
+  readonly hours?: number;
+  readonly useApi?: boolean;
 }
 
-export function UserActivityTimeline({ flows }: UserActivityTimelineProps) {
+export function UserActivityTimeline({
+  flows,
+  hours = 24,
+  useApi = false,
+}: UserActivityTimelineProps) {
+  const { useRealApi } = useApiConfig();
+  const { bandwidthTimeline, isLoading, error, fetchBandwidthTimeline } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours,
+  });
+
   const heatmapData = useMemo(() => {
     const hourCounts = Array(24)
       .fill(0)
       .map(() => Array(7).fill(0));
 
-    flows.forEach(flow => {
-      const date = new Date(flow.timestamp);
-      const hour = date.getHours();
-      const day = date.getDay();
-      hourCounts[hour][day]++;
-    });
+    // Use API data if available
+    if (useRealApi && useApi && bandwidthTimeline.length > 0) {
+      bandwidthTimeline.forEach(item => {
+        const date = new Date(item.timestamp);
+        const hour = date.getHours();
+        const day = date.getDay();
+        hourCounts[hour][day] += item.connections;
+      });
+    } else {
+      // Fallback: calculate from flows
+      flows.forEach(flow => {
+        const date = new Date(flow.timestamp);
+        const hour = date.getHours();
+        const day = date.getDay();
+        hourCounts[hour][day]++;
+      });
+    }
 
     const maxCount = Math.max(...hourCounts.flat());
 
     return { hourCounts, maxCount };
-  }, [flows]);
+  }, [flows, useRealApi, useApi, bandwidthTimeline]);
 
   const getIntensity = (count: number) => {
     const { maxCount } = heatmapData;
@@ -39,14 +66,50 @@ export function UserActivityTimeline({ flows }: UserActivityTimelineProps) {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarBlank size={20} />
+            Activity Heatmap
+          </CardTitle>
+          <CardDescription>Network activity by hour and day of week</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[400px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CalendarBlank size={20} />
-          Activity Heatmap
-        </CardTitle>
-        <CardDescription>Network activity by hour and day of week</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarBlank size={20} />
+              Activity Heatmap
+            </CardTitle>
+            <CardDescription>Network activity by hour and day of week</CardDescription>
+          </div>
+          {useRealApi && useApi && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchBandwidthTimeline(hours, 60)}
+              disabled={isLoading}
+            >
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+            </Button>
+          )}
+        </div>
+        {error && useRealApi && useApi && (
+          <div className="mt-2 p-2 bg-destructive/10 text-destructive text-sm rounded">
+            {error}. Using calculated data from flows.
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="space-y-2">

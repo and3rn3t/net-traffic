@@ -85,8 +85,9 @@ function App() {
   });
 
   // Enhanced analytics for summary stats
-  const { summaryStats } = useEnhancedAnalytics({
+  const { summaryStats, bandwidthTimeline, fetchBandwidthTimeline } = useEnhancedAnalytics({
     autoFetch: USE_REAL_API,
+    hours: 24,
   });
   const { useRealApi } = useApiConfig();
 
@@ -411,7 +412,11 @@ function App() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <ErrorBoundary>
                   <LazyWrapper>
-                    <NetworkGraphLazy flows={activeFlows.slice(0, 20)} devices={devices || []} />
+                    <NetworkGraphLazy
+                      flows={activeFlows.slice(0, 20)}
+                      devices={devices || []}
+                      useApi={USE_REAL_API && isConnected}
+                    />
                   </LazyWrapper>
                 </ErrorBoundary>
                 <ErrorBoundary>
@@ -426,7 +431,11 @@ function App() {
 
             <ErrorBoundary>
               <LazyWrapper>
-                <FlowPipeVisualizationLazy flows={flows} devices={devices} />
+                <FlowPipeVisualizationLazy
+                  flows={flows}
+                  devices={devices}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
             </ErrorBoundary>
 
@@ -447,15 +456,25 @@ function App() {
               </p>
             </div>
 
-            <InsightsSummary devices={devices} flows={flows} threats={threats} />
+            <InsightsSummary
+              devices={devices}
+              flows={flows}
+              threats={threats}
+              useApi={USE_REAL_API && isConnected}
+            />
 
             {/* Summary Statistics Card - Enhanced API */}
             <SummaryStatsCard />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ConnectionQuality flows={flows} />
+              <ConnectionQuality flows={flows} hours={24} />
               <LazyWrapper>
-                <PeakUsageAnalysisLazy flows={flows} devices={devices} />
+                <PeakUsageAnalysisLazy
+                  flows={flows}
+                  devices={devices}
+                  hours={24}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
             </div>
 
@@ -478,17 +497,29 @@ function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <LazyWrapper>
-                <BandwidthPatternsLazy flows={flows} />
+                <BandwidthPatternsLazy
+                  flows={flows}
+                  hours={24}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
               <GeographicDistributionEnhanced flows={flows} hours={24} />
             </div>
 
             <LazyWrapper>
-              <ProtocolTimelineLazy flows={flows} />
+              <ProtocolTimelineLazy
+                flows={flows}
+                protocolStats={protocolStats}
+                useApi={USE_REAL_API && isConnected}
+              />
             </LazyWrapper>
 
             <LazyWrapper>
-              <UserActivityTimelineLazy flows={flows} />
+              <UserActivityTimelineLazy
+                flows={flows}
+                hours={24}
+                useApi={USE_REAL_API && isConnected}
+              />
             </LazyWrapper>
           </TabsContent>
 
@@ -513,16 +544,27 @@ function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <LazyWrapper>
-                <SecurityPostureLazy flows={flows} devices={devices} threats={threats} />
+                <SecurityPostureLazy
+                  flows={flows}
+                  devices={devices}
+                  threats={threats}
+                  protocolStats={protocolStats}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
               <LazyWrapper>
-                <AnomalyDetectionLazy flows={flows} devices={devices} />
+                <AnomalyDetectionLazy
+                  flows={flows}
+                  devices={devices}
+                  threats={threats}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <LazyWrapper>
-                <BandwidthCostEstimatorLazy flows={flows} />
+                <BandwidthCostEstimatorLazy flows={flows} useApi={USE_REAL_API && isConnected} />
               </LazyWrapper>
               <DataExporterEnhanced flows={flows} devices={devices} threats={threats} />
             </div>
@@ -531,32 +573,49 @@ function App() {
           <TabsContent value="visualizations" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <LazyWrapper>
-                <HeatmapTimelineLazy flows={flows} />
+                <HeatmapTimelineLazy
+                  flows={flows}
+                  hours={24}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
-              <PacketBurst flows={flows} />
+              <PacketBurst flows={flows} useApi={USE_REAL_API && isConnected} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BandwidthGauge currentBytes={totalBytes} maxBytes={totalBytes * 1.5} />
+              <BandwidthGauge currentBytes={totalBytes} useApi={USE_REAL_API && isConnected} />
               <LazyWrapper>
-                <RadarChartLazy devices={devices} />
+                <RadarChartLazy devices={devices} useApi={USE_REAL_API && isConnected} />
               </LazyWrapper>
             </div>
 
             <LazyWrapper>
-              <GeographicMapLazy flows={flows} />
+              <GeographicMapLazy flows={flows} hours={24} useApi={USE_REAL_API && isConnected} />
             </LazyWrapper>
 
             <LazyWrapper>
-              <ProtocolSankeyLazy flows={flows} devices={devices} />
+              <ProtocolSankeyLazy
+                flows={flows}
+                devices={devices}
+                protocolStats={protocolStats}
+                useApi={USE_REAL_API && isConnected}
+              />
             </LazyWrapper>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <LazyWrapper>
-                <NetworkGraphLazy flows={activeFlows.slice(0, 20)} devices={devices} />
+                <NetworkGraphLazy
+                  flows={activeFlows.slice(0, 20)}
+                  devices={devices}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
               <LazyWrapper>
-                <FlowPipeVisualizationLazy flows={flows} devices={devices} />
+                <FlowPipeVisualizationLazy
+                  flows={flows}
+                  devices={devices}
+                  useApi={USE_REAL_API && isConnected}
+                />
               </LazyWrapper>
             </div>
           </TabsContent>
@@ -637,12 +696,32 @@ function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <MetricCard
                 title="Peak Traffic Hour"
-                value="18:00"
-                subtitle={formatBytes(Math.max(...analyticsData.map(d => d.totalBytes)))}
+                value={
+                  useRealApi && bandwidthTimeline.length > 0
+                    ? new Date(
+                        bandwidthTimeline.reduce((max, item) =>
+                          item.bytes_in + item.bytes_out > max.bytes_in + max.bytes_out ? item : max
+                        ).timestamp
+                      ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : '18:00'
+                }
+                subtitle={
+                  useRealApi && bandwidthTimeline.length > 0
+                    ? formatBytes(
+                        Math.max(...bandwidthTimeline.map(item => item.bytes_in + item.bytes_out))
+                      )
+                    : formatBytes(Math.max(...analyticsData.map(d => d.totalBytes)))
+                }
               />
               <MetricCard
                 title="Average Throughput"
-                value={formatBytesShort(totalBytes / 24)}
+                value={
+                  useRealApi && summaryStats
+                    ? formatBytesShort(
+                        summaryStats.total_bytes / (summaryStats.capture_duration_hours || 24)
+                      )
+                    : formatBytesShort(totalBytes / 24)
+                }
                 subtitle="Per hour"
               />
               <MetricCard

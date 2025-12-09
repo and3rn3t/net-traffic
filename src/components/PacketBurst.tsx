@@ -4,7 +4,8 @@ import { Lightning } from '@phosphor-icons/react';
 import { NetworkFlow } from '@/lib/types';
 
 interface PacketBurstProps {
-  flows: NetworkFlow[];
+  readonly flows: NetworkFlow[];
+  readonly useApi?: boolean;
 }
 
 interface Burst {
@@ -17,7 +18,7 @@ interface Burst {
   speed: number;
 }
 
-export function PacketBurst({ flows }: PacketBurstProps) {
+export function PacketBurst({ flows, useApi = false }: PacketBurstProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const burstsRef = useRef<Burst[]>([]);
   const animationFrameRef = useRef<number | undefined>(undefined);

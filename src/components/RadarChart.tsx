@@ -1,20 +1,76 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartPolar } from '@phosphor-icons/react';
+import { ChartPolar, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
 import { Device } from '@/lib/types';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface RadarChartProps {
-  devices: Device[];
+  readonly devices: Device[];
+  readonly useApi?: boolean;
 }
 
-interface RadarMetric {
-  label: string;
-  value: number;
-  max: number;
-}
-
-export function RadarChart({ devices }: RadarChartProps) {
+export function RadarChart({ devices, useApi = false }: RadarChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { useRealApi } = useApiConfig();
+  const { summaryStats, topDevices, isLoading, fetchSummaryStats, fetchTopDevices } =
+    useEnhancedAnalytics({
+      autoFetch: useApi && useRealApi,
+      hours: 24,
+    });
+
+  // Calculate metrics from API data or fallback to devices
+  const metrics = useMemo(() => {
+    let totalDevices: number;
+    let totalConnections: number;
+    let avgThreatScore: number;
+    let totalBytes: number;
+    let avgAnomalies: number;
+    let diversityScore: number;
+
+    if (useRealApi && useApi && summaryStats && topDevices.length > 0) {
+      // Use API data
+      totalDevices = summaryStats.total_devices;
+      totalConnections = summaryStats.total_flows;
+      totalBytes = summaryStats.total_bytes;
+
+      // Calculate average threat score from top devices
+      const devicesWithThreats = topDevices.filter(d => d.threats > 0);
+      avgThreatScore =
+        devicesWithThreats.length > 0
+          ? (devicesWithThreats.reduce((sum, d) => sum + d.threats, 0) /
+              devicesWithThreats.length) *
+            10
+          : 0;
+
+      // Estimate anomalies from threats
+      avgAnomalies = summaryStats.total_threats / (totalDevices || 1);
+
+      // Calculate diversity from device types
+      const deviceTypes = new Set(topDevices.map(d => d.device_type));
+      diversityScore = deviceTypes.size * 20;
+    } else {
+      // Fallback: calculate from devices
+      totalDevices = devices.length;
+      totalConnections = devices.reduce((sum, d) => sum + d.connectionsCount, 0);
+      avgThreatScore = devices.reduce((sum, d) => sum + d.threatScore, 0) / (totalDevices || 1);
+      totalBytes = devices.reduce((sum, d) => sum + d.bytesTotal, 0);
+      avgAnomalies =
+        devices.reduce((sum, d) => sum + d.behavioral.anomalyCount, 0) / (totalDevices || 1);
+      diversityScore = new Set(devices.map(d => d.type)).size * 20;
+    }
+
+    return [
+      { label: 'Devices', value: totalDevices, max: 20 },
+      { label: 'Connections', value: totalConnections, max: 500 },
+      { label: 'Threat', value: avgThreatScore, max: 100 },
+      { label: 'Volume', value: Math.log(totalBytes + 1) * 10, max: 100 },
+      { label: 'Anomalies', value: avgAnomalies, max: 10 },
+      { label: 'Diversity', value: diversityScore, max: 100 },
+    ];
+  }, [devices, useRealApi, useApi, summaryStats, topDevices]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -32,26 +88,11 @@ export function RadarChart({ devices }: RadarChartProps) {
     const centerY = rect.height / 2;
     const radius = Math.min(rect.width, rect.height) / 2 - 60;
 
-    const totalDevices = devices.length;
-    const totalConnections = devices.reduce((sum, d) => sum + d.connectionsCount, 0);
-    const avgThreatScore = devices.reduce((sum, d) => sum + d.threatScore, 0) / (totalDevices || 1);
-    const totalBytes = devices.reduce((sum, d) => sum + d.bytesTotal, 0);
-    const avgAnomalies =
-      devices.reduce((sum, d) => sum + d.behavioral.anomalyCount, 0) / (totalDevices || 1);
-    const diversityScore = new Set(devices.map(d => d.type)).size * 20;
-
-    const metrics: RadarMetric[] = [
-      { label: 'Devices', value: totalDevices, max: 20 },
-      { label: 'Connections', value: totalConnections, max: 500 },
-      { label: 'Threat', value: avgThreatScore, max: 100 },
-      { label: 'Volume', value: Math.log(totalBytes + 1) * 10, max: 100 },
-      { label: 'Anomalies', value: avgAnomalies, max: 10 },
-      { label: 'Diversity', value: diversityScore, max: 100 },
-    ];
+    const radarMetrics = metrics;
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const numMetrics = metrics.length;
+    const numMetrics = radarMetrics.length;
     const angleStep = (Math.PI * 2) / numMetrics;
 
     for (let i = 1; i <= 5; i++) {
@@ -87,7 +128,7 @@ export function RadarChart({ devices }: RadarChartProps) {
     }
 
     ctx.beginPath();
-    metrics.forEach((metric, i) => {
+    radarMetrics.forEach((metric, i) => {
       const angle = i * angleStep - Math.PI / 2;
       const normalizedValue = Math.min(metric.value / metric.max, 1);
       const r = radius * normalizedValue;
@@ -112,7 +153,7 @@ export function RadarChart({ devices }: RadarChartProps) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    metrics.forEach((metric, i) => {
+    radarMetrics.forEach((metric, i) => {
       const angle = i * angleStep - Math.PI / 2;
       const normalizedValue = Math.min(metric.value / metric.max, 1);
       const r = radius * normalizedValue;
@@ -128,7 +169,7 @@ export function RadarChart({ devices }: RadarChartProps) {
       ctx.shadowBlur = 0;
     });
 
-    metrics.forEach((metric, i) => {
+    radarMetrics.forEach((metric, i) => {
       const angle = i * angleStep - Math.PI / 2;
       const labelRadius = radius + 30;
       const x = centerX + Math.cos(angle) * labelRadius;
@@ -145,16 +186,54 @@ export function RadarChart({ devices }: RadarChartProps) {
       const percentage = ((metric.value / metric.max) * 100).toFixed(0);
       ctx.fillText(`${percentage}%`, x, y + 14);
     });
-  }, [devices]);
+  }, [metrics]);
+
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChartPolar className="text-accent" size={20} />
+            Network Health Radar
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Multi-dimensional network health assessment
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[400px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ChartPolar className="text-accent" size={20} />
-          Network Health Radar
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">Multi-dimensional network health assessment</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <ChartPolar className="text-accent" size={20} />
+              Network Health Radar
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Multi-dimensional network health assessment
+            </p>
+          </div>
+          {useRealApi && useApi && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                fetchSummaryStats();
+                fetchTopDevices(24, 10);
+              }}
+              disabled={isLoading}
+            >
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <canvas ref={canvasRef} className="w-full" style={{ height: '400px' }} />

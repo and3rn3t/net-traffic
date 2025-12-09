@@ -2,18 +2,31 @@ import { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Gauge } from '@phosphor-icons/react';
 import { formatBytesShort } from '@/lib/formatters';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
 
 interface BandwidthGaugeProps {
-  currentBytes: number;
-  maxBytes: number;
-  label?: string;
+  readonly currentBytes: number;
+  readonly maxBytes?: number;
+  readonly label?: string;
+  readonly useApi?: boolean;
 }
 
 export function BandwidthGauge({
   currentBytes,
   maxBytes,
   label = 'Current Throughput',
+  useApi = false,
 }: BandwidthGaugeProps) {
+  const { useRealApi } = useApiConfig();
+  const { summaryStats } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours: 24,
+  });
+
+  // Use API data if available
+  const totalBytes = useRealApi && useApi && summaryStats ? summaryStats.total_bytes : currentBytes;
+  const calculatedMaxBytes = maxBytes || totalBytes * 1.5;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -37,7 +50,7 @@ export function BandwidthGauge({
 
     const startAngle = Math.PI * 0.75;
     const endAngle = Math.PI * 2.25;
-    const percentage = Math.min(currentBytes / maxBytes, 1);
+    const percentage = Math.min(totalBytes / calculatedMaxBytes, 1);
 
     ctx.lineCap = 'round';
 
@@ -92,16 +105,16 @@ export function BandwidthGauge({
     ctx.font = 'bold 32px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(formatBytesShort(currentBytes), centerX, centerY - 10);
+    ctx.fillText(formatBytesShort(totalBytes), centerX, centerY - 10);
 
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.font = '12px Inter, sans-serif';
     ctx.fillText(
-      `${(percentage * 100).toFixed(1)}% of ${formatBytesShort(maxBytes)}`,
+      `${(percentage * 100).toFixed(1)}% of ${formatBytesShort(calculatedMaxBytes)}`,
       centerX,
       centerY + 20
     );
-  }, [currentBytes, maxBytes]);
+  }, [totalBytes, calculatedMaxBytes]);
 
   return (
     <Card>

@@ -2,12 +2,16 @@ import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CurrencyDollar, TrendUp, TrendDown, Warning } from '@phosphor-icons/react';
+import { CurrencyDollar, TrendUp, TrendDown, Warning, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
 import { NetworkFlow } from '@/lib/types';
-import { formatBytes } from '@/lib/formatters';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface BandwidthCostEstimatorProps {
-  flows: NetworkFlow[];
+  readonly flows: NetworkFlow[];
+  readonly useApi?: boolean;
 }
 
 interface CostBreakdown {
@@ -21,15 +25,33 @@ interface CostBreakdown {
 
 export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
   flows,
+  useApi = false,
 }: BandwidthCostEstimatorProps) {
+  const { useRealApi } = useApiConfig();
+  const { summaryStats, isLoading, error, fetchSummaryStats } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours: 24,
+  });
+
   const costs = useMemo((): CostBreakdown => {
-    const totalBytes = flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+    // Use API data if available
+    const totalBytes =
+      useRealApi && useApi && summaryStats
+        ? summaryStats.total_bytes
+        : flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+
     const totalGB = totalBytes / 1024 ** 3;
 
+    // Calculate time range - use API capture duration if available
     const hoursOfData =
-      (Math.max(...flows.map(f => f.timestamp)) - Math.min(...flows.map(f => f.timestamp))) /
-      (1000 * 60 * 60);
-    const dailyGB = (totalGB / hoursOfData) * 24;
+      useRealApi && useApi && summaryStats && summaryStats.capture_duration_hours > 0
+        ? summaryStats.capture_duration_hours
+        : flows.length > 0
+          ? (Math.max(...flows.map(f => f.timestamp)) - Math.min(...flows.map(f => f.timestamp))) /
+            (1000 * 60 * 60)
+          : 24; // Default to 24 hours if no data
+
+    const dailyGB = hoursOfData > 0 ? (totalGB / hoursOfData) * 24 : totalGB;
     const monthlyGB = dailyGB * 30;
 
     let tier: CostBreakdown['tier'] = 'free';
@@ -66,8 +88,25 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
       overage,
       tier,
     };
-  }, [flows]);
+  }, [flows, useRealApi, useApi, summaryStats]);
   const usagePercent = Math.min(100, (costs.totalGB / 1000) * 100);
+
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CurrencyDollar size={20} />
+            Bandwidth Cost Estimator
+          </CardTitle>
+          <CardDescription>Monthly cost projection based on current usage</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[400px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getTierInfo = (tier: CostBreakdown['tier']) => {
     switch (tier) {
@@ -96,8 +135,25 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
             </CardTitle>
             <CardDescription>Monthly cost projection based on current usage</CardDescription>
           </div>
-          <Badge className={tierInfo.color}>{tierInfo.label}</Badge>
+          <div className="flex items-center gap-2">
+            {useRealApi && useApi && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fetchSummaryStats()}
+                disabled={isLoading}
+              >
+                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              </Button>
+            )}
+            <Badge className={tierInfo.color}>{tierInfo.label}</Badge>
+          </div>
         </div>
+        {error && useRealApi && useApi && (
+          <div className="mt-2 p-2 bg-destructive/10 text-destructive text-sm rounded">
+            {error}. Using calculated data from flows.
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
@@ -105,7 +161,9 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
             <div className="text-sm text-muted-foreground mb-1">Current Usage</div>
             <div className="text-2xl font-bold">{costs.totalGB.toFixed(2)} GB</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Last {Math.ceil(flows.length / 10)} hours
+              {useRealApi && useApi && summaryStats
+                ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
+                : `Last ${Math.ceil(flows.length / 10)} hours`}
             </div>
           </div>
 

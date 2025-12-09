@@ -1,9 +1,14 @@
 import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Warning, CheckCircle, Info } from '@phosphor-icons/react';
-import { NetworkFlow, Device } from '@/lib/types';
+import { Warning, CheckCircle, Info, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
+import { NetworkFlow, Device, Threat } from '@/lib/types';
 import { NETWORK_THRESHOLDS, DATA_THRESHOLDS } from '@/lib/constants';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiData } from '@/hooks/useApiData';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Anomaly {
   id: string;
@@ -15,27 +20,68 @@ interface Anomaly {
 }
 
 interface AnomalyDetectionProps {
-  flows: NetworkFlow[];
-  devices: Device[];
+  readonly flows: NetworkFlow[];
+  readonly devices: Device[];
+  readonly threats?: Threat[];
+  readonly useApi?: boolean;
 }
 
 export const AnomalyDetection = memo(function AnomalyDetection({
   flows,
   devices,
+  threats = [],
+  useApi = false,
 }: AnomalyDetectionProps) {
+  const { useRealApi } = useApiConfig();
+  const { topDevices } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours: 24,
+  });
+  const { threats: apiThreats, isLoading } = useApiData({
+    pollingInterval: 0,
+    useWebSocket: false,
+  });
+
+  // Use API threats if available
+  const allThreats = useRealApi && useApi && apiThreats.length > 0 ? apiThreats : threats;
+
   const detectAnomalies = useMemo((): Anomaly[] => {
     const anomalies: Anomaly[] = [];
 
-    const deviceTraffic = devices.map(device => {
-      const deviceFlows = flows.filter(f => f.deviceId === device.id);
-      const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
-      const avgBytes = totalBytes / (deviceFlows.length || 1);
+    // Use top devices from API if available for bandwidth anomalies
+    let deviceTraffic;
+    if (useRealApi && useApi && topDevices.length > 0) {
+      deviceTraffic = topDevices.map(apiDevice => {
+        const device = devices.find(d => d.id === apiDevice.device_id) || {
+          id: apiDevice.device_id,
+          name: apiDevice.device_name,
+          ip: apiDevice.device_ip,
+          type: apiDevice.device_type,
+          threatScore: 0,
+          lastSeen: Date.now(),
+          bytesTotal: apiDevice.bytes,
+          connectionsCount: apiDevice.connections,
+        };
+        return {
+          device,
+          totalBytes: apiDevice.bytes,
+          avgBytes: apiDevice.bytes / (apiDevice.connections || 1),
+          flowCount: apiDevice.connections,
+        };
+      });
+    } else {
+      // Fallback: calculate from devices/flows
+      deviceTraffic = devices.map(device => {
+        const deviceFlows = flows.filter(f => f.deviceId === device.id);
+        const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+        const avgBytes = totalBytes / (deviceFlows.length || 1);
 
-      return { device, totalBytes, avgBytes, flowCount: deviceFlows.length };
-    });
+        return { device, totalBytes, avgBytes, flowCount: deviceFlows.length };
+      });
+    }
 
     const avgTotalBytes =
-      deviceTraffic.reduce((sum, d) => sum + d.totalBytes, 0) / (devices.length || 1);
+      deviceTraffic.reduce((sum, d) => sum + d.totalBytes, 0) / (deviceTraffic.length || 1);
     const threshold = avgTotalBytes * 2.5;
 
     deviceTraffic.forEach(({ device, totalBytes }) => {
@@ -126,14 +172,49 @@ export const AnomalyDetection = memo(function AnomalyDetection({
       });
     }
 
+    // Add anomalies from threats if available
+    if (allThreats.length > 0) {
+      const highThreats = allThreats.filter(
+        t => !t.dismissed && (t.severity === 'high' || t.severity === 'critical')
+      );
+      if (highThreats.length > 0) {
+        const threatDevices = [...new Set(highThreats.map(t => t.deviceId))];
+        anomalies.push({
+          id: 'anomaly-threats',
+          type: 'Security Threats Detected',
+          severity: 'high',
+          description: `${highThreats.length} high-severity threat${highThreats.length !== 1 ? 's' : ''} detected`,
+          score: Math.min(100, highThreats.length * 20),
+          affectedDevices: threatDevices,
+        });
+      }
+    }
+
     return anomalies.sort((a, b) => b.score - a.score);
-  }, [flows, devices]);
+  }, [flows, devices, useRealApi, useApi, topDevices, allThreats]);
 
   const anomalies = detectAnomalies;
   const overallScore =
     anomalies.length === 0
       ? 0
       : Math.min(100, anomalies.reduce((sum, a) => sum + a.score, 0) / anomalies.length);
+
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Warning size={20} />
+            Anomaly Detection
+          </CardTitle>
+          <CardDescription>AI-powered behavioral analysis of network patterns</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[400px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -182,11 +263,18 @@ export const AnomalyDetection = memo(function AnomalyDetection({
             </CardTitle>
             <CardDescription>AI-powered behavioral analysis of network patterns</CardDescription>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">
-              <span className={getScoreColor(overallScore)}>{overallScore.toFixed(0)}</span>
+          <div className="flex items-center gap-3">
+            {useRealApi && useApi && (
+              <Button variant="ghost" size="sm" disabled={isLoading}>
+                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              </Button>
+            )}
+            <div className="text-right">
+              <div className="text-2xl font-bold">
+                <span className={getScoreColor(overallScore)}>{overallScore.toFixed(0)}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">Anomaly Score</div>
             </div>
-            <div className="text-xs text-muted-foreground">Anomaly Score</div>
           </div>
         </div>
       </CardHeader>

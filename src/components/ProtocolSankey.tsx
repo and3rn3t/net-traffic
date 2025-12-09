@@ -1,12 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FlowArrow } from '@phosphor-icons/react';
-import { NetworkFlow, Device } from '@/lib/types';
+import { FlowArrow, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
+import { NetworkFlow, Device, ProtocolStats } from '@/lib/types';
 import { formatBytesShort } from '@/lib/formatters';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiData } from '@/hooks/useApiData';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ProtocolSankeyProps {
-  flows: NetworkFlow[];
-  devices: Device[];
+  readonly flows: NetworkFlow[];
+  readonly devices: Device[];
+  readonly protocolStats?: ProtocolStats[];
+  readonly useApi?: boolean;
 }
 
 interface SankeyNode {
@@ -25,8 +32,96 @@ interface SankeyLink {
   color: string;
 }
 
-export function ProtocolSankey({ flows, devices }: ProtocolSankeyProps) {
+export function ProtocolSankey({
+  flows,
+  devices,
+  protocolStats,
+  useApi = false,
+}: ProtocolSankeyProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { useRealApi } = useApiConfig();
+  const { topDevices, isLoading, fetchTopDevices } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours: 24,
+  });
+  const { protocolStats: apiProtocolStats } = useApiData({
+    pollingInterval: 0,
+    useWebSocket: false,
+  });
+
+  // Prepare data from API or fallback to flows/devices
+  const sankeyData = useMemo(() => {
+    const deviceFlowMap = new Map<string, Map<string, number>>();
+    const protocolThreatMap = new Map<string, Map<string, number>>();
+
+    // Use API data if available
+    if (
+      useRealApi &&
+      useApi &&
+      topDevices.length > 0 &&
+      (protocolStats || apiProtocolStats).length > 0
+    ) {
+      const stats = protocolStats || apiProtocolStats;
+
+      // Map top devices to protocols using protocol stats
+      topDevices.slice(0, 5).forEach(apiDevice => {
+        const deviceId = apiDevice.device_id;
+        if (!deviceFlowMap.has(deviceId)) {
+          deviceFlowMap.set(deviceId, new Map());
+        }
+        const protocolMap = deviceFlowMap.get(deviceId)!;
+
+        // Distribute device bytes across protocols based on protocol stats
+        const totalProtocolBytes = stats.reduce((sum, s) => sum + s.bytes, 0);
+        stats.forEach(stat => {
+          const deviceProtocolBytes = (apiDevice.bytes * stat.bytes) / totalProtocolBytes;
+          const currentBytes = protocolMap.get(stat.protocol) || 0;
+          protocolMap.set(stat.protocol, currentBytes + deviceProtocolBytes);
+        });
+      });
+
+      // Map protocols to threat levels (estimate from protocol stats)
+      stats.forEach(stat => {
+        if (!protocolThreatMap.has(stat.protocol)) {
+          protocolThreatMap.set(stat.protocol, new Map());
+        }
+        const threatMap = protocolThreatMap.get(stat.protocol)!;
+
+        // Estimate threat distribution (HTTPS/SSH = safe, HTTP = low, others = medium)
+        const threatLevel =
+          stat.protocol.toUpperCase().includes('HTTPS') ||
+          stat.protocol.toUpperCase().includes('TLS')
+            ? 'safe'
+            : stat.protocol.toUpperCase() === 'HTTP'
+              ? 'low'
+              : 'medium';
+
+        const currentBytes = threatMap.get(threatLevel) || 0;
+        threatMap.set(threatLevel, currentBytes + stat.bytes);
+      });
+    } else {
+      // Fallback: calculate from flows
+      flows.forEach(flow => {
+        if (!deviceFlowMap.has(flow.deviceId)) {
+          deviceFlowMap.set(flow.deviceId, new Map());
+        }
+        const protocolMap = deviceFlowMap.get(flow.deviceId)!;
+        const currentBytes = protocolMap.get(flow.protocol) || 0;
+        protocolMap.set(flow.protocol, currentBytes + flow.bytesIn + flow.bytesOut);
+      });
+
+      flows.forEach(flow => {
+        if (!protocolThreatMap.has(flow.protocol)) {
+          protocolThreatMap.set(flow.protocol, new Map());
+        }
+        const threatMap = protocolThreatMap.get(flow.protocol)!;
+        const currentBytes = threatMap.get(flow.threatLevel) || 0;
+        threatMap.set(flow.threatLevel, currentBytes + flow.bytesIn + flow.bytesOut);
+      });
+    }
+
+    return { deviceFlowMap, protocolThreatMap };
+  }, [flows, devices, useRealApi, useApi, topDevices, protocolStats, apiProtocolStats]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -42,25 +137,7 @@ export function ProtocolSankey({ flows, devices }: ProtocolSankeyProps) {
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const deviceFlowMap = new Map<string, Map<string, number>>();
-    flows.forEach(flow => {
-      if (!deviceFlowMap.has(flow.deviceId)) {
-        deviceFlowMap.set(flow.deviceId, new Map());
-      }
-      const protocolMap = deviceFlowMap.get(flow.deviceId)!;
-      const currentBytes = protocolMap.get(flow.protocol) || 0;
-      protocolMap.set(flow.protocol, currentBytes + flow.bytesIn + flow.bytesOut);
-    });
-
-    const protocolThreatMap = new Map<string, Map<string, number>>();
-    flows.forEach(flow => {
-      if (!protocolThreatMap.has(flow.protocol)) {
-        protocolThreatMap.set(flow.protocol, new Map());
-      }
-      const threatMap = protocolThreatMap.get(flow.protocol)!;
-      const currentBytes = threatMap.get(flow.threatLevel) || 0;
-      threatMap.set(flow.threatLevel, currentBytes + flow.bytesIn + flow.bytesOut);
-    });
+    const { deviceFlowMap, protocolThreatMap } = sankeyData;
 
     const nodes: SankeyNode[] = [];
     const links: SankeyLink[] = [];
@@ -169,7 +246,12 @@ export function ProtocolSankey({ flows, devices }: ProtocolSankeyProps) {
       threatY += height + padding;
     });
 
-    links.forEach(link => {
+    // Filter links to only include those with valid nodes
+    const validLinks = links.filter(
+      link => nodes.some(n => n.id === link.source) && nodes.some(n => n.id === link.target)
+    );
+
+    validLinks.forEach(link => {
       const sourceNode = nodes.find(n => n.id === link.source);
       const targetNode = nodes.find(n => n.id === link.target);
 
@@ -210,18 +292,51 @@ export function ProtocolSankey({ flows, devices }: ProtocolSankeyProps) {
       ctx.textBaseline = 'middle';
       ctx.fillText(node.label, x + nodeWidth + 8, y + node.height / 2);
     });
-  }, [flows, devices]);
+  }, [sankeyData, devices]);
+
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FlowArrow className="text-accent" size={20} />
+            Protocol Flow Diagram
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Traffic flow from devices through protocols to threat levels
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[400px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FlowArrow className="text-accent" size={20} />
-          Protocol Flow Diagram
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Traffic flow from devices through protocols to threat levels
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FlowArrow className="text-accent" size={20} />
+              Protocol Flow Diagram
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Traffic flow from devices through protocols to threat levels
+            </p>
+          </div>
+          {useRealApi && useApi && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchTopDevices(24, 10)}
+              disabled={isLoading}
+            >
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="relative">

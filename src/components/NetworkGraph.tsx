@@ -4,8 +4,9 @@ import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
 interface NetworkGraphProps {
-  flows: NetworkFlow[];
-  devices: Device[];
+  readonly flows: NetworkFlow[];
+  readonly devices: Device[];
+  readonly useApi?: boolean;
 }
 
 interface GraphNode {
@@ -22,7 +23,7 @@ interface GraphLink {
   threatLevel: string;
 }
 
-export function NetworkGraph({ flows, devices }: NetworkGraphProps) {
+export function NetworkGraph({ flows, devices, useApi = false }: NetworkGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {

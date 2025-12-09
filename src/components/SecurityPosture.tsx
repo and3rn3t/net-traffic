@@ -1,13 +1,27 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ShieldCheck, ShieldWarning, CheckCircle, XCircle, Warning } from '@phosphor-icons/react';
-import { NetworkFlow, Device, Threat } from '@/lib/types';
+import {
+  ShieldCheck,
+  ShieldWarning,
+  CheckCircle,
+  XCircle,
+  Warning,
+  ArrowClockwise,
+} from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
+import { NetworkFlow, Device, Threat, ProtocolStats } from '@/lib/types';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiData } from '@/hooks/useApiData';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SecurityPostureProps {
-  flows: NetworkFlow[];
-  devices: Device[];
-  threats: Threat[];
+  readonly flows: NetworkFlow[];
+  readonly devices: Device[];
+  readonly threats: Threat[];
+  readonly protocolStats?: ProtocolStats[];
+  readonly useApi?: boolean;
 }
 
 interface SecurityMetric {
@@ -17,12 +31,50 @@ interface SecurityMetric {
   description: string;
 }
 
-export function SecurityPosture({ flows, devices, threats }: SecurityPostureProps) {
+export function SecurityPosture({
+  flows,
+  devices,
+  threats,
+  protocolStats,
+  useApi = false,
+}: SecurityPostureProps) {
+  const { useRealApi } = useApiConfig();
+  const { summaryStats } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours: 24,
+  });
+  const {
+    protocolStats: apiProtocolStats,
+    threats: apiThreats,
+    isLoading,
+  } = useApiData({
+    pollingInterval: 0,
+    useWebSocket: false,
+  });
+
+  // Use API data if available
+  const allThreats = useRealApi && useApi && apiThreats.length > 0 ? apiThreats : threats;
+  const allProtocolStats = protocolStats || apiProtocolStats;
+
   const calculateSecurityScore = (): { overall: number; metrics: SecurityMetric[] } => {
     const metrics: SecurityMetric[] = [];
 
-    const encryptedFlows = flows.filter(f => f.protocol === 'HTTPS' || f.protocol === 'SSH').length;
-    const encryptionRate = (encryptedFlows / (flows.length || 1)) * 100;
+    // Use protocol stats from API if available for encryption rate
+    let encryptionRate: number;
+    if (useRealApi && useApi && allProtocolStats.length > 0) {
+      const encryptedProtocols = ['HTTPS', 'TLS', 'SSL', 'SSH'];
+      const encryptedConnections = allProtocolStats
+        .filter(s => encryptedProtocols.some(p => s.protocol.toUpperCase().includes(p)))
+        .reduce((sum, s) => sum + s.connections, 0);
+      const totalConnections = allProtocolStats.reduce((sum, s) => sum + s.connections, 0);
+      encryptionRate = totalConnections > 0 ? (encryptedConnections / totalConnections) * 100 : 0;
+    } else {
+      // Fallback: calculate from flows
+      const encryptedFlows = flows.filter(
+        f => f.protocol === 'HTTPS' || f.protocol === 'SSH'
+      ).length;
+      encryptionRate = (encryptedFlows / (flows.length || 1)) * 100;
+    }
     metrics.push({
       name: 'Traffic Encryption',
       score: encryptionRate,
@@ -42,7 +94,7 @@ export function SecurityPosture({ flows, devices, threats }: SecurityPostureProp
       description: `${highThreatFlows} high-risk connections detected`,
     });
 
-    const activeThreats = threats.filter(t => !t.dismissed).length;
+    const activeThreats = allThreats.filter(t => !t.dismissed).length;
     const threatResponseScore = Math.max(0, 100 - activeThreats * 10);
     metrics.push({
       name: 'Threat Response',
@@ -61,7 +113,17 @@ export function SecurityPosture({ flows, devices, threats }: SecurityPostureProp
       description: `Average device threat score: ${avgDeviceThreatScore.toFixed(0)}%`,
     });
 
-    const uniqueDestinations = new Set(flows.map(f => f.destIp)).size;
+    // Use summary stats for connection diversity if available
+    let uniqueDestinations: number;
+    if (useRealApi && useApi && summaryStats) {
+      // Estimate from total flows (API doesn't provide unique destinations directly)
+      uniqueDestinations = Math.min(
+        summaryStats.total_flows,
+        new Set(flows.map(f => f.destIp)).size
+      );
+    } else {
+      uniqueDestinations = new Set(flows.map(f => f.destIp)).size;
+    }
     const destinationDiversityScore = Math.min(100, (uniqueDestinations / 100) * 100);
     const concentrationRisk =
       uniqueDestinations < 20 ? 100 : Math.max(0, 100 - (uniqueDestinations - 20) * 2);
@@ -87,6 +149,23 @@ export function SecurityPosture({ flows, devices, threats }: SecurityPostureProp
   };
 
   const { overall, metrics } = calculateSecurityScore();
+
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck size={20} />
+            Security Posture
+          </CardTitle>
+          <CardDescription>Overall network security health assessment</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[500px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-success';
@@ -139,11 +218,18 @@ export function SecurityPosture({ flows, devices, threats }: SecurityPostureProp
             </CardTitle>
             <CardDescription>Overall network security health assessment</CardDescription>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold">
-              <span className={getScoreColor(overall)}>{getScoreGrade(overall)}</span>
+          <div className="flex items-center gap-3">
+            {useRealApi && useApi && (
+              <Button variant="ghost" size="sm" disabled={isLoading}>
+                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              </Button>
+            )}
+            <div className="text-right">
+              <div className="text-3xl font-bold">
+                <span className={getScoreColor(overall)}>{getScoreGrade(overall)}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">{overall.toFixed(0)}/100</div>
             </div>
-            <div className="text-xs text-muted-foreground">{overall.toFixed(0)}/100</div>
           </div>
         </div>
       </CardHeader>

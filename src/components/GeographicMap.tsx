@@ -1,10 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MapPin } from '@phosphor-icons/react';
+import { MapPin, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
 import { NetworkFlow } from '@/lib/types';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface GeographicMapProps {
-  flows: NetworkFlow[];
+  readonly flows: NetworkFlow[];
+  readonly hours?: number;
+  readonly useApi?: boolean;
 }
 
 interface ConnectionPoint {
@@ -18,12 +24,18 @@ interface ConnectionPoint {
   pulsePhase: number;
 }
 
-export function GeographicMap({ flows }: GeographicMapProps) {
+export function GeographicMap({ flows, hours = 24, useApi = false }: GeographicMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [points, setPoints] = useState<ConnectionPoint[]>([]);
+  const { useRealApi } = useApiConfig();
+  const { geographicStats, isLoading, error, fetchGeographicStats } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours,
+  });
 
-  useEffect(() => {
+  // Prepare geographic data from API or flows
+  const geographicData = useMemo(() => {
     const countryMap = new Map<
       string,
       {
@@ -34,26 +46,50 @@ export function GeographicMap({ flows }: GeographicMapProps) {
       }
     >();
 
-    flows.forEach(flow => {
-      if (flow.country) {
-        const key = flow.city ? `${flow.country}-${flow.city}` : flow.country;
+    // Use API data if available
+    if (useRealApi && useApi && geographicStats.length > 0) {
+      geographicStats.forEach(stat => {
+        const key = stat.country;
         const existing = countryMap.get(key);
         if (existing) {
-          existing.count++;
-          if (flow.threatLevel === 'high' || flow.threatLevel === 'critical') {
-            existing.threatLevel = flow.threatLevel;
+          existing.count += stat.connections;
+          if (stat.threats > 0) {
+            existing.threatLevel = 'high';
           }
         } else {
           countryMap.set(key, {
-            count: 1,
-            threatLevel: flow.threatLevel,
-            city: flow.city,
-            asn: flow.asn,
+            count: stat.connections,
+            threatLevel: stat.threats > 0 ? 'high' : 'low',
           });
         }
-      }
-    });
+      });
+    } else {
+      // Fallback: calculate from flows
+      flows.forEach(flow => {
+        if (flow.country) {
+          const key = flow.city ? `${flow.country}-${flow.city}` : flow.country;
+          const existing = countryMap.get(key);
+          if (existing) {
+            existing.count++;
+            if (flow.threatLevel === 'high' || flow.threatLevel === 'critical') {
+              existing.threatLevel = flow.threatLevel;
+            }
+          } else {
+            countryMap.set(key, {
+              count: 1,
+              threatLevel: flow.threatLevel,
+              city: flow.city,
+              asn: flow.asn,
+            });
+          }
+        }
+      });
+    }
 
+    return countryMap;
+  }, [flows, useRealApi, useApi, geographicStats]);
+
+  useEffect(() => {
     const getCoordinates = (country: string): { x: number; y: number } => {
       const coords: Record<string, { lat: number; lon: number }> = {
         US: { lat: 37.09, lon: -95.71 },
@@ -78,7 +114,7 @@ export function GeographicMap({ flows }: GeographicMapProps) {
     };
 
     const newPoints: ConnectionPoint[] = [];
-    countryMap.forEach((data, key) => {
+    geographicData.forEach((data, key) => {
       // Extract country from key (format: "COUNTRY" or "COUNTRY-CITY")
       const country = key.split('-')[0];
       const { x, y } = getCoordinates(country);
@@ -95,7 +131,7 @@ export function GeographicMap({ flows }: GeographicMapProps) {
     });
 
     setPoints(newPoints);
-  }, [flows]);
+  }, [geographicData]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -215,14 +251,50 @@ export function GeographicMap({ flows }: GeographicMapProps) {
     };
   }, [points]);
 
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="text-accent" size={20} />
+            Geographic Connections
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">Connection distribution by country</p>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[400px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MapPin className="text-accent" size={20} />
-          Geographic Connections
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">Connection distribution by country</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="text-accent" size={20} />
+              Geographic Connections
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Connection distribution by country</p>
+          </div>
+          {useRealApi && useApi && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchGeographicStats(hours)}
+              disabled={isLoading}
+            >
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+            </Button>
+          )}
+        </div>
+        {error && useRealApi && useApi && (
+          <div className="mt-2 p-2 bg-destructive/10 text-destructive text-sm rounded">
+            {error}. Using calculated data from flows.
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="relative">

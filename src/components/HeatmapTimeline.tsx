@@ -1,10 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock } from '@phosphor-icons/react';
+import { Clock, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
 import { NetworkFlow } from '@/lib/types';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface HeatmapTimelineProps {
-  flows: NetworkFlow[];
+  readonly flows: NetworkFlow[];
+  readonly hours?: number;
+  readonly useApi?: boolean;
 }
 
 interface HeatmapCell {
@@ -14,8 +20,51 @@ interface HeatmapCell {
   count: number;
 }
 
-export function HeatmapTimeline({ flows }: HeatmapTimelineProps) {
+export function HeatmapTimeline({ flows, hours = 24, useApi = false }: HeatmapTimelineProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { useRealApi } = useApiConfig();
+  const { bandwidthTimeline, isLoading, error, fetchBandwidthTimeline } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours,
+  });
+
+  // Prepare heatmap data from API or flows
+  const heatmapData = useMemo(() => {
+    const data: HeatmapCell[] = [];
+    for (let day = 0; day < 7; day++) {
+      for (let hour = 0; hour < 24; hour++) {
+        data.push({ hour, day, intensity: 0, count: 0 });
+      }
+    }
+
+    // Use API data if available
+    if (useRealApi && useApi && bandwidthTimeline.length > 0) {
+      bandwidthTimeline.forEach(item => {
+        const date = new Date(item.timestamp);
+        const day = date.getDay();
+        const hour = date.getHours();
+        const cell = data.find(c => c.day === day && c.hour === hour);
+        if (cell) {
+          cell.intensity += item.bytes_in + item.bytes_out;
+          cell.count += item.connections;
+        }
+      });
+    } else {
+      // Fallback: calculate from flows
+      flows.forEach(flow => {
+        const date = new Date(flow.timestamp);
+        const day = date.getDay();
+        const hour = date.getHours();
+        const cell = data.find(c => c.day === day && c.hour === hour);
+        if (cell) {
+          cell.intensity += flow.bytesIn + flow.bytesOut;
+          cell.count++;
+        }
+      });
+    }
+
+    return data;
+  }, [flows, useRealApi, useApi, bandwidthTimeline]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -35,24 +84,6 @@ export function HeatmapTimeline({ flows }: HeatmapTimelineProps) {
     const cellHeight = (rect.height - 40) / 7;
     const marginLeft = 40;
     const marginTop = 20;
-
-    const heatmapData: HeatmapCell[] = [];
-    for (let day = 0; day < 7; day++) {
-      for (let hour = 0; hour < hours; hour++) {
-        heatmapData.push({ hour, day, intensity: 0, count: 0 });
-      }
-    }
-
-    flows.forEach(flow => {
-      const date = new Date(flow.timestamp);
-      const day = date.getDay();
-      const hour = date.getHours();
-      const cell = heatmapData.find(c => c.day === day && c.hour === hour);
-      if (cell) {
-        cell.intensity += flow.bytesIn + flow.bytesOut;
-        cell.count++;
-      }
-    });
 
     const maxIntensity = Math.max(...heatmapData.map(c => c.intensity), 1);
 
@@ -96,16 +127,54 @@ export function HeatmapTimeline({ flows }: HeatmapTimelineProps) {
         marginTop + 7 * cellHeight + 8
       );
     }
-  }, [flows]);
+  }, [heatmapData]);
+
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="text-accent" size={20} />
+            Activity Heatmap
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">Network activity patterns by day and hour</p>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[300px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="text-accent" size={20} />
-          Activity Heatmap
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">Network activity patterns by day and hour</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="text-accent" size={20} />
+              Activity Heatmap
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Network activity patterns by day and hour
+            </p>
+          </div>
+          {useRealApi && useApi && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchBandwidthTimeline(hours, 60)}
+              disabled={isLoading}
+            >
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+            </Button>
+          )}
+        </div>
+        {error && useRealApi && useApi && (
+          <div className="mt-2 p-2 bg-destructive/10 text-destructive text-sm rounded">
+            {error}. Using calculated data from flows.
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <canvas ref={canvasRef} className="w-full" style={{ height: '240px' }} />

@@ -13,36 +13,60 @@ import {
   Clock as ClockIcon,
   ArrowsClockwise,
 } from '@phosphor-icons/react';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
 
 interface InsightsSummaryProps {
-  devices: Device[];
-  flows: NetworkFlow[];
-  threats: Threat[];
+  readonly devices: Device[];
+  readonly flows: NetworkFlow[];
+  readonly threats: Threat[];
+  readonly useApi?: boolean;
 }
 
-export function InsightsSummary({ devices, flows, threats }: InsightsSummaryProps) {
+export function InsightsSummary({ devices, flows, threats, useApi = false }: InsightsSummaryProps) {
+  const { useRealApi } = useApiConfig();
+  const { summaryStats, topDevices, topDomains, geographicStats } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours: 24,
+  });
+
   const insights = useMemo(() => {
-    const totalBytes = flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+    // Use API data when available
+    const totalBytes =
+      useRealApi && useApi && summaryStats
+        ? summaryStats.total_bytes
+        : flows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+
     const avgSessionDuration = flows.reduce((sum, f) => sum + f.duration, 0) / (flows.length || 1);
 
-    const mostActiveDevice = devices.reduce(
-      (max, d) => {
-        const deviceFlows = flows.filter(f => f.deviceId === d.id);
-        const deviceBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
-        return deviceBytes > max.bytes ? { device: d, bytes: deviceBytes } : max;
-      },
-      { device: devices[0], bytes: 0 }
-    );
+    // Use top devices from API if available
+    const mostActiveDevice =
+      useRealApi && useApi && topDevices.length > 0
+        ? { device: { name: topDevices[0].device_name }, bytes: topDevices[0].bytes }
+        : devices.reduce(
+            (max, d) => {
+              const deviceFlows = flows.filter(f => f.deviceId === d.id);
+              const deviceBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
+              return deviceBytes > max.bytes ? { device: d, bytes: deviceBytes } : max;
+            },
+            { device: devices[0], bytes: 0 }
+          );
 
-    const topDomain = flows.reduce(
-      (acc, flow) => {
-        const domain = flow.domain || flow.destIp;
-        acc[domain] = (acc[domain] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-    const mostVisitedSite = Object.entries(topDomain).sort((a, b) => b[1] - a[1])[0];
+    // Use top domains from API if available
+    const mostVisitedSite =
+      useRealApi && useApi && topDomains.length > 0
+        ? [topDomains[0].domain, topDomains[0].connections]
+        : (() => {
+            const topDomain = flows.reduce(
+              (acc, flow) => {
+                const domain = flow.domain || flow.destIp;
+                acc[domain] = (acc[domain] || 0) + 1;
+                return acc;
+              },
+              {} as Record<string, number>
+            );
+            return Object.entries(topDomain).sort((a, b) => b[1] - a[1])[0];
+          })();
 
     const protocolUsage = flows.reduce(
       (acc, flow) => {
@@ -68,16 +92,22 @@ export function InsightsSummary({ devices, flows, threats }: InsightsSummaryProp
     const recentThreats = threats.filter(t => Date.now() - t.timestamp < 86400000).length;
     const activeThreats = threats.filter(t => !t.dismissed).length;
 
-    const countryDistribution = flows.reduce(
-      (acc, flow) => {
-        if (flow.country) {
-          acc[flow.country] = (acc[flow.country] || 0) + 1;
-        }
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-    const topCountry = Object.entries(countryDistribution).sort((a, b) => b[1] - a[1])[0];
+    // Use geographic stats from API if available
+    const topCountry =
+      useRealApi && useApi && geographicStats.length > 0
+        ? [geographicStats[0].country, geographicStats[0].connections]
+        : (() => {
+            const countryDistribution = flows.reduce(
+              (acc, flow) => {
+                if (flow.country) {
+                  acc[flow.country] = (acc[flow.country] || 0) + 1;
+                }
+                return acc;
+              },
+              {} as Record<string, number>
+            );
+            return Object.entries(countryDistribution).sort((a, b) => b[1] - a[1])[0];
+          })();
 
     const uploadTotal = flows.reduce((sum, f) => sum + f.bytesOut, 0);
     const downloadTotal = flows.reduce((sum, f) => sum + f.bytesIn, 0);
@@ -100,12 +130,30 @@ export function InsightsSummary({ devices, flows, threats }: InsightsSummaryProp
       recentThreats,
       activeThreats,
       topCountry: topCountry?.[0] || 'N/A',
-      topCountryPercentage: topCountry ? ((topCountry[1] / flows.length) * 100).toFixed(0) : '0',
+      topCountryPercentage: topCountry
+        ? (
+            (topCountry[1] /
+              (useRealApi && useApi && summaryStats ? summaryStats.total_flows : flows.length)) *
+            100
+          ).toFixed(0)
+        : '0',
       uploadDownloadRatio,
-      totalDevices: devices.length,
-      totalConnections: flows.length,
+      totalDevices:
+        useRealApi && useApi && summaryStats ? summaryStats.total_devices : devices.length,
+      totalConnections:
+        useRealApi && useApi && summaryStats ? summaryStats.total_flows : flows.length,
     };
-  }, [devices, flows, threats]);
+  }, [
+    devices,
+    flows,
+    threats,
+    useRealApi,
+    useApi,
+    summaryStats,
+    topDevices,
+    topDomains,
+    geographicStats,
+  ]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

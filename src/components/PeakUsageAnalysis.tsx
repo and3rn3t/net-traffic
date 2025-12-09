@@ -3,7 +3,8 @@ import { NetworkFlow, Device } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
 import { Badge } from '@/components/ui/badge';
-import { ChartBar, TrendUp } from '@phosphor-icons/react';
+import { ChartBar, TrendUp, ArrowClockwise } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/button';
 import {
   BarChart,
   Bar,
@@ -14,10 +15,15 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+import { useApiConfig } from '@/hooks/useApiConfig';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PeakUsageAnalysisProps {
-  flows: NetworkFlow[];
-  devices: Device[];
+  readonly flows: NetworkFlow[];
+  readonly devices: Device[];
+  readonly hours?: number;
+  readonly useApi?: boolean;
 }
 
 const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -25,7 +31,15 @@ const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Fri
 export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({
   flows,
   devices,
+  hours = 24,
+  useApi = false,
 }: PeakUsageAnalysisProps) {
+  const { useRealApi } = useApiConfig();
+  const { bandwidthTimeline, isLoading, error, fetchBandwidthTimeline } = useEnhancedAnalytics({
+    autoFetch: useApi && useRealApi,
+    hours,
+  });
+
   const analysis = useMemo(() => {
     const hourlyUsage = Array.from({ length: 24 }, (_, i) => ({
       hour: i,
@@ -41,18 +55,35 @@ export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({
       connections: 0,
     }));
 
-    flows.forEach(flow => {
-      const date = new Date(flow.timestamp);
-      const hour = date.getHours();
-      const day = date.getDay();
-      const bytes = flow.bytesIn + flow.bytesOut;
+    // Use API data if available
+    if (useRealApi && useApi && bandwidthTimeline.length > 0) {
+      bandwidthTimeline.forEach(item => {
+        const date = new Date(item.timestamp);
+        const hour = date.getHours();
+        const day = date.getDay();
+        const bytes = item.bytes_in + item.bytes_out;
 
-      hourlyUsage[hour].bytes += bytes;
-      hourlyUsage[hour].connections++;
+        hourlyUsage[hour].bytes += bytes;
+        hourlyUsage[hour].connections += item.connections;
 
-      dailyUsage[day].bytes += bytes;
-      dailyUsage[day].connections++;
-    });
+        dailyUsage[day].bytes += bytes;
+        dailyUsage[day].connections += item.connections;
+      });
+    } else {
+      // Fallback: calculate from flows
+      flows.forEach(flow => {
+        const date = new Date(flow.timestamp);
+        const hour = date.getHours();
+        const day = date.getDay();
+        const bytes = flow.bytesIn + flow.bytesOut;
+
+        hourlyUsage[hour].bytes += bytes;
+        hourlyUsage[hour].connections++;
+
+        dailyUsage[day].bytes += bytes;
+        dailyUsage[day].connections++;
+      });
+    }
 
     const peakHour = hourlyUsage.reduce((max, curr) => (curr.bytes > max.bytes ? curr : max));
     const peakDay = dailyUsage.reduce((max, curr) => (curr.bytes > max.bytes ? curr : max));
@@ -91,18 +122,58 @@ export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({
       peakToOffPeakRatio:
         avgOffPeakBytes > 0 ? (peakHour.bytes / avgOffPeakBytes).toFixed(1) : 'N/A',
     };
-  }, [flows, devices]);
+  }, [flows, devices, useRealApi, useApi, bandwidthTimeline]);
 
   const maxHourlyBytes = Math.max(...analysis.hourlyUsage.map(h => h.bytes));
+
+  if (isLoading && useApi && useRealApi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChartBar size={20} />
+            Peak Usage Analysis
+          </CardTitle>
+          <CardDescription>
+            Identify peak usage times and patterns across the network
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[500px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ChartBar size={20} />
-          Peak Usage Analysis
-        </CardTitle>
-        <CardDescription>Identify peak usage times and patterns across the network</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <ChartBar size={20} />
+              Peak Usage Analysis
+            </CardTitle>
+            <CardDescription>
+              Identify peak usage times and patterns across the network
+            </CardDescription>
+          </div>
+          {useRealApi && useApi && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => fetchBandwidthTimeline(hours, 60)}
+              disabled={isLoading}
+            >
+              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+            </Button>
+          )}
+        </div>
+        {error && useRealApi && useApi && (
+          <div className="mt-2 p-2 bg-destructive/10 text-destructive text-sm rounded">
+            {error}. Using calculated data from flows.
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

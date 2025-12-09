@@ -5,8 +5,9 @@ import { Pulse } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface FlowPipeVisualizationProps {
-  flows: NetworkFlow[];
-  devices: Device[];
+  readonly flows: NetworkFlow[];
+  readonly devices: Device[];
+  readonly useApi?: boolean;
 }
 
 interface PipeFlow {
@@ -20,7 +21,11 @@ interface PipeFlow {
   timestamp: number;
 }
 
-export function FlowPipeVisualization({ flows, devices }: FlowPipeVisualizationProps) {
+export function FlowPipeVisualization({
+  flows,
+  devices,
+  useApi = false,
+}: FlowPipeVisualizationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [activePipes, setActivePipes] = useState<Map<string, PipeFlow>>(new Map());
   const animationFrameRef = useRef<number | undefined>(undefined);
