@@ -64,7 +64,7 @@ export function UserActivityTimeline({
   };
 
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const hourLabels = Array.from({ length: 24 }, (_, i) => i);
 
   if (isLoading && useApi && useRealApi) {
     return (
@@ -122,7 +122,7 @@ export function UserActivityTimeline({
             ))}
           </div>
 
-          {hours.map(hour => (
+          {hourLabels.map(hour => (
             <div key={hour} className="grid grid-cols-8 gap-1">
               <div className="text-xs text-muted-foreground text-right pr-2 flex items-center justify-end">
                 {hour.toString().padStart(2, '0')}:00

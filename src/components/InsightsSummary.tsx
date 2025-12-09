@@ -130,13 +130,14 @@ export function InsightsSummary({ devices, flows, threats, useApi = false }: Ins
       recentThreats,
       activeThreats,
       topCountry: topCountry?.[0] || 'N/A',
-      topCountryPercentage: topCountry
-        ? (
-            (topCountry[1] /
-              (useRealApi && useApi && summaryStats ? summaryStats.total_flows : flows.length)) *
-            100
-          ).toFixed(0)
-        : '0',
+      topCountryPercentage:
+        topCountry && topCountry[1] !== undefined
+          ? (
+              (Number(topCountry[1]) /
+                (useRealApi && useApi && summaryStats ? summaryStats.total_flows : flows.length)) *
+              100
+            ).toFixed(0)
+          : '0',
       uploadDownloadRatio,
       totalDevices:
         useRealApi && useApi && summaryStats ? summaryStats.total_devices : devices.length,
