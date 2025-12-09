@@ -50,24 +50,38 @@ fi
 # 3. Set capabilities on venv Python
 echo ""
 echo "2. Setting network capture capabilities..."
-VENV_PYTHON_ABS=$(readlink -f "$VENV_PYTHON" || realpath "$VENV_PYTHON")
+# Get the actual Python executable (resolve symlinks)
+if [ -L "$VENV_PYTHON" ]; then
+    VENV_PYTHON_ABS=$(readlink -f "$VENV_PYTHON" 2>/dev/null || realpath "$VENV_PYTHON" 2>/dev/null || "$VENV_PYTHON" -c "import sys; print(sys.executable)" 2>/dev/null)
+else
+    VENV_PYTHON_ABS="$VENV_PYTHON"
+fi
 
-if [ -f "$VENV_PYTHON_ABS" ]; then
-    echo "   Setting capabilities on: $VENV_PYTHON_ABS"
-    sudo setcap cap_net_raw,cap_net_admin+eip "$VENV_PYTHON_ABS" 2>&1
+# Try to get actual executable path from Python itself
+ACTUAL_PYTHON=$("$VENV_PYTHON" -c "import sys; print(sys.executable)" 2>/dev/null || echo "$VENV_PYTHON_ABS")
 
-    # Verify capabilities
-    CAPS=$(getpcaps "$(pgrep -f "$VENV_PYTHON" | head -1)" 2>/dev/null || getcap "$VENV_PYTHON_ABS" 2>/dev/null)
+echo "   Venv Python path: $VENV_PYTHON"
+echo "   Actual Python executable: $ACTUAL_PYTHON"
+
+if [ -f "$ACTUAL_PYTHON" ]; then
+    echo "   Setting capabilities on: $ACTUAL_PYTHON"
+    sudo setcap cap_net_raw,cap_net_admin+eip "$ACTUAL_PYTHON" 2>&1
+
+    # Verify capabilities using getcap
+    CAPS=$(getcap "$ACTUAL_PYTHON" 2>/dev/null)
     if echo "$CAPS" | grep -q "cap_net_raw\|cap_net_admin"; then
         echo "   ✓ Capabilities set successfully"
         echo "   Capabilities: $CAPS"
     else
-        echo "   ⚠️  Could not verify capabilities (may need to restart backend to see effect)"
+        echo "   ⚠️  Could not verify capabilities with getcap"
+        echo "   Checking if file exists and is executable..."
+        ls -la "$ACTUAL_PYTHON" 2>/dev/null || echo "   File not found"
     fi
 else
-    echo "   ✗ Could not find Python executable: $VENV_PYTHON_ABS"
-    echo "   You may need to set capabilities manually:"
-    echo "     sudo setcap cap_net_raw,cap_net_admin+eip $VENV_PYTHON_ABS"
+    echo "   ✗ Could not find Python executable: $ACTUAL_PYTHON"
+    echo "   Attempting to set capabilities on venv Python anyway..."
+    sudo setcap cap_net_raw,cap_net_admin+eip "$VENV_PYTHON" 2>&1
+    echo "   You may need to set capabilities manually after checking the actual Python path"
 fi
 
 # 4. Test SCAPY in venv
