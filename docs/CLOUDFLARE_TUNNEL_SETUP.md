@@ -180,16 +180,25 @@ You should get a JSON response with health status.
 
 ## Step 7: Run Tunnel as a Service (Systemd)
 
-Create a systemd service so the tunnel starts automatically:
+> 💡 **Quick Setup**: Use the automated setup script:
+> ```bash
+> sudo ./scripts/setup-cloudflared-service.sh
+> ```
+> This script creates the systemd service and starts it automatically.
+
+### Option A: Automated Setup (Recommended)
 
 ```bash
-# Install tunnel as a service
-sudo cloudflared service install
+# Make script executable
+chmod +x scripts/setup-cloudflared-service.sh
+
+# Run with sudo (creates service, enables, and starts it)
+sudo ./scripts/setup-cloudflared-service.sh
 ```
 
-This creates a service that uses the config file at `~/.cloudflared/config.yml`.
+### Option B: Manual Setup
 
-**Or create a custom service file:**
+**Create a systemd service file:**
 
 ```bash
 sudo nano /etc/systemd/system/cloudflared.service
@@ -208,6 +217,12 @@ User=pi
 ExecStart=/usr/local/bin/cloudflared tunnel --config /home/pi/.cloudflared/config.yml run netinsight-backend
 Restart=on-failure
 RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
@@ -231,6 +246,8 @@ sudo systemctl status cloudflared
 # View logs
 sudo journalctl -u cloudflared -f
 ```
+
+**Note**: If you're using Docker for the tunnel, you don't need this systemd service - Docker Compose handles it.
 
 ## Step 8: Update Backend CORS Configuration
 
