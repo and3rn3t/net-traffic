@@ -27,16 +27,17 @@ import {
 } from '@/components/ui/select';
 import { Device } from '@/lib/types';
 import { formatBytes, formatTimestamp, getDeviceIcon } from '@/lib/formatters';
-import { PencilSimple, Check, X, ChartLineUp } from '@phosphor-icons/react';
+import { PencilSimple, Check, X, ChartLineUp, ArrowsClockwise } from '@phosphor-icons/react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { DeviceAnalyticsView } from './DeviceAnalyticsView';
 
 interface DevicesListEnhancedProps {
-  devices: Device[];
-  onDeviceUpdate?: (device: Device) => void;
-  onDeviceSelect?: (device: Device) => void;
+  readonly devices: Device[];
+  readonly onDeviceUpdate?: (device: Device) => void;
+  readonly onDeviceSelect?: (device: Device) => void;
+  readonly onRefresh?: () => void;
 }
 
 const DEVICE_TYPES = [
@@ -53,6 +54,7 @@ export function DevicesListEnhanced({
   devices,
   onDeviceUpdate,
   onDeviceSelect,
+  onRefresh,
 }: DevicesListEnhancedProps) {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [editForm, setEditForm] = useState({
@@ -126,13 +128,49 @@ export function DevicesListEnhanced({
     <>
       <Card className="p-4 border border-border/50">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Network Devices</span>
-            <Badge variant="outline" className="font-mono">
-              {devices.length} devices
-            </Badge>
-          </CardTitle>
-          <CardDescription>Manage and monitor devices on your network</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <span>Network Devices</span>
+                <Badge variant="outline" className="font-mono">
+                  {devices.length} devices
+                </Badge>
+                {USE_REAL_API && (
+                  <Badge variant="secondary" className="text-xs">
+                    API Data
+                  </Badge>
+                )}
+                {!USE_REAL_API && (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    Mock Data
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {USE_REAL_API
+                  ? 'Real devices discovered from network traffic'
+                  : 'Manage and monitor devices on your network (mock mode)'}
+              </CardDescription>
+            </div>
+            {USE_REAL_API && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (onRefresh) {
+                    onRefresh();
+                    toast.success('Refreshing devices...');
+                  } else {
+                    // Fallback: reload page
+                    globalThis.location.reload();
+                  }
+                }}
+                title="Refresh devices from API"
+              >
+                <ArrowsClockwise size={16} />
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[500px]">
@@ -231,8 +269,16 @@ export function DevicesListEnhanced({
                 );
               })}
               {devices.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>No devices discovered yet</p>
+                <div className="text-center py-12 text-muted-foreground space-y-2">
+                  <p className="font-medium">No devices discovered yet</p>
+                  {USE_REAL_API ? (
+                    <p className="text-xs">
+                      Devices will appear as network traffic is captured. Check that packet capture
+                      is running.
+                    </p>
+                  ) : (
+                    <p className="text-xs">Enable API mode to discover real devices</p>
+                  )}
                 </div>
               )}
             </div>

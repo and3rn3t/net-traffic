@@ -631,7 +631,34 @@ function App() {
                     apiData.refresh();
                   }
                 }}
+                onRefresh={() => {
+                  if (USE_REAL_API && apiData) {
+                    apiData.refresh();
+                  }
+                }}
               />
+              {USE_REAL_API && devices.length === 0 && isConnected && (
+                <Card className="p-6 border-dashed">
+                  <div className="text-center space-y-2">
+                    <p className="text-sm font-medium">No devices discovered yet</p>
+                    <p className="text-xs text-muted-foreground">
+                      Devices will appear as network traffic is captured. Make sure packet capture
+                      is running.
+                    </p>
+                    {!isCapturing && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          apiData.startCapture();
+                        }}
+                        className="mt-2"
+                      >
+                        Start Capture
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              )}
               <ProtocolBreakdown data={protocolStats} />
             </div>
           </TabsContent>
@@ -739,12 +766,6 @@ function App() {
           </TabsContent>
 
           <TabsContent value="maintenance" className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">System Maintenance</h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Manage database storage, cleanup old data, and view system statistics
-              </p>
-            </div>
             <MaintenancePanel />
           </TabsContent>
         </Tabs>
