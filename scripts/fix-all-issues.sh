@@ -88,18 +88,36 @@ fi
 echo ""
 echo "3. Setting network capture capabilities..."
 ACTUAL_PYTHON=$($VENV_PYTHON -c "import sys; print(sys.executable)" 2>/dev/null)
+# Resolve any symlinks to get the actual binary
+RESOLVED_PYTHON=$(readlink -f "$ACTUAL_PYTHON" 2>/dev/null || realpath "$ACTUAL_PYTHON" 2>/dev/null || echo "$ACTUAL_PYTHON")
 echo "   Python executable: $ACTUAL_PYTHON"
+echo "   Resolved path: $RESOLVED_PYTHON"
 
-if [ -f "$ACTUAL_PYTHON" ]; then
-    sudo setcap cap_net_raw,cap_net_admin+eip "$ACTUAL_PYTHON" 2>&1
-    CAPS=$(getcap "$ACTUAL_PYTHON" 2>/dev/null)
+if [ -f "$RESOLVED_PYTHON" ] && [ ! -L "$RESOLVED_PYTHON" ]; then
+    echo "   Setting capabilities on binary..."
+    sudo setcap cap_net_raw,cap_net_admin+eip "$RESOLVED_PYTHON" 2>&1
+    CAPS=$(getcap "$RESOLVED_PYTHON" 2>/dev/null)
     if echo "$CAPS" | grep -q "cap_net_raw\|cap_net_admin"; then
         echo "   ✓ Capabilities set: $CAPS"
     else
-        echo "   ⚠️  Could not verify capabilities"
+        echo "   ⚠️  Could not verify capabilities (may need sudo to run backend)"
+        echo "   Note: You can run backend with sudo if capabilities don't work"
+    fi
+elif [ -L "$RESOLVED_PYTHON" ]; then
+    echo "   ⚠️  Python is a symlink, setting capabilities on the target..."
+    TARGET=$(readlink -f "$RESOLVED_PYTHON")
+    if [ -f "$TARGET" ]; then
+        sudo setcap cap_net_raw,cap_net_admin+eip "$TARGET" 2>&1
+        CAPS=$(getcap "$TARGET" 2>/dev/null)
+        if echo "$CAPS" | grep -q "cap_net_raw\|cap_net_admin"; then
+            echo "   ✓ Capabilities set on target: $CAPS"
+        else
+            echo "   ⚠️  Could not verify capabilities"
+        fi
     fi
 else
-    echo "   ✗ Could not find Python executable"
+    echo "   ⚠️  Could not find Python executable at: $RESOLVED_PYTHON"
+    echo "   You may need to run backend with sudo for packet capture"
 fi
 
 # 4. Verify everything
