@@ -797,6 +797,12 @@ class StorageService:
         if row["applications"]:
             applications = [a.strip() for a in row["applications"].split(",") if a.strip()]
 
+        # Handle missing notes field (for backward compatibility with older databases)
+        try:
+            notes = row["notes"]
+        except (KeyError, IndexError):
+            notes = None
+
         return Device(
             id=row["id"],
             name=row["name"],
@@ -811,7 +817,7 @@ class StorageService:
             connectionsCount=row["connections_count"],
             threatScore=row["threat_score"],
             behavioral=json.loads(row["behavioral"]),
-            notes=row.get("notes"),  # Handle missing notes field for existing databases
+            notes=notes,
             ipv6Support=bool(row["ipv6_support"]) if row["ipv6_support"] is not None else None,
             avgRtt=row["avg_rtt"],
             connectionQuality=row["connection_quality"],

@@ -1241,10 +1241,20 @@ class PacketCaptureService:
             # Calculate average RTT
             rtt = None
             if "rtt" in flow_data and flow_data["rtt"]:
-                rtt = int(sum(flow_data["rtt"]) / len(flow_data["rtt"]))
+                rtt_list = flow_data["rtt"]
+                if isinstance(rtt_list, list) and len(rtt_list) > 0:
+                    rtt = int(sum(rtt_list) / len(rtt_list))
+                elif isinstance(rtt_list, (int, float)):
+                    rtt = int(rtt_list)
 
             # Get retransmission count
             retransmissions = flow_data.get("retransmissions", 0)
+            # Ensure retransmissions is an integer (in case it was set as a list)
+            if isinstance(retransmissions, list):
+                retransmissions = len(retransmissions) if retransmissions else 0
+            elif not isinstance(retransmissions, (int, float)):
+                retransmissions = 0
+            retransmissions = int(retransmissions)
 
             # Get jitter
             jitter = flow_data.get("jitter")
