@@ -51,12 +51,14 @@ cloudflared tunnel login
 ### Step 2: Create Tunnel
 
 ```bash
-# Create tunnel
+# Create tunnel (run as pi user, not with sudo)
 cloudflared tunnel create netinsight-backend
 
-# Create DNS route (replace with your subdomain)
+# Create DNS route (run as pi user, not with sudo)
 cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
 ```
+
+**Important**: These commands must run as the `pi` user (not root/sudo) because they need access to `~/.cloudflared/cert.pem` which is in `/home/pi/.cloudflared/`.
 
 **Note the tunnel UUID** from the output - you'll need it for the config file.
 

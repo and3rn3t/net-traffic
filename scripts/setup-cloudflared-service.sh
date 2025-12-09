@@ -10,7 +10,7 @@ echo "========================================="
 echo ""
 
 # Check if running as root or with sudo
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo "⚠️  This script needs sudo privileges"
     echo "   Run with: sudo ./scripts/setup-cloudflared-service.sh"
     exit 1
@@ -39,12 +39,14 @@ echo ""
 
 # Check if DNS route exists
 echo "Checking DNS route..."
-ROUTES=$(cloudflared tunnel route dns list 2>/dev/null || echo "")
+# Run as pi user (not root) since cloudflared needs access to ~/.cloudflared/cert.pem
+ROUTES=$(sudo -u pi cloudflared tunnel route dns list 2>/dev/null || echo "")
 if echo "$ROUTES" | grep -q "net-backend.andernet.dev"; then
     echo "✓ DNS route for net-backend.andernet.dev already exists"
 else
     echo "⚠️  DNS route not found - creating it now..."
-    cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
+    # Run as pi user to access cert.pem in /home/pi/.cloudflared/
+    sudo -u pi cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
     echo "✓ DNS route created"
 fi
 
