@@ -19,7 +19,16 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
-    strictPort: false, // Allow fallback if port is in use (but prefer 5173)
+    strictPort: true, // Fail if port 5173 is in use
+    host: true, // Listen on all addresses
+    hmr: {
+      overlay: true,
+      clientPort: 5173,
+    },
+    watch: {
+      usePolling: false,
+      ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
+    },
   },
   resolve: {
     alias: {
