@@ -699,7 +699,8 @@ describe('useApiData', () => {
       vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
       vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
-      renderHook(() => useApiData({ pollingInterval: 1000, maxRetries: 0 }));
+      // Disable WebSocket to test polling behavior
+      renderHook(() => useApiData({ pollingInterval: 1000, maxRetries: 0, useWebSocket: false }));
 
       await waitFor(() => {
         expect(apiClient.healthCheck).toHaveBeenCalled();

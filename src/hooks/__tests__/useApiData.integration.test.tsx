@@ -154,7 +154,8 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockResolvedValue([]);
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
 
-      const { result } = renderHook(() => useApiData({ pollingInterval: 100 }));
+      // Disable WebSocket to test polling behavior
+      const { result } = renderHook(() => useApiData({ pollingInterval: 100, useWebSocket: false }));
 
       // Wait for initial load
       await waitFor(

@@ -428,11 +428,19 @@ describe('ConnectionHealthMonitor', () => {
 
       // Get the call count before clicking refresh
       const initialCallCount = vi.mocked(apiClient.healthCheck).mock.calls.length;
+      expect(initialCallCount).toBeGreaterThan(0);
 
       // Click the Refresh button (not Retry Connection - that only appears when offline with onRetry)
       const refreshButton = screen.getByRole('button', { name: /refresh/i });
-      fireEvent.click(refreshButton);
+      
+      // Click and wait for async operation to complete
+      await act(async () => {
+        fireEvent.click(refreshButton);
+        // Give time for the async checkHealth to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
 
+      // Wait for the refresh to complete - the button click triggers checkHealth which calls apiClient.healthCheck
       await waitFor(
         () => {
           expect(apiClient.healthCheck).toHaveBeenCalledTimes(initialCallCount + 1);

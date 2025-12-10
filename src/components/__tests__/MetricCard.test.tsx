@@ -87,7 +87,7 @@ describe('MetricCard', () => {
       render(<MetricCard title="Test" value={123} />);
 
       const valueElement = screen.getByText('123');
-      expect(valueElement).toHaveClass('text-2xl', 'font-bold', 'font-mono');
+      expect(valueElement).toHaveClass('text-xl', 'sm:text-2xl', 'font-bold', 'font-mono');
     });
   });
 
