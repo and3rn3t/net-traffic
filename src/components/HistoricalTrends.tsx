@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { AnalyticsData } from '@/lib/types';
 import { formatBytesShort } from '@/lib/formatters';
-import { TrendingUp, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   LineChart,
   Line,

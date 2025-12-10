@@ -2,8 +2,7 @@ import { useMemo, memo } from 'react';
 import { NetworkFlow, Device } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
-import { Badge } from '@/components/ui/badge';
-import { BarChart3, TrendingUp, RefreshCw } from 'lucide-react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   BarChart,

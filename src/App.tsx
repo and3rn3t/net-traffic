@@ -86,7 +86,7 @@ function App() {
   });
 
   // Enhanced analytics for summary stats
-  const { summaryStats, bandwidthTimeline, fetchBandwidthTimeline } = useEnhancedAnalytics({
+  const { summaryStats, bandwidthTimeline } = useEnhancedAnalytics({
     autoFetch: USE_REAL_API,
     hours: 24,
   });

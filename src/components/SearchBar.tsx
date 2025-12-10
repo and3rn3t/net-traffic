@@ -18,7 +18,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, X } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { Device, NetworkFlow, Threat } from '@/lib/types';
 import { formatBytes, formatTimestamp } from '@/lib/formatters';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { NetworkFlow, Device } from '@/lib/types';
 import { formatBytes, formatTimestamp, getThreatColor, getThreatBgColor } from '@/lib/formatters';
 import { motion } from 'framer-motion';
-import { FlowFiltersComponent, FlowFilters } from './FlowFilters';
+import { FlowFiltersComponent } from './FlowFilters';
 import { useFlowFilters } from '@/hooks/useFlowFilters';
 import { Download } from 'lucide-react';
 import { apiClient } from '@/lib/api';

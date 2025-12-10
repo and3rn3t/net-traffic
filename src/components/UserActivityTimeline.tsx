@@ -71,7 +71,7 @@ export function UserActivityTimeline({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CalendarBlank size={20} />
+            <Calendar size={20} />
             Activity Heatmap
           </CardTitle>
           <CardDescription>Network activity by hour and day of week</CardDescription>
@@ -89,7 +89,7 @@ export function UserActivityTimeline({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <CalendarBlank size={20} />
+              <Calendar size={20} />
               Activity Heatmap
             </CardTitle>
             <CardDescription>Network activity by hour and day of week</CardDescription>

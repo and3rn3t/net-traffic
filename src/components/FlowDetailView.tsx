@@ -12,16 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import {
-  Globe,
-  MapPin,
-  Gauge,
-  Network,
-  ArrowRight,
-  Activity,
-  Lock,
-  Code,
-} from 'lucide-react';
+import { Globe, MapPin, Gauge, Network, ArrowRight, Activity, Lock, Code } from 'lucide-react';
 
 interface FlowDetailViewProps {
   flow: NetworkFlow | null;

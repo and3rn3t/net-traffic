@@ -2,16 +2,7 @@ import { useMemo } from 'react';
 import { Device, NetworkFlow, Threat } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort, formatDuration } from '@/lib/formatters';
-import { Badge } from '@/components/ui/badge';
-import {
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  Smartphone,
-  Globe,
-  ShieldAlert,
-  RefreshCw,
-} from 'lucide-react';
+import { Clock, Globe, ShieldAlert, RefreshCw } from 'lucide-react';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
 
