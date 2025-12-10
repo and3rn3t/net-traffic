@@ -432,7 +432,7 @@ describe('ConnectionHealthMonitor', () => {
 
       // Click the Refresh button (not Retry Connection - that only appears when offline with onRetry)
       const refreshButton = screen.getByRole('button', { name: /refresh/i });
-      
+
       // Click and wait for async operation to complete
       await act(async () => {
         fireEvent.click(refreshButton);
