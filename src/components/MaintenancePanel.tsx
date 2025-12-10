@@ -15,15 +15,15 @@ import {
 import {
   Trash,
   Database,
-  WarningCircle,
+  AlertCircle,
   CheckCircle,
   Download,
   Play,
-  Stop,
-  ArrowClockwise,
+  Square,
+  RefreshCw,
   HardDrive,
-  Pulse,
-} from '@phosphor-icons/react';
+  Activity,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -197,7 +197,7 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
                 <CardDescription>Manage database storage and cleanup old data</CardDescription>
               </div>
               <Button variant="ghost" size="sm" onClick={refreshStats} disabled={isLoading}>
-                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
               </Button>
             </div>
           </CardHeader>
@@ -255,7 +255,7 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium flex items-center gap-2">
-                        <WarningCircle size={16} />
+                        <AlertCircle size={16} />
                         Data Cleanup
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -324,7 +324,7 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Pulse size={20} />
+                <Activity size={20} />
                 Packet Capture Control
               </CardTitle>
               <CardDescription>Start or stop network packet capture</CardDescription>
@@ -344,7 +344,7 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
                     </Badge>
                     {isCapturing ? (
                       <Button variant="destructive" size="sm" onClick={handleStopCapture}>
-                        <Stop size={16} className="mr-2" />
+                        <Square size={16} className="mr-2" />
                         Stop Capture
                       </Button>
                     ) : (

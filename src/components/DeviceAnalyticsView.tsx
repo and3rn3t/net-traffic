@@ -16,11 +16,11 @@ import {
   Globe,
   Network,
   Shield,
-  Pulse,
-  AppWindow,
+  Activity,
+  Layout,
   ArrowDown,
   ArrowUp,
-} from '@phosphor-icons/react';
+} from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { formatBytes } from '@/lib/formatters';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -113,7 +113,7 @@ export function DeviceAnalyticsView({ device, open, onOpenChange }: DeviceAnalyt
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="flex items-center gap-2">
-                <Pulse size={20} />
+                <Activity size={20} />
                 Device Analytics: {device.name}
               </DialogTitle>
               <DialogDescription>
@@ -218,7 +218,7 @@ export function DeviceAnalyticsView({ device, open, onOpenChange }: DeviceAnalyt
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Pulse size={20} />
+                    <Activity size={20} />
                     Traffic Overview
                   </CardTitle>
                 </CardHeader>
@@ -404,7 +404,7 @@ export function DeviceAnalyticsView({ device, open, onOpenChange }: DeviceAnalyt
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <AppWindow size={20} />
+                    <Layout size={20} />
                     Application Usage
                   </CardTitle>
                   <CardDescription>Applications used by this device</CardDescription>

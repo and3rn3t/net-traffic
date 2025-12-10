@@ -16,14 +16,12 @@ import {
   Globe,
   MapPin,
   Gauge,
-  Shield,
   Network,
-  Clock,
   ArrowRight,
-  Pulse,
+  Activity,
   Lock,
   Code,
-} from '@phosphor-icons/react';
+} from 'lucide-react';
 
 interface FlowDetailViewProps {
   flow: NetworkFlow | null;
@@ -140,7 +138,7 @@ export const FlowDetailView = memo(function FlowDetailView({
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Pulse size={16} />
+                <Activity size={16} />
                 Basic Information
               </CardTitle>
             </CardHeader>
@@ -262,7 +260,7 @@ export const FlowDetailView = memo(function FlowDetailView({
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Pulse size={16} />
+                <Activity size={16} />
                 Traffic Statistics
               </CardTitle>
             </CardHeader>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ArrowClockwise } from '@phosphor-icons/react';
+import { Clock, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NetworkFlow } from '@/lib/types';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
@@ -140,7 +140,7 @@ export function HeatmapTimeline({ flows, hours = 24, useApi = false }: HeatmapTi
           <p className="text-sm text-muted-foreground">Network activity patterns by day and hour</p>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[300px] w-full" />
+          <Skeleton className="h-[180px] sm:h-[240px] lg:h-[300px] w-full" />
         </CardContent>
       </Card>
     );
@@ -166,7 +166,7 @@ export function HeatmapTimeline({ flows, hours = 24, useApi = false }: HeatmapTi
               onClick={() => fetchBandwidthTimeline(hours, 60)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>
@@ -177,7 +177,11 @@ export function HeatmapTimeline({ flows, hours = 24, useApi = false }: HeatmapTi
         )}
       </CardHeader>
       <CardContent>
-        <canvas ref={canvasRef} className="w-full" style={{ height: '240px' }} />
+        <canvas
+          ref={canvasRef}
+          className="w-full"
+          style={{ height: 'clamp(180px, 30vh, 240px)' }}
+        />
         <div className="mt-4 flex items-center justify-center gap-3 text-xs">
           <span className="text-muted-foreground">Low</span>
           <div className="flex gap-1">

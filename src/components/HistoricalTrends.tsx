@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { AnalyticsData } from '@/lib/types';
 import { formatBytesShort } from '@/lib/formatters';
-import { TrendUp, Clock, ArrowClockwise } from '@phosphor-icons/react';
+import { TrendingUp, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -22,7 +22,6 @@ import {
 import { useHistoricalTrends } from '@/hooks/useHistoricalTrends';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Warning } from '@phosphor-icons/react';
 
 type TimeRange = '1h' | '24h' | '7d' | '30d';
 
@@ -132,7 +131,7 @@ export function HistoricalTrends({
                 disabled={isLoading}
                 className="gap-2"
               >
-                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
               </Button>
             )}
           </div>
@@ -141,7 +140,7 @@ export function HistoricalTrends({
       <CardContent className="space-y-6">
         {error && useApi && (
           <Alert variant="destructive">
-            <Warning className="h-4 w-4" />
+            <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               {error}
               <Button variant="ghost" size="sm" onClick={refresh} className="ml-2 h-auto py-1">

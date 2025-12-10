@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MagnifyingGlass, X } from '@phosphor-icons/react';
+import { Search, X } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { Device, NetworkFlow, Threat } from '@/lib/types';
 import { formatBytes, formatTimestamp } from '@/lib/formatters';
@@ -357,7 +357,7 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
               Close
             </Button>
             <Button onClick={() => setShowResults(true)} disabled={isSearching || !query.trim()}>
-              <MagnifyingGlass size={16} className="mr-2" />
+              <Search size={16} className="mr-2" />
               {isSearching ? 'Searching...' : 'Search Again'}
             </Button>
           </div>

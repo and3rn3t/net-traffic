@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { NetworkFlow, ProtocolStats } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartBar, ArrowClockwise } from '@phosphor-icons/react';
+import { BarChart3, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AreaChart,
@@ -102,7 +102,7 @@ export function ProtocolTimeline({ flows, protocolStats, useApi = false }: Proto
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ChartBar size={20} />
+            <BarChart3 size={20} />
             Protocol Usage Timeline
           </CardTitle>
           <CardDescription>Protocol distribution throughout the day</CardDescription>
@@ -120,14 +120,14 @@ export function ProtocolTimeline({ flows, protocolStats, useApi = false }: Proto
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <ChartBar size={20} />
+              <BarChart3 size={20} />
               Protocol Usage Timeline
             </CardTitle>
             <CardDescription>Protocol distribution throughout the day</CardDescription>
           </div>
           {useRealApi && useApi && (
             <Button variant="ghost" size="sm" disabled={isLoading}>
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

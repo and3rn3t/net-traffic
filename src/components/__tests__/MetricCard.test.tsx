@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MetricCard } from '@/components/MetricCard';
-import { DeviceMobile } from '@phosphor-icons/react';
+import { Smartphone } from 'lucide-react';
 
 describe('MetricCard', () => {
   describe('Basic Rendering', () => {
@@ -34,7 +34,7 @@ describe('MetricCard', () => {
     });
 
     it('should render with icon', () => {
-      render(<MetricCard title="Devices" value={10} icon={<DeviceMobile data-testid="icon" />} />);
+      render(<MetricCard title="Devices" value={10} icon={<Smartphone data-testid="icon" />} />);
 
       expect(screen.getByTestId('icon')).toBeInTheDocument();
     });

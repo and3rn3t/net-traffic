@@ -7,7 +7,7 @@ import { Device, NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
-import { DeviceMobile, TrendUp, TrendDown, Minus, ArrowClockwise } from '@phosphor-icons/react';
+import { Smartphone, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
@@ -67,8 +67,8 @@ export function TopUsersEnhanced({
     // Type guard to check for recentActivity property
     const userWithActivity = user as typeof user & { recentActivity?: number };
     const recentActivity: number = userWithActivity.recentActivity ?? user.connections;
-    if (recentActivity > 10) return <TrendUp className="text-success" size={16} />;
-    if (recentActivity < 3) return <TrendDown className="text-muted-foreground" size={16} />;
+    if (recentActivity > 10) return <TrendingUp className="text-success" size={16} />;
+    if (recentActivity < 3) return <TrendingDown className="text-muted-foreground" size={16} />;
     return <Minus className="text-muted-foreground" size={16} />;
   };
 
@@ -78,7 +78,7 @@ export function TopUsersEnhanced({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <DeviceMobile size={20} />
+              <Smartphone size={20} />
               Top Users by Traffic
             </CardTitle>
             <CardDescription>Devices ranked by total data consumption</CardDescription>
@@ -90,7 +90,7 @@ export function TopUsersEnhanced({
               onClick={() => fetchTopDevices(limit, hours, sortBy)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

@@ -48,27 +48,27 @@ export function TrafficChart({ data, useApi = false, hours = 24 }: TrafficChartP
 
   if (isLoading && useApi && useRealApi) {
     return (
-      <Card className="p-4 border border-border/50">
-        <div className="space-y-4">
+      <Card className="p-3 sm:p-4 border border-border/60 bg-card/50 shadow-sm">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <h3 className="text-lg font-semibold">Traffic Over Time</h3>
-            <p className="text-sm text-muted-foreground">Last {hours} hours</p>
+            <h3 className="text-base sm:text-lg font-semibold">Traffic Over Time</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">Last {hours} hours</p>
           </div>
-          <Skeleton className="h-[200px] w-full" />
+          <Skeleton className="h-[150px] sm:h-[200px] w-full" />
         </div>
       </Card>
     );
   }
 
   return (
-    <Card className="p-4 border border-border/50">
-      <div className="space-y-4">
+    <Card className="p-3 sm:p-4 border border-border/60 bg-card/50 shadow-sm">
+      <div className="space-y-3 sm:space-y-4">
         <div>
-          <h3 className="text-lg font-semibold">Traffic Over Time</h3>
-          <p className="text-sm text-muted-foreground">Last {hours} hours</p>
+          <h3 className="text-base sm:text-lg font-semibold">Traffic Over Time</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">Last {hours} hours</p>
         </div>
 
-        <div className="h-[200px] flex items-end gap-1 px-2">
+        <div className="h-[150px] sm:h-[200px] flex items-end gap-0.5 sm:gap-1 px-1 sm:px-2">
           {displayData.length === 0 ? (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
               No data available

@@ -10,8 +10,8 @@ import { FlowFiltersComponent, FlowFilters } from '@/components/FlowFilters';
 import { createDefaultFlowFilters } from '@/test/helpers';
 
 // Mock dependencies
-vi.mock('@phosphor-icons/react', () => ({
-  Funnel: () => <div data-testid="funnel-icon">Funnel</div>,
+vi.mock('lucide-react', () => ({
+  Filter: () => <div data-testid="filter-icon">Filter</div>,
   X: () => <div data-testid="x-icon">X</div>,
 }));
 

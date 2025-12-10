@@ -3,19 +3,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
-  Pulse,
+  Activity,
   ShieldCheck,
-  DeviceMobile,
-  TrendUp,
-  Graph,
-  Warning,
+  Smartphone,
+  TrendingUp,
+  Network,
+  AlertTriangle,
   Eye,
-  ChartLineUp,
-  Sparkle,
+  LineChart,
+  Sparkles,
   Circle,
-  WifiSlash,
+  WifiOff,
   Database,
-} from '@phosphor-icons/react';
+} from 'lucide-react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
 import { ConnectionsTableEnhanced } from '@/components/ConnectionsTableEnhanced';
@@ -81,7 +81,7 @@ function App() {
 
   // Use API hook for data fetching (only when API is enabled)
   const apiData = useApiData({
-    pollingInterval: 5000, // Poll every 5 seconds as backup
+    pollingInterval: 30000, // Poll every 30 seconds as backup (reduced since WebSocket handles real-time)
     useWebSocket: true, // Enable real-time WebSocket updates
   });
 
@@ -230,15 +230,22 @@ function App() {
   const avgThreatScore = devices.reduce((sum, d) => sum + d.threatScore, 0) / (devices.length || 1);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border/50 bg-card/30 backdrop-blur" role="banner">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-background text-foreground antialiased">
+      <header
+        className="border-b border-border/60 bg-card/40 backdrop-blur-sm shadow-sm"
+        role="banner"
+      >
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">NetInsight</h1>
-              <p className="text-sm text-muted-foreground">Deep Network Traffic Analysis</p>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                NetInsight
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground/90 font-medium">
+                Deep Network Traffic Analysis
+              </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
               {/* Search Bar */}
               <div className="hidden md:block">
                 <SearchBar
@@ -266,12 +273,12 @@ function App() {
                 >
                   {isConnected ? (
                     <>
-                      <Circle size={8} weight="fill" className="animate-pulse" />
+                      <Circle size={8} fill="currentColor" className="animate-pulse" />
                       Connected
                     </>
                   ) : (
                     <>
-                      <WifiSlash size={12} />
+                      <WifiOff size={12} />
                       Disconnected
                     </>
                   )}
@@ -284,7 +291,7 @@ function App() {
                 onClick={handleToggleCapture}
                 disabled={USE_REAL_API && !isConnected}
               >
-                <Pulse size={16} className={isCapturing ? 'animate-pulse' : ''} />
+                <Activity size={16} className={isCapturing ? 'animate-pulse' : ''} />
                 {isCapturing ? 'Capturing' : 'Paused'}
               </Button>
             </div>
@@ -301,19 +308,19 @@ function App() {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-6" role="main">
+      <main className="container mx-auto px-4 sm:px-6 py-4 sm:py-6" role="main">
         <Tabs defaultValue="dashboard" className="space-y-6" aria-label="Main navigation tabs">
-          <TabsList className="bg-card border border-border/50">
+          <TabsList className="bg-card/60 border border-border/60 overflow-x-auto flex-nowrap shadow-sm">
             <TabsTrigger value="dashboard" className="gap-2">
-              <Pulse size={16} />
+              <Activity size={16} />
               Dashboard
             </TabsTrigger>
             <TabsTrigger value="insights" className="gap-2">
-              <ChartLineUp size={16} />
+              <LineChart size={16} />
               Insights
             </TabsTrigger>
             <TabsTrigger value="advanced" className="gap-2">
-              <Sparkle size={16} />
+              <Sparkles size={16} />
               Advanced
             </TabsTrigger>
             <TabsTrigger value="visualizations" className="gap-2">
@@ -321,11 +328,11 @@ function App() {
               Visualizations
             </TabsTrigger>
             <TabsTrigger value="devices" className="gap-2">
-              <DeviceMobile size={16} />
+              <Smartphone size={16} />
               Devices
             </TabsTrigger>
             <TabsTrigger value="threats" className="gap-2">
-              <Warning size={16} />
+              <AlertTriangle size={16} />
               Threats
               {activeThreats.length > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 text-xs bg-destructive text-destructive-foreground rounded-full">
@@ -334,7 +341,7 @@ function App() {
               )}
             </TabsTrigger>
             <TabsTrigger value="analytics" className="gap-2">
-              <TrendUp size={16} />
+              <TrendingUp size={16} />
               Analytics
             </TabsTrigger>
             <TabsTrigger value="maintenance" className="gap-2">
@@ -344,12 +351,12 @@ function App() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <MetricCard
                 title="Active Connections"
                 value={activeFlowsCount.toString()}
                 subtitle={`${totalFlows} total`}
-                icon={<Graph size={24} />}
+                icon={<Network size={24} />}
                 trend="up"
                 trendValue={
                   useRealApi && summaryStats
@@ -365,7 +372,7 @@ function App() {
                     ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
                     : 'Last 24 hours'
                 }
-                icon={<Pulse size={24} />}
+                icon={<Activity size={24} />}
                 trend="up"
                 trendValue={
                   useRealApi && summaryStats
@@ -377,7 +384,7 @@ function App() {
                 title="Active Devices"
                 value={totalDevices.toString()}
                 subtitle={`${activeDevicesCount} online now`}
-                icon={<DeviceMobile size={24} />}
+                icon={<Smartphone size={24} />}
                 trend="neutral"
               />
               <MetricCard
@@ -398,7 +405,7 @@ function App() {
             {activeThreats.length > 0 && (
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <Warning className="text-destructive" size={20} />
+                  <AlertTriangle className="text-destructive" size={20} />
                   Active Threats
                 </h2>
                 <div className="space-y-2">
@@ -410,7 +417,7 @@ function App() {
             )}
 
             <ErrorBoundary>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <ErrorBoundary>
                   <LazyWrapper>
                     <NetworkGraphLazy

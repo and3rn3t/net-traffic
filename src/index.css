@@ -8,28 +8,31 @@
 }
 
 :root {
-  --background: oklch(0.15 0.03 250);
-  --foreground: oklch(0.92 0.01 250);
-  --card: oklch(0.25 0.02 250);
-  --card-foreground: oklch(0.98 0.01 250);
-  --popover: oklch(0.25 0.02 250);
-  --popover-foreground: oklch(0.98 0.01 250);
-  --primary: oklch(0.35 0.15 250);
-  --primary-foreground: oklch(0.98 0.01 250);
-  --secondary: oklch(0.45 0.08 250);
-  --secondary-foreground: oklch(0.98 0.01 250);
-  --muted: oklch(0.3 0.01 250);
-  --muted-foreground: oklch(0.75 0.01 250);
-  --accent: oklch(0.65 0.15 200);
-  --accent-foreground: oklch(0.15 0.03 250);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.98 0.01 250);
-  --border: oklch(0.35 0.02 250);
-  --input: oklch(0.35 0.02 250);
-  --ring: oklch(0.65 0.15 200);
-  --success: oklch(0.55 0.15 145);
-  --warning: oklch(0.7 0.15 75);
-  --warning-foreground: oklch(0.15 0.03 250);
+  /* Network-friendly dark theme with better contrast */
+  --background: oklch(0.12 0.01 250);
+  --foreground: oklch(0.96 0.005 250);
+  --card: oklch(0.18 0.015 250);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.18 0.015 250);
+  --popover-foreground: oklch(0.96 0.005 250);
+  /* Cyan/blue network accent - professional and tech-focused */
+  --primary: oklch(0.55 0.18 200);
+  --primary-foreground: oklch(0.12 0.01 250);
+  --secondary: oklch(0.25 0.02 250);
+  --secondary-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.22 0.015 250);
+  --muted-foreground: oklch(0.7 0.01 250);
+  /* Teal accent for network data flows */
+  --accent: oklch(0.6 0.15 180);
+  --accent-foreground: oklch(0.12 0.01 250);
+  --destructive: oklch(0.6 0.2 20);
+  --destructive-foreground: oklch(0.96 0.005 250);
+  --border: oklch(0.25 0.02 250);
+  --input: oklch(0.22 0.015 250);
+  --ring: oklch(0.55 0.18 200);
+  --success: oklch(0.6 0.15 150);
+  --warning: oklch(0.75 0.15 70);
+  --warning-foreground: oklch(0.12 0.01 250);
   --radius: 0.5rem;
 }
 
@@ -68,13 +71,31 @@
 body {
   font-family:
     'Inter',
-    system-ui,
     -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'Roboto',
+    'Oxygen',
+    'Ubuntu',
+    'Cantarell',
+    'Fira Sans',
+    'Droid Sans',
+    'Helvetica Neue',
     sans-serif;
+  font-feature-settings:
+    'kern' 1,
+    'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.6;
 }
 
 .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-feature-settings:
+    'liga' 1,
+    'calt' 1;
 }
 
 @keyframes pulse-glow {
@@ -102,4 +123,50 @@ body {
 
 .animate-data-flow {
   animation: data-flow 2s linear infinite;
+}
+
+/* Network-friendly styling improvements */
+@layer base {
+  /* Better text contrast and readability */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  /* Improved code/monospace readability */
+  code,
+  pre,
+  .font-mono {
+    font-variant-ligatures: common-ligatures;
+    font-feature-settings:
+      'liga' 1,
+      'calt' 1;
+  }
+
+  /* Subtle network-themed accent for links and interactive elements */
+  a,
+  button {
+    transition: all 0.2s ease;
+  }
+
+  /* Better focus states for accessibility */
+  *:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* Subtle grid pattern for network aesthetic (optional background) */
+.network-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 20px 20px;
 }

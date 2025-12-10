@@ -3,12 +3,12 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   ShieldCheck,
-  ShieldWarning,
-  CheckCircle,
+  ShieldAlert,
+  CheckCircle2,
   XCircle,
-  Warning,
-  ArrowClockwise,
-} from '@phosphor-icons/react';
+  AlertTriangle,
+  RefreshCw,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NetworkFlow, Device, Threat, ProtocolStats } from '@/lib/types';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
@@ -184,9 +184,9 @@ export function SecurityPosture({
   const getStatusIcon = (status: SecurityMetric['status']) => {
     switch (status) {
       case 'pass':
-        return <CheckCircle size={16} className="text-success" />;
+        return <CheckCircle2 size={16} className="text-success" />;
       case 'warning':
-        return <Warning size={16} className="text-warning" />;
+        return <AlertTriangle size={16} className="text-warning" />;
       case 'fail':
         return <XCircle size={16} className="text-destructive" />;
     }
@@ -212,7 +212,7 @@ export function SecurityPosture({
               {overall >= 80 ? (
                 <ShieldCheck className="text-success" size={20} />
               ) : (
-                <ShieldWarning className="text-warning" size={20} />
+                <ShieldAlert className="text-warning" size={20} />
               )}
               Security Posture
             </CardTitle>
@@ -221,7 +221,7 @@ export function SecurityPosture({
           <div className="flex items-center gap-3">
             {useRealApi && useApi && (
               <Button variant="ghost" size="sm" disabled={isLoading}>
-                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
               </Button>
             )}
             <div className="text-right">
@@ -272,7 +272,7 @@ export function SecurityPosture({
           <div className="flex items-start gap-2 text-sm">
             {overall >= 80 ? (
               <>
-                <CheckCircle size={16} className="text-success mt-0.5 flex-shrink-0" />
+                <CheckCircle2 size={16} className="text-success mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-medium text-success mb-1">Strong Security Posture</div>
                   <div className="text-xs text-muted-foreground">
@@ -283,7 +283,7 @@ export function SecurityPosture({
               </>
             ) : overall >= 60 ? (
               <>
-                <Warning size={16} className="text-warning mt-0.5 flex-shrink-0" />
+                <AlertTriangle size={16} className="text-warning mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-medium text-warning mb-1">Moderate Security Concerns</div>
                   <div className="text-xs text-muted-foreground">

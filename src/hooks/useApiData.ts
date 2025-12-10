@@ -211,19 +211,33 @@ export function useApiData(options: UseApiDataOptions = {}) {
     });
 
     return disconnect;
-  }, [USE_REAL_API, useWebSocket, isConnected]);
+  }, [useWebSocket, isConnected]);
 
-  // Polling for data updates
+  // Polling for data updates (only as fallback when WebSocket is not available)
   useEffect(() => {
     if (!USE_REAL_API || pollingInterval === 0) {
       return;
     }
 
+    // If WebSocket is enabled and connected, reduce polling frequency significantly
+    // or disable it entirely since WebSocket provides real-time updates
+    if (useWebSocket && isConnected) {
+      // Only poll every 60 seconds as a backup health check when WebSocket is active
+      const backupInterval = setInterval(() => {
+        // Silent health check - only update if WebSocket might have missed something
+        fetchAll().catch(() => {
+          // Silently fail - WebSocket will handle updates
+        });
+      }, 60000); // 60 seconds instead of 5
+      return () => clearInterval(backupInterval);
+    }
+
+    // Normal polling when WebSocket is not available
     fetchAll();
     const interval = setInterval(fetchAll, pollingInterval);
 
     return () => clearInterval(interval);
-  }, [fetchAll, pollingInterval]);
+  }, [fetchAll, pollingInterval, useWebSocket, isConnected]);
 
   // Initial fetch
   useEffect(() => {

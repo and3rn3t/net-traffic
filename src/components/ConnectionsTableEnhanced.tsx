@@ -8,7 +8,7 @@ import { formatBytes, formatTimestamp, getThreatColor, getThreatBgColor } from '
 import { motion } from 'framer-motion';
 import { FlowFiltersComponent, FlowFilters } from './FlowFilters';
 import { useFlowFilters } from '@/hooks/useFlowFilters';
-import { Download } from '@phosphor-icons/react';
+import { Download } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import { ConnectionsTableVirtualized } from './ConnectionsTableVirtualized';
@@ -82,7 +82,7 @@ export function ConnectionsTableEnhanced({
   };
 
   return (
-    <Card className="p-4 border border-border/50">
+    <Card className="p-4 border border-border/60 bg-card/50 shadow-sm">
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-lg font-semibold">Network Connections</h3>
@@ -160,7 +160,7 @@ export function ConnectionsTableEnhanced({
             height={400}
           />
         ) : (
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="h-[300px] sm:h-[400px]">
             <div className="space-y-2">
               {displayFlows.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">

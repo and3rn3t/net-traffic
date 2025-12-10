@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Device } from '@/lib/types';
 import { formatBytes, formatTimestamp, getDeviceIcon } from '@/lib/formatters';
-import { PencilSimple, Check, X, ChartLineUp, ArrowsClockwise } from '@phosphor-icons/react';
+import { Pencil, Check, X, TrendingUp, RefreshCw } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -167,13 +167,13 @@ export function DevicesListEnhanced({
                 }}
                 title="Refresh devices from API"
               >
-                <ArrowsClockwise size={16} />
+                <RefreshCw size={16} />
               </Button>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[500px]">
+          <ScrollArea className="h-[400px] sm:h-[500px]">
             <div className="space-y-2">
               {devices.map((device, idx) => {
                 const threatPercent = Math.min(device.threatScore, 100);
@@ -216,7 +216,7 @@ export function DevicesListEnhanced({
                                 }}
                                 title="View Analytics"
                               >
-                                <ChartLineUp size={14} />
+                                <TrendingUp size={14} />
                               </Button>
                             )}
                             <Button
@@ -226,7 +226,7 @@ export function DevicesListEnhanced({
                               onClick={() => handleEditClick(device)}
                               title="Edit Device"
                             >
-                              <PencilSimple size={14} />
+                              <Pencil size={14} />
                             </Button>
                           </div>
                         </div>

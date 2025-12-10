@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Keyboard } from '@phosphor-icons/react';
+import { Keyboard } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export function KeyboardShortcuts() {

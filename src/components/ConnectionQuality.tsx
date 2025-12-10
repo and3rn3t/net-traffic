@@ -3,7 +3,7 @@ import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Warning, XCircle, Gauge, ArrowClockwise } from '@phosphor-icons/react';
+import { CheckCircle2, AlertTriangle, XCircle, Gauge, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
@@ -153,19 +153,19 @@ export const ConnectionQuality = memo(function ConnectionQuality({
       return {
         label: 'Excellent',
         variant: 'default' as const,
-        icon: <CheckCircle size={16} className="text-success" />,
+        icon: <CheckCircle2 size={16} className="text-success" />,
       };
     if (score >= 60)
       return {
         label: 'Good',
         variant: 'secondary' as const,
-        icon: <CheckCircle size={16} className="text-success" />,
+        icon: <CheckCircle2 size={16} className="text-success" />,
       };
     if (score >= 40)
       return {
         label: 'Fair',
         variant: 'outline' as const,
-        icon: <Warning size={16} className="text-warning" />,
+        icon: <AlertTriangle size={16} className="text-warning" />,
       };
     return {
       label: 'Poor',
@@ -215,7 +215,7 @@ export const ConnectionQuality = memo(function ConnectionQuality({
               onClick={() => fetchConnectionQualitySummary(hours, deviceId)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

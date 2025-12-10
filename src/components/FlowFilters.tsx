@@ -21,7 +21,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Funnel, X } from '@phosphor-icons/react';
+import { Filter, X } from 'lucide-react';
 
 export interface FlowFilters {
   protocols: string[];
@@ -231,7 +231,7 @@ export function FlowFiltersComponent({
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
-          <Funnel size={16} />
+          <Filter size={16} />
           Filters
           {activeCount > 0 && (
             <Badge variant="secondary" className="ml-1 px-1.5 py-0.5 text-xs">
@@ -715,7 +715,7 @@ export function FlowFiltersComponent({
                     className="w-full gap-2"
                     onClick={() => setShowSavePreset(true)}
                   >
-                    <Funnel size={16} />
+                    <Filter size={16} />
                     Save Filter Preset
                   </Button>
                 ) : (
@@ -758,7 +758,7 @@ export function FlowFiltersComponent({
               Clear All
             </Button>
             <Button onClick={handleApply} className="flex-1 gap-2">
-              <Funnel size={16} />
+              <Filter size={16} />
               Apply Filters ({activeCount})
             </Button>
           </div>

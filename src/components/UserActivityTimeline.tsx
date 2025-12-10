@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarBlank, ArrowClockwise } from '@phosphor-icons/react';
+import { Calendar, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
@@ -77,7 +77,7 @@ export function UserActivityTimeline({
           <CardDescription>Network activity by hour and day of week</CardDescription>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[250px] sm:h-[350px] lg:h-[400px] w-full" />
         </CardContent>
       </Card>
     );
@@ -101,7 +101,7 @@ export function UserActivityTimeline({
               onClick={() => fetchBandwidthTimeline(hours, 60)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

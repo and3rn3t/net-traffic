@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Gauge, Pulse, Warning, TrendUp } from '@phosphor-icons/react';
+import { Gauge, Activity, AlertTriangle, TrendingUp } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import {
   LineChart,
@@ -251,7 +251,7 @@ export function NetworkQualityDashboard({ hours = 24, deviceId }: NetworkQuality
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Pulse size={20} />
+              <Activity size={20} />
               Connection Quality Distribution
             </CardTitle>
             <CardDescription>Breakdown of connection quality across all flows</CardDescription>
@@ -317,7 +317,7 @@ export function NetworkQualityDashboard({ hours = 24, deviceId }: NetworkQuality
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendUp size={20} />
+              <TrendingUp size={20} />
               Round-Trip Time (RTT) Trends
             </CardTitle>
             <CardDescription>Average RTT over time</CardDescription>
@@ -375,7 +375,7 @@ export function NetworkQualityDashboard({ hours = 24, deviceId }: NetworkQuality
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Warning size={20} />
+                <AlertTriangle size={20} />
                 Retransmission Statistics
               </CardTitle>
             </CardHeader>

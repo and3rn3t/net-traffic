@@ -3,7 +3,7 @@
  */
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Warning, ArrowClockwise, House } from '@phosphor-icons/react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { getErrorInfo, ErrorInfo } from '@/utils/errorMessages';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -37,7 +37,7 @@ export function ErrorDisplay({
     <Card className={`border ${getSeverityStyles()}`}>
       <CardContent className="p-4">
         <Alert variant={errorInfo.severity === 'error' ? 'destructive' : 'default'}>
-          <Warning className="h-4 w-4" />
+          <AlertTriangle className="h-4 w-4" />
           <AlertTitle>{errorInfo.title}</AlertTitle>
           <AlertDescription className="mt-2">
             <p>{errorInfo.description}</p>
@@ -67,9 +67,9 @@ export function ErrorDisplay({
                     className="gap-2"
                   >
                     {action.label === 'Retry' || action.label === 'Retry Connection' ? (
-                      <ArrowClockwise size={14} />
+                      <RefreshCw size={14} />
                     ) : action.label === 'Go Home' ? (
-                      <House size={14} />
+                      <Home size={14} />
                     ) : null}
                     {action.label}
                   </Button>

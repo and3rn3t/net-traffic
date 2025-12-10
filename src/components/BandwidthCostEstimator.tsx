@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { CurrencyDollar, TrendUp, TrendDown, Warning, ArrowClockwise } from '@phosphor-icons/react';
+import { DollarSign, TrendingUp, TrendingDown, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NetworkFlow } from '@/lib/types';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
@@ -96,7 +96,7 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CurrencyDollar size={20} />
+            <DollarSign size={20} />
             Bandwidth Cost Estimator
           </CardTitle>
           <CardDescription>Monthly cost projection based on current usage</CardDescription>
@@ -130,7 +130,7 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <CurrencyDollar size={20} />
+              <DollarSign size={20} />
               Bandwidth Cost Estimator
             </CardTitle>
             <CardDescription>Monthly cost projection based on current usage</CardDescription>
@@ -143,7 +143,7 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
                 onClick={() => fetchSummaryStats()}
                 disabled={isLoading}
               >
-                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
               </Button>
             )}
             <Badge className={tierInfo.color}>{tierInfo.label}</Badge>
@@ -173,12 +173,12 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
             <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               {costs.monthlyCost > 50 ? (
                 <>
-                  <TrendUp size={12} className="text-destructive" />
+                  <TrendingUp size={12} className="text-destructive" />
                   <span className="text-destructive">Above budget</span>
                 </>
               ) : (
                 <>
-                  <TrendDown size={12} className="text-success" />
+                  <TrendingDown size={12} className="text-success" />
                   <span className="text-success">Within budget</span>
                 </>
               )}
@@ -196,7 +196,7 @@ export const BandwidthCostEstimator = memo(function BandwidthCostEstimator({
           <Progress value={usagePercent} className="h-2" />
           {isNearLimit && (
             <div className="flex items-center gap-2 text-xs text-warning mt-2">
-              <Warning size={14} />
+              <AlertTriangle size={14} />
               <span>Approaching tier limit - consider upgrading</span>
             </div>
           )}

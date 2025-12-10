@@ -17,18 +17,17 @@ import {
 } from 'recharts';
 import {
   Heart,
-  Heartbeat,
-  WifiSlash,
-  CheckCircle,
+  Activity,
+  WifiOff,
+  CheckCircle2,
   Clock,
-  Pulse,
-  Warning,
-  ArrowClockwise,
+  AlertTriangle,
+  RefreshCw,
   Database,
   Network,
   Shield,
-  ChartLine,
-} from '@phosphor-icons/react';
+  TrendingUp,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatDistanceToNow } from 'date-fns';
@@ -327,21 +326,21 @@ export function ConnectionHealthMonitor({
       case 'healthy':
         return (
           <Badge className="bg-success/20 text-success border-success/50">
-            <CheckCircle size={14} className="mr-1" />
+            <CheckCircle2 size={14} className="mr-1" />
             Healthy
           </Badge>
         );
       case 'degraded':
         return (
           <Badge className="bg-warning/20 text-warning border-warning/50">
-            <Warning size={14} className="mr-1" />
+            <AlertTriangle size={14} className="mr-1" />
             Degraded
           </Badge>
         );
       case 'offline':
         return (
           <Badge variant="destructive">
-            <WifiSlash size={14} className="mr-1" />
+            <WifiOff size={14} className="mr-1" />
             Offline
           </Badge>
         );
@@ -355,11 +354,11 @@ export function ConnectionHealthMonitor({
           <div>
             <CardTitle className="flex items-center gap-2">
               {overallStatus === 'healthy' ? (
-                <Heartbeat size={20} className="text-success animate-pulse" />
+                <Activity size={20} className="text-success animate-pulse" />
               ) : overallStatus === 'degraded' ? (
                 <Heart size={20} className="text-warning" />
               ) : (
-                <WifiSlash size={20} className="text-destructive" />
+                <WifiOff size={20} className="text-destructive" />
               )}
               Connection Health
             </CardTitle>
@@ -374,7 +373,7 @@ export function ConnectionHealthMonitor({
               disabled={isChecking || !isConnected}
               className="gap-2"
             >
-              <ArrowClockwise size={16} className={isChecking ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isChecking ? 'animate-spin' : ''} />
               Refresh
             </Button>
           </div>
@@ -384,7 +383,7 @@ export function ConnectionHealthMonitor({
         {/* Status Alert */}
         {overallStatus === 'offline' && error && (
           <Alert variant="destructive">
-            <WifiSlash className="h-4 w-4" />
+            <WifiOff className="h-4 w-4" />
             <AlertDescription>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -408,7 +407,7 @@ export function ConnectionHealthMonitor({
 
         {overallStatus === 'degraded' && (
           <Alert>
-            <Warning className="h-4 w-4" />
+            <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               Connection is experiencing high latency. Response times may be slower than usual.
             </AlertDescription>
@@ -461,7 +460,7 @@ export function ConnectionHealthMonitor({
                 </div>
               </div>
               <div className="flex items-center gap-2 p-2 rounded border border-border/50">
-                <ChartLine
+                <TrendingUp
                   size={18}
                   className={healthStatus.services.analytics ? 'text-success' : 'text-destructive'}
                 />
@@ -474,7 +473,7 @@ export function ConnectionHealthMonitor({
               </div>
               {healthStatus.websocket && (
                 <div className="flex items-center gap-2 p-2 rounded border border-border/50">
-                  <Pulse
+                  <Activity
                     size={18}
                     className={
                       healthStatus.websocket.active_connections > 0
@@ -543,7 +542,7 @@ export function ConnectionHealthMonitor({
               <p className="text-lg font-semibold flex items-center gap-1">
                 {healthStatus.capture_running ? (
                   <>
-                    <Pulse size={16} className="text-success animate-pulse" />
+                    <Activity size={16} className="text-success animate-pulse" />
                     Running
                   </>
                 ) : (
@@ -568,7 +567,7 @@ export function ConnectionHealthMonitor({
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
-            <WifiSlash size={48} className="mx-auto mb-2 opacity-50" />
+            <WifiOff size={48} className="mx-auto mb-2 opacity-50" />
             <p>Backend unavailable</p>
             <p className="text-xs mt-1">Cannot connect to health check endpoint</p>
           </div>

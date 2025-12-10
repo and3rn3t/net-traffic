@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AppWindow, ChartBar, TrendUp, DeviceMobile } from '@phosphor-icons/react';
+import { Layout, BarChart3, TrendingUp, Smartphone } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import {
   BarChart,
@@ -106,7 +106,7 @@ export function ApplicationUsageDashboard({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <AppWindow size={24} />
+            <Layout size={24} />
             Application Usage Analytics
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -200,7 +200,7 @@ export function ApplicationUsageDashboard({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <ChartBar size={20} />
+                <BarChart3 size={20} />
                 Top Applications by Traffic
               </CardTitle>
               <CardDescription>Applications sorted by total bytes transferred</CardDescription>
@@ -225,7 +225,7 @@ export function ApplicationUsageDashboard({
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <DeviceMobile size={20} />
+                <Smartphone size={20} />
                 Application Distribution
               </CardTitle>
               <CardDescription>Traffic percentage by application</CardDescription>
@@ -319,7 +319,7 @@ export function ApplicationUsageDashboard({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendUp size={20} />
+              <TrendingUp size={20} />
               Application Usage Trends
             </CardTitle>
             <CardDescription>

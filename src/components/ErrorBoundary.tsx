@@ -6,7 +6,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Warning, ArrowClockwise, House, Bug } from '@phosphor-icons/react';
+import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -120,7 +120,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <Card className="m-4 border-destructive/50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
-              <Warning size={20} />
+              <AlertTriangle size={20} />
               Component Error
             </CardTitle>
             <CardDescription>
@@ -129,7 +129,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert variant="destructive">
-              <Warning className="h-4 w-4" />
+              <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Error Details</AlertTitle>
               <AlertDescription>
                 <p className="font-mono text-sm mt-2">{error?.message || 'Unknown error'}</p>
@@ -161,15 +161,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <div className="flex flex-wrap gap-2">
               <Button onClick={this.resetErrorBoundary} variant="default" className="gap-2">
-                <ArrowClockwise size={16} />
+                <RefreshCw size={16} />
                 Try Again
               </Button>
               <Button onClick={this.handleReload} variant="outline" className="gap-2">
-                <ArrowClockwise size={16} />
+                <RefreshCw size={16} />
                 Reload Page
               </Button>
               <Button onClick={this.handleGoHome} variant="outline" className="gap-2">
-                <House size={16} />
+                <Home size={16} />
                 Go Home
               </Button>
               {isDevelopment && (

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lightning } from '@phosphor-icons/react';
+import { Zap } from 'lucide-react';
 import { NetworkFlow } from '@/lib/types';
 
 interface PacketBurstProps {
@@ -131,7 +131,7 @@ export function PacketBurst({ flows, useApi = false }: PacketBurstProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Lightning className="text-accent" size={20} />
+          <Zap className="text-accent" size={20} />
           Packet Burst Activity
         </CardTitle>
         <p className="text-sm text-muted-foreground">
@@ -143,12 +143,12 @@ export function PacketBurst({ flows, useApi = false }: PacketBurstProps) {
           <canvas
             ref={canvasRef}
             className="w-full rounded-lg bg-background/50"
-            style={{ height: '300px' }}
+            style={{ height: 'clamp(200px, 35vh, 300px)' }}
           />
           {flows.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <Lightning size={48} className="text-muted-foreground mx-auto mb-3 opacity-30" />
+                <Zap size={48} className="text-muted-foreground mx-auto mb-3 opacity-30" />
                 <p className="text-muted-foreground text-sm">Waiting for packets...</p>
               </div>
             </div>

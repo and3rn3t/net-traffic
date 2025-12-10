@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FlowArrow, ArrowClockwise } from '@phosphor-icons/react';
+import { ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NetworkFlow, Device, ProtocolStats } from '@/lib/types';
 import { formatBytesShort } from '@/lib/formatters';
@@ -299,7 +299,7 @@ export function ProtocolSankey({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FlowArrow className="text-accent" size={20} />
+            <ArrowRightLeft className="text-accent" size={20} />
             Protocol Flow Diagram
           </CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -307,7 +307,7 @@ export function ProtocolSankey({
           </p>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[250px] sm:h-[350px] lg:h-[400px] w-full" />
         </CardContent>
       </Card>
     );
@@ -319,7 +319,7 @@ export function ProtocolSankey({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <FlowArrow className="text-accent" size={20} />
+              <ArrowRightLeft className="text-accent" size={20} />
               Protocol Flow Diagram
             </CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -333,7 +333,7 @@ export function ProtocolSankey({
               onClick={() => fetchTopDevices(24, 10)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>
@@ -343,7 +343,7 @@ export function ProtocolSankey({
           <canvas
             ref={canvasRef}
             className="w-full rounded-lg bg-background/50"
-            style={{ height: '400px' }}
+            style={{ height: 'clamp(250px, 40vh, 400px)' }}
           />
           <div className="absolute top-4 left-6 flex flex-col gap-2">
             <span className="text-xs font-semibold text-muted-foreground">DEVICES</span>

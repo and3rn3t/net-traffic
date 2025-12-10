@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartPolar, ArrowClockwise } from '@phosphor-icons/react';
+import { Radar, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Device } from '@/lib/types';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
@@ -193,7 +193,7 @@ export function RadarChart({ devices, useApi = false }: RadarChartProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ChartPolar className="text-accent" size={20} />
+            <Radar className="text-accent" size={20} />
             Network Health Radar
           </CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -201,7 +201,7 @@ export function RadarChart({ devices, useApi = false }: RadarChartProps) {
           </p>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[400px] w-full" />
+          <Skeleton className="h-[250px] sm:h-[350px] lg:h-[400px] w-full" />
         </CardContent>
       </Card>
     );
@@ -213,7 +213,7 @@ export function RadarChart({ devices, useApi = false }: RadarChartProps) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <ChartPolar className="text-accent" size={20} />
+              <Radar className="text-accent" size={20} />
               Network Health Radar
             </CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -230,13 +230,17 @@ export function RadarChart({ devices, useApi = false }: RadarChartProps) {
               }}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>
       </CardHeader>
       <CardContent>
-        <canvas ref={canvasRef} className="w-full" style={{ height: '400px' }} />
+        <canvas
+          ref={canvasRef}
+          className="w-full"
+          style={{ height: 'clamp(250px, 40vh, 400px)' }}
+        />
       </CardContent>
     </Card>
   );

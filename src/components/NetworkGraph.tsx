@@ -163,13 +163,16 @@ export function NetworkGraph({ flows, devices, useApi = false }: NetworkGraphPro
   }, [flows, devices]);
 
   return (
-    <Card className="p-4 border border-border/50">
-      <div className="space-y-4">
+    <Card className="p-3 sm:p-4 border border-border/60 bg-card/50 shadow-sm">
+      <div className="space-y-3 sm:space-y-4">
         <div>
-          <h3 className="text-lg font-semibold">Network Topology</h3>
-          <p className="text-sm text-muted-foreground">Real-time connection graph</p>
+          <h3 className="text-base sm:text-lg font-semibold">Network Topology</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">Real-time connection graph</p>
         </div>
-        <svg ref={svgRef} className="w-full h-[400px] bg-background/50 rounded-lg" />
+        <svg
+          ref={svgRef}
+          className="w-full h-[250px] sm:h-[350px] lg:h-[400px] bg-background/50 rounded-lg"
+        />
       </div>
     </Card>
   );

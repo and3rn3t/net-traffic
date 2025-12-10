@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
-import { ChartLine, ArrowClockwise } from '@phosphor-icons/react';
+import { TrendingUp, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AreaChart,
@@ -92,7 +92,7 @@ export function BandwidthPatterns({ flows, hours = 24, useApi = false }: Bandwid
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ChartLine size={20} />
+            <TrendingUp size={20} />
             Bandwidth Patterns
           </CardTitle>
           <CardDescription>Upload vs download traffic throughout the day</CardDescription>
@@ -110,7 +110,7 @@ export function BandwidthPatterns({ flows, hours = 24, useApi = false }: Bandwid
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <ChartLine size={20} />
+              <TrendingUp size={20} />
               Bandwidth Patterns
             </CardTitle>
             <CardDescription>Upload vs download traffic throughout the day</CardDescription>
@@ -122,7 +122,7 @@ export function BandwidthPatterns({ flows, hours = 24, useApi = false }: Bandwid
               onClick={() => fetchBandwidthTimeline(hours, 60)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

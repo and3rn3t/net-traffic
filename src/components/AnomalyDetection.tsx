@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Warning, CheckCircle, Info, ArrowClockwise } from '@phosphor-icons/react';
+import { AlertTriangle, CheckCircle2, Info, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NetworkFlow, Device, Threat } from '@/lib/types';
 import { NETWORK_THRESHOLDS, DATA_THRESHOLDS } from '@/lib/constants';
@@ -204,7 +204,7 @@ export const AnomalyDetection = memo(function AnomalyDetection({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Warning size={20} />
+            <AlertTriangle size={20} />
             Anomaly Detection
           </CardTitle>
           <CardDescription>AI-powered behavioral analysis of network patterns</CardDescription>
@@ -255,9 +255,12 @@ export const AnomalyDetection = memo(function AnomalyDetection({
           <div>
             <CardTitle className="flex items-center gap-2">
               {anomalies.length === 0 ? (
-                <CheckCircle className="text-success" size={20} />
+                <CheckCircle2 className="text-success" size={20} />
               ) : (
-                <Warning className={getSeverityColor(anomalies[0]?.severity || 'low')} size={20} />
+                <AlertTriangle
+                  className={getSeverityColor(anomalies[0]?.severity || 'low')}
+                  size={20}
+                />
               )}
               Anomaly Detection
             </CardTitle>
@@ -266,7 +269,7 @@ export const AnomalyDetection = memo(function AnomalyDetection({
           <div className="flex items-center gap-3">
             {useRealApi && useApi && (
               <Button variant="ghost" size="sm" disabled={isLoading}>
-                <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+                <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
               </Button>
             )}
             <div className="text-right">
@@ -281,7 +284,7 @@ export const AnomalyDetection = memo(function AnomalyDetection({
       <CardContent>
         {anomalies.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <CheckCircle size={48} className="text-success mb-3" />
+            <CheckCircle2 size={48} className="text-success mb-3" />
             <p className="text-sm font-medium">No Anomalies Detected</p>
             <p className="text-xs text-muted-foreground mt-1">
               All network patterns within normal parameters

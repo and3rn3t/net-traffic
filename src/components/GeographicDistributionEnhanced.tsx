@@ -6,7 +6,7 @@ import { NetworkFlow } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
 import { Progress } from '@/components/ui/progress';
-import { Globe, ArrowClockwise } from '@phosphor-icons/react';
+import { Globe, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
@@ -75,7 +75,7 @@ export function GeographicDistributionEnhanced({
               onClick={() => fetchGeographicStats(hours)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

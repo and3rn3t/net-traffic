@@ -3,7 +3,7 @@ import { NetworkFlow, Device } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort } from '@/lib/formatters';
 import { Badge } from '@/components/ui/badge';
-import { ChartBar, TrendUp, ArrowClockwise } from '@phosphor-icons/react';
+import { BarChart3, TrendingUp, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   BarChart,
@@ -131,7 +131,7 @@ export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ChartBar size={20} />
+            <BarChart3 size={20} />
             Peak Usage Analysis
           </CardTitle>
           <CardDescription>
@@ -151,7 +151,7 @@ export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <ChartBar size={20} />
+              <BarChart3 size={20} />
               Peak Usage Analysis
             </CardTitle>
             <CardDescription>
@@ -165,7 +165,7 @@ export const PeakUsageAnalysis = memo(function PeakUsageAnalysis({
               onClick={() => fetchBandwidthTimeline(hours, 60)}
               disabled={isLoading}
             >
-              <ArrowClockwise size={16} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </Button>
           )}
         </div>

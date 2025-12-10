@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { NetworkFlow, Device } from '@/lib/types';
-import { Pulse } from '@phosphor-icons/react';
+import { Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface FlowPipeVisualizationProps {
@@ -266,7 +266,7 @@ export function FlowPipeVisualization({
     <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Pulse className="text-accent" size={20} />
+          <Activity className="text-accent" size={20} />
           Network Flow Pipes
         </CardTitle>
         <p className="text-sm text-muted-foreground">
@@ -274,7 +274,7 @@ export function FlowPipeVisualization({
         </p>
       </CardHeader>
       <CardContent>
-        <div className="relative w-full" style={{ height: '500px' }}>
+        <div className="relative w-full" style={{ height: 'clamp(300px, 50vh, 500px)' }}>
           <canvas ref={canvasRef} className="w-full h-full" style={{ background: 'transparent' }} />
 
           <AnimatePresence>
@@ -286,7 +286,7 @@ export function FlowPipeVisualization({
                 className="absolute inset-0 flex items-center justify-center"
               >
                 <div className="text-center">
-                  <Pulse size={48} className="text-muted-foreground mx-auto mb-3 opacity-30" />
+                  <Activity size={48} className="text-muted-foreground mx-auto mb-3 opacity-30" />
                   <p className="text-muted-foreground">Waiting for network traffic...</p>
                 </div>
               </motion.div>

@@ -4,7 +4,7 @@
  */
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { WifiSlash, Database, Clock } from '@phosphor-icons/react';
+import { WifiOff, Database, Clock } from 'lucide-react';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -28,7 +28,7 @@ export function OfflineIndicator({ showWhenOnline = false }: OfflineIndicatorPro
 
   return (
     <Alert variant={isOnline ? 'default' : 'destructive'} className="m-4">
-      <WifiSlash className="h-4 w-4" />
+      <WifiOff className="h-4 w-4" />
       <AlertDescription>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

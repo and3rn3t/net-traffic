@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DownloadSimple, FileCsv, FileText } from '@phosphor-icons/react';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { NetworkFlow, Device, Threat } from '@/lib/types';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api';
@@ -369,7 +369,7 @@ End of Report
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <DownloadSimple size={20} />
+            <Download size={20} />
             Export & Reports
           </CardTitle>
           <CardDescription>
@@ -384,7 +384,7 @@ End of Report
               className="justify-start gap-2"
               onClick={() => (USE_REAL_API ? setShowExportDialog(true) : handleExportFlows())}
             >
-              <FileCsv size={18} />
+              <FileSpreadsheet size={18} />
               <div className="text-left">
                 <div className="font-medium">Export Flows</div>
                 <div className="text-xs text-muted-foreground">{flows.length} records</div>
@@ -392,7 +392,7 @@ End of Report
             </Button>
 
             <Button variant="outline" className="justify-start gap-2" onClick={handleExportDevices}>
-              <FileCsv size={18} />
+              <FileSpreadsheet size={18} />
               <div className="text-left">
                 <div className="font-medium">Export Devices</div>
                 <div className="text-xs text-muted-foreground">{devices.length} records</div>
@@ -400,7 +400,7 @@ End of Report
             </Button>
 
             <Button variant="outline" className="justify-start gap-2" onClick={handleExportThreats}>
-              <FileCsv size={18} />
+              <FileSpreadsheet size={18} />
               <div className="text-left">
                 <div className="font-medium">Export Threats</div>
                 <div className="text-xs text-muted-foreground">{threats.length} records</div>
@@ -510,7 +510,7 @@ End of Report
               Cancel
             </Button>
             <Button onClick={handleExportFlowsAPI} disabled={isExporting}>
-              <DownloadSimple size={16} className="mr-2" />
+              <Download size={16} className="mr-2" />
               {isExporting ? 'Exporting...' : 'Export'}
             </Button>
           </DialogFooter>

@@ -1,5 +1,5 @@
 import { useTheme } from 'next-themes';
-import { Moon, Sun, Monitor } from '@phosphor-icons/react';
+import { Moon, Sun, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,

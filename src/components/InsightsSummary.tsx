@@ -4,15 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort, formatDuration } from '@/lib/formatters';
 import { Badge } from '@/components/ui/badge';
 import {
-  TrendUp,
-  TrendDown,
+  TrendingUp,
+  TrendingDown,
   Clock,
-  DeviceMobile,
+  Smartphone,
   Globe,
-  ShieldWarning,
-  Clock as ClockIcon,
-  ArrowsClockwise,
-} from '@phosphor-icons/react';
+  ShieldAlert,
+  RefreshCw,
+} from 'lucide-react';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
 
@@ -203,7 +202,7 @@ export function InsightsSummary({ devices, flows, threats, useApi = false }: Ins
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <ArrowsClockwise size={14} />
+            <RefreshCw size={14} />
             Dominant Protocol
           </CardTitle>
         </CardHeader>
@@ -218,7 +217,7 @@ export function InsightsSummary({ devices, flows, threats, useApi = false }: Ins
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <ClockIcon size={14} />
+            <Clock size={14} />
             Busiest Hour
           </CardTitle>
         </CardHeader>
@@ -245,7 +244,7 @@ export function InsightsSummary({ devices, flows, threats, useApi = false }: Ins
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <ShieldWarning size={14} />
+            <ShieldAlert size={14} />
             Threat Status
           </CardTitle>
         </CardHeader>
