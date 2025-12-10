@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Device, NetworkFlow, Threat } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatBytesShort, formatDuration } from '@/lib/formatters';
-import { Clock, Globe, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Clock, Globe, ShieldAlert, RefreshCw, Smartphone } from 'lucide-react';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
 
@@ -163,7 +163,7 @@ export function InsightsSummary({ devices, flows, threats, useApi = false }: Ins
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <DeviceMobile size={14} />
+            <Smartphone size={14} />
             Most Active Device
           </CardTitle>
         </CardHeader>

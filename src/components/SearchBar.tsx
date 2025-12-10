@@ -127,7 +127,7 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
           aria-label="Search"
           aria-keyshortcuts="Meta+K Control+K"
         />
-        <MagnifyingGlass
+        <Search
           size={18}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
           aria-hidden="true"

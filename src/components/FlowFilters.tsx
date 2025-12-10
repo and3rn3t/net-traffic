@@ -243,7 +243,7 @@ export function FlowFiltersComponent({
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Funnel size={20} />
+            <Filter size={20} />
             Flow Filters
           </SheetTitle>
           <SheetDescription>
