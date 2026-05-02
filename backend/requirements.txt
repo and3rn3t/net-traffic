@@ -17,7 +17,7 @@ geoip2==4.7.0
 maxminddb>=2.3.0,<3.0.0
 dnspython==2.4.2
 # Authentication dependencies
-python-jose[cryptography]==3.3.0
+python-jose[cryptography]==3.4.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.1
 # Caching (Redis) - for future implementation
