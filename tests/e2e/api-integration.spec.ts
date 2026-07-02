@@ -113,7 +113,7 @@ test.describe('API Integration', () => {
     await waitForDataLoad(page);
 
     // Should show device data - look for device list or device content
-    const deviceContent = page.locator('text=/device/i, [role="table"], table').first();
+    const deviceContent = page.locator('[role="table"], table').first();
     await expect(deviceContent).toBeVisible({ timeout: 10000 });
   });
 
