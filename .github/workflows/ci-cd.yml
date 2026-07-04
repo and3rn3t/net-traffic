@@ -214,13 +214,19 @@ jobs:
           # Deploy using wrangler
           wrangler pages deploy dist \
             --project-name=net-traffic \
-            --branch=${{ github.ref_name }} \
-            --commit-hash=${{ github.sha }} \
-            --commit-message="${{ github.event.head_commit.message || 'Deploy from GitHub Actions' }}" \
+            --branch="$BRANCH_NAME" \
+            --commit-hash="$COMMIT_SHA" \
+            --commit-message="$COMMIT_MESSAGE" \
             --commit-dirty=false
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Untrusted values (commit message can contain shell metacharacters)
+          # go through env: rather than being interpolated directly into the
+          # script, so they can't break out of the quoted arguments.
+          BRANCH_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Deploy from GitHub Actions' }}
 
       - name: Verify Deployment
         run: |
