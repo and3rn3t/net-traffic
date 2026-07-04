@@ -1,5 +1,6 @@
 {
   "name": "net-insight",
+  "description": "Unifying network information on a Raspberry Pi 5.",
   "private": true,
   "version": "1.0.0",
   "type": "module",
