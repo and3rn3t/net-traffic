@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatBytes } from '@/lib/formatters';
 import { useApiData } from '@/hooks/useApiData';
-import { useApiConfig } from '@/hooks/useApiConfig';
+import { useApiConfig, API_CONFIG } from '@/hooks/useApiConfig';
 
 interface MaintenancePanelProps {
   readonly className?: string;
@@ -71,7 +71,7 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('csv');
   const [customRetentionDays, setCustomRetentionDays] = useState<string>('30');
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
   const { useRealApi } = useApiConfig();
   const { isCapturing, refresh } = useApiData({
     pollingInterval: 0,

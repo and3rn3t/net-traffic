@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Globe, MapPin, Gauge, Network, ArrowRight, Activity, Lock, Code } from 'lucide-react';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 
 interface FlowDetailViewProps {
   flow: NetworkFlow | null;
@@ -45,7 +46,7 @@ export const FlowDetailView = memo(function FlowDetailView({
 }: FlowDetailViewProps) {
   const [fetchedFlow, setFetchedFlow] = useState<NetworkFlow | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   // Fetch fresh flow data from API when opened
   useEffect(() => {

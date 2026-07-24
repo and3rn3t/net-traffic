@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatBytes } from '@/lib/formatters';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 
 interface ApplicationUsageDashboardProps {
   hours?: number;
@@ -53,7 +54,7 @@ export function ApplicationUsageDashboard({
   const [isLoading, setIsLoading] = useState(true);
   const [selectedHours, setSelectedHours] = useState(hours);
   const [selectedApplication, setSelectedApplication] = useState<string>('all');
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   useEffect(() => {
     if (!USE_REAL_API) {

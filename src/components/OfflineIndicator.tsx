@@ -13,14 +13,7 @@ interface OfflineIndicatorProps {
 }
 
 export function OfflineIndicator({ showWhenOnline = false }: OfflineIndicatorProps) {
-  const { isOnline, lastOnlineTime } = useOfflineDetection({
-    onOnline: () => {
-      console.log('Connection restored');
-    },
-    onOffline: () => {
-      console.log('Connection lost');
-    },
-  });
+  const { isOnline, lastOnlineTime } = useOfflineDetection();
 
   if (isOnline && !showWhenOnline) {
     return null;

@@ -30,9 +30,7 @@ import { formatBytes, formatTimestamp, getDeviceIcon } from '@/lib/formatters';
 import { Pencil, Check, X, TrendingUp, RefreshCw } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
-import { DeviceAnalyticsView } from './DeviceAnalyticsView';
-
+import { API_CONFIG } from '@/hooks/useApiConfig';
 interface DevicesListEnhancedProps {
   readonly devices: Device[];
   readonly onDeviceUpdate?: (device: Device) => void;
@@ -65,7 +63,7 @@ export function DevicesListEnhanced({
   const [isSaving, setIsSaving] = useState(false);
   const [analyticsDevice, setAnalyticsDevice] = useState<Device | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   const handleEditClick = (device: Device) => {
     setEditingDevice(device);

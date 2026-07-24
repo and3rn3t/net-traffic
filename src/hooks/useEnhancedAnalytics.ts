@@ -3,8 +3,9 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 
-const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
 interface SummaryStats {
   total_devices: number;

@@ -6,17 +6,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats } from '@/lib/types';
 import { toast } from 'sonner';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 
-const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
 interface UseApiDataOptions {
   pollingInterval?: number; // ms, 0 to disable
   useWebSocket?: boolean;
-  maxRetries?: number; // Maximum number of retry attempts (default: 3)
 }
 
 export function useApiData(options: UseApiDataOptions = {}) {
-  const { pollingInterval = 5000, useWebSocket = true, maxRetries: maxRetriesOption = 3 } = options;
+  const { pollingInterval = 5000, useWebSocket = true } = options;
 
   const [devices, setDevices] = useState<Device[]>([]);
   const [flows, setFlows] = useState<NetworkFlow[]>([]);
@@ -28,102 +28,56 @@ export function useApiData(options: UseApiDataOptions = {}) {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRetrying, setIsRetrying] = useState(false);
 
-  const maxRetries = maxRetriesOption;
+  // Fetch all data (ApiClient handles internal retries on 5xx errors)
+  const fetchAll = useCallback(async () => {
+    if (!USE_REAL_API) {
+      setIsLoading(false);
+      return;
+    }
 
-  // Fetch all data with automatic retry
-  const fetchAll = useCallback(
-    async (attemptNum = 0) => {
-      if (!USE_REAL_API) {
-        setIsLoading(false);
-        return;
-      }
+    try {
+      setIsLoading(true);
+      setError(null);
 
-      try {
-        setIsLoading(true);
-        if (attemptNum > 0) {
-          setIsRetrying(true);
-        }
-        setError(null);
+      // Check backend health
+      const health = await apiClient.healthCheck();
+      setIsConnected(true);
+      setIsCapturing(health.capture_running || false);
 
-        // Check backend health
-        const health = await apiClient.healthCheck();
-        setIsConnected(true);
-        setIsCapturing(health.capture_running || false);
+      // Fetch all data in parallel
+      const [devicesData, flowsData, threatsData, analyticsDataResult, protocolStatsData] =
+        await Promise.all([
+          apiClient.getDevices(),
+          apiClient.getFlows(100),
+          apiClient.getThreats(true),
+          apiClient.getAnalytics(24),
+          apiClient.getProtocolStats(),
+        ]);
 
-        // Fetch all data in parallel
-        const [devicesData, flowsData, threatsData, analyticsDataResult, protocolStatsData] =
-          await Promise.all([
-            apiClient.getDevices(),
-            apiClient.getFlows(100),
-            apiClient.getThreats(true),
-            apiClient.getAnalytics(24),
-            apiClient.getProtocolStats(),
-          ]);
+      setDevices(devicesData || []);
+      setFlows(flowsData || []);
+      setThreats(threatsData || []);
+      setAnalyticsData(analyticsDataResult || []);
+      setProtocolStats(protocolStatsData || []);
 
-        setDevices(devicesData || []);
-        setFlows(flowsData || []);
-        setThreats(threatsData || []);
-        setAnalyticsData(analyticsDataResult || []);
-        setProtocolStats(protocolStatsData || []);
+      setIsLoading(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
+      setError(errorMessage);
+      setIsConnected(false);
+      setIsLoading(false);
+      console.error('API fetch error:', err);
 
-        // Reset retry count on success
-        setRetryCount(0);
-        setIsRetrying(false);
-        setIsLoading(false);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-        setError(errorMessage);
-        setIsConnected(false);
-        console.error('API fetch error:', err);
-
-        // Auto-retry logic with exponential backoff
-        if (attemptNum < maxRetries) {
-          const delay = Math.min(1000 * Math.pow(2, attemptNum), 10000); // Max 10 seconds
-          const nextAttempt = attemptNum + 1;
-          setRetryCount(nextAttempt);
-
-          toast(`Retrying connection... (${nextAttempt}/${maxRetries})`, {
-            description: `Waiting ${delay / 1000} seconds before retry`,
-          });
-
-          // Set loading to false before retry (retry will set it back to true)
-          setIsLoading(false);
-          setIsRetrying(true);
-
-          setTimeout(() => {
-            fetchAll(nextAttempt);
-          }, delay);
-          return; // Exit early, don't set loading in finally during retries
-        } else {
-          // Max retries reached
-          setIsRetrying(false);
-          setRetryCount(0);
-          setIsLoading(false);
-
-          // Show error toast for timeout/unavailable errors
-          if (errorMessage.includes('timeout') || errorMessage.includes('unavailable')) {
-            toast.error('Backend unavailable', {
-              description:
-                'Cannot connect to backend after multiple attempts. Check connection and ensure the service is running.',
-              action: {
-                label: 'Retry Now',
-                onClick: () => fetchAll(0),
-              },
-            });
-          } else {
-            // Show generic error toast for other errors
-            toast.error('Failed to fetch data', {
-              description: errorMessage,
-            });
-          }
-        }
-      }
-    },
-    [maxRetries]
-  );
+      toast.error('Backend unavailable', {
+        description: 'Cannot connect to backend. Check that the service is running.',
+        action: {
+          label: 'Retry',
+          onClick: () => fetchAll(),
+        },
+      });
+    }
+  }, []);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -308,15 +262,13 @@ export function useApiData(options: UseApiDataOptions = {}) {
     isLoading,
     isConnected,
     error,
-    isRetrying,
-    retryCount,
 
     // Actions
     startCapture,
     stopCapture,
     dismissThreat,
-    refresh: () => fetchAll(0),
-    retryNow: () => fetchAll(0),
+    refresh: fetchAll,
+    retryNow: fetchAll,
 
     // Metadata
     useRealApi: USE_REAL_API,

@@ -35,9 +35,6 @@ export default defineConfig({
       '@': resolve(projectRoot, 'src'),
     },
   },
-  optimizeDeps: {
-    include: ['react-window'],
-  },
   build: {
     // Code splitting configuration
     rollupOptions: {

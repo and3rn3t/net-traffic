@@ -16,9 +16,9 @@ interface GraphNode {
   threatLevel?: string;
 }
 
-interface GraphLink {
-  source: string;
-  target: string;
+interface SimNode extends GraphNode, d3.SimulationNodeDatum {}
+
+interface SimLink extends d3.SimulationLinkDatum<SimNode> {
   value: number;
   threatLevel: string;
 }
@@ -35,7 +35,7 @@ export function NetworkGraph({ flows, devices, useApi = false }: NetworkGraphPro
     const width = svgRef.current.clientWidth;
     const height = svgRef.current.clientHeight;
 
-    const nodes: GraphNode[] = [
+    const nodes: SimNode[] = [
       ...devices.slice(0, 10).map(d => ({
         id: d.id,
         type: 'device' as const,
@@ -49,7 +49,7 @@ export function NetworkGraph({ flows, devices, useApi = false }: NetworkGraphPro
       })),
     ];
 
-    const links: GraphLink[] = flows
+    const links: SimLink[] = flows
       .slice(0, 20)
       .map(f => ({
         source: f.deviceId,
@@ -60,12 +60,12 @@ export function NetworkGraph({ flows, devices, useApi = false }: NetworkGraphPro
       .filter(l => nodes.some(n => n.id === l.source) && nodes.some(n => n.id === l.target));
 
     const simulation = d3
-      .forceSimulation(nodes as any)
+      .forceSimulation<SimNode>(nodes)
       .force(
         'link',
         d3
-          .forceLink(links)
-          .id((d: any) => d.id)
+          .forceLink<SimNode, SimLink>(links)
+          .id(d => d.id)
           .distance(100)
       )
       .force('charge', d3.forceManyBody().strength(-300))
@@ -100,7 +100,13 @@ export function NetworkGraph({ flows, devices, useApi = false }: NetworkGraphPro
       .selectAll('g')
       .data(nodes)
       .join('g')
-      .call(d3.drag<any, any>().on('start', dragstarted).on('drag', dragged).on('end', dragended));
+      .call(
+        d3
+          .drag<SVGGElement, SimNode>()
+          .on('start', dragstarted)
+          .on('drag', dragged)
+          .on('end', dragended)
+      );
 
     node
       .append('circle')
@@ -132,26 +138,28 @@ export function NetworkGraph({ flows, devices, useApi = false }: NetworkGraphPro
 
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y);
+        .attr('x1', d => (d.source as SimNode).x ?? 0)
+        .attr('y1', d => (d.source as SimNode).y ?? 0)
+        .attr('x2', d => (d.target as SimNode).x ?? 0)
+        .attr('y2', d => (d.target as SimNode).y ?? 0);
 
-      node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+      node.attr('transform', d => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
-    function dragstarted(event: any) {
+    type DragEvent = d3.D3DragEvent<SVGGElement, SimNode, SimNode>;
+
+    function dragstarted(event: DragEvent) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       event.subject.fx = event.subject.x;
       event.subject.fy = event.subject.y;
     }
 
-    function dragged(event: any) {
+    function dragged(event: DragEvent) {
       event.subject.fx = event.x;
       event.subject.fy = event.y;
     }
 
-    function dragended(event: any) {
+    function dragended(event: DragEvent) {
       if (!event.active) simulation.alphaTarget(0);
       event.subject.fx = null;
       event.subject.fy = null;

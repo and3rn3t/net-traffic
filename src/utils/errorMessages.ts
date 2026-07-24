@@ -35,10 +35,7 @@ export function getErrorInfo(error: Error | string, context?: string): ErrorInfo
         },
         {
           label: 'Check Backend Status',
-          action: () => {
-            // Could open a status page or documentation
-            console.log('Open backend status check');
-          },
+          action: () => {},
           variant: 'outline',
         },
       ],
@@ -66,10 +63,7 @@ export function getErrorInfo(error: Error | string, context?: string): ErrorInfo
         },
         {
           label: 'Check Configuration',
-          action: () => {
-            // Could open settings or show configuration help
-            console.log('Open configuration help');
-          },
+          action: () => {},
           variant: 'outline',
         },
       ],
@@ -131,10 +125,7 @@ export function getErrorInfo(error: Error | string, context?: string): ErrorInfo
         },
         {
           label: 'Report Issue',
-          action: () => {
-            // Could open issue tracker or support
-            console.log('Report issue');
-          },
+          action: () => {},
           variant: 'outline',
         },
       ],

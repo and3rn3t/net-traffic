@@ -22,6 +22,7 @@ import { formatBytes, formatTimestamp } from '@/lib/formatters';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 
 interface SearchBarProps {
   onResultClick?: (type: 'device' | 'flow' | 'threat', id: string) => void;
@@ -34,7 +35,7 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
 
   // Debounce search query to avoid excessive API calls
   const debouncedQuery = useDebounce(query, 500);
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   // Use React Query for search with automatic caching and deduplication
   const {

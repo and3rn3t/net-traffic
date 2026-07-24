@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 import { NetworkFlow } from '@/lib/types';
 import type { FlowFilters } from '@/components/FlowFilters';
 import { useDebounce } from './useDebounce';
@@ -59,7 +60,7 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
   );
 
   // Use React Query for caching and automatic request management
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   // Load saved presets from localStorage
   useEffect(() => {

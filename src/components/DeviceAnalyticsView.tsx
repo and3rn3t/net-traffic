@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 
 interface DeviceAnalyticsViewProps {
   device: Device | null;
@@ -78,7 +79,7 @@ export function DeviceAnalyticsView({ device, open, onOpenChange }: DeviceAnalyt
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedHours, setSelectedHours] = useState(24);
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   useEffect(() => {
     if (!device || !open || !USE_REAL_API) {

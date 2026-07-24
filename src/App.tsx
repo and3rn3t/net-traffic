@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -60,117 +59,34 @@ import { MaintenancePanel } from '@/components/MaintenancePanel';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
-import { useApiData } from '@/hooks/useApiData';
-import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
-import { useApiConfig } from '@/hooks/useApiConfig';
+import { useDataSource } from '@/hooks/useDataSource';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import {
-  generateInitialDevices,
-  generateInitialFlows,
-  generateInitialThreats,
-  generateAnalyticsData,
-  generateProtocolStats,
-  generateNetworkFlow,
-  generateThreat,
-} from '@/lib/mockData';
-import { Device, NetworkFlow, Threat } from '@/lib/types';
 
 function App() {
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
-
-  // Use API hook for data fetching (only when API is enabled)
-  const apiData = useApiData({
-    pollingInterval: 30000, // Poll every 30 seconds as backup (reduced since WebSocket handles real-time)
-    useWebSocket: true, // Enable real-time WebSocket updates
-  });
-
-  // Enhanced analytics for summary stats
-  const { summaryStats, bandwidthTimeline } = useEnhancedAnalytics({
-    autoFetch: USE_REAL_API,
-    hours: 24,
-  });
-  const { useRealApi } = useApiConfig();
-
-  // Fallback mock data state (used when API is disabled)
-  const [mockDevices, setMockDevices] = useState<Device[]>([]);
-  const [mockFlows, setMockFlows] = useState<NetworkFlow[]>([]);
-  const [mockThreats, setMockThreats] = useState<Threat[]>([]);
-  const [mockAnalyticsData] = useState(() => generateAnalyticsData(24));
-  const [mockProtocolStats] = useState(() => generateProtocolStats());
-  const [mockIsCapturing, setMockIsCapturing] = useState(true);
-
-  // Initialize mock data when API is disabled
-  useEffect(() => {
-    if (!USE_REAL_API && (!mockDevices || mockDevices.length === 0)) {
-      const initialDevices = generateInitialDevices(8);
-      const initialFlows = generateInitialFlows(initialDevices, 30);
-      const initialThreats = generateInitialThreats(initialDevices, initialFlows, 3);
-
-      setMockDevices(initialDevices);
-      setMockFlows(initialFlows);
-      setMockThreats(initialThreats);
-    }
-  }, [USE_REAL_API, mockDevices]);
-
-  // Mock data generation interval (only when API is disabled)
-  useEffect(() => {
-    if (USE_REAL_API || !mockIsCapturing || !mockDevices || mockDevices.length === 0) return;
-
-    const interval = setInterval(() => {
-      setMockFlows(currentFlows => {
-        if (!currentFlows || !mockDevices) return currentFlows || [];
-
-        const randomDevice = mockDevices[Math.floor(Math.random() * mockDevices.length)];
-        const newFlow = generateNetworkFlow(randomDevice.id, `flow-${Date.now()}`);
-
-        if (newFlow.threatLevel === 'high' || newFlow.threatLevel === 'critical') {
-          const newThreat = generateThreat(randomDevice.id, newFlow.id, `threat-${Date.now()}`);
-          setMockThreats(current => {
-            if (!current) return [newThreat];
-            return [newThreat, ...current].slice(0, 20);
-          });
-          toast.error(`Threat detected: ${newThreat.description}`, {
-            description: `Device: ${randomDevice.name}`,
-          });
-        }
-
-        const updatedFlows = [newFlow, ...currentFlows].slice(0, 100);
-        return updatedFlows;
-      });
-
-      setMockDevices(currentDevices => {
-        if (!currentDevices || !mockFlows) return currentDevices || [];
-
-        return currentDevices.map(d => {
-          const deviceFlows = mockFlows.filter(f => f.deviceId === d.id);
-          const totalBytes = deviceFlows.reduce((sum, f) => sum + f.bytesIn + f.bytesOut, 0);
-          return {
-            ...d,
-            lastSeen: Date.now(),
-            bytesTotal: d.bytesTotal + totalBytes,
-            connectionsCount: d.connectionsCount + 1,
-          };
-        });
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [USE_REAL_API, mockIsCapturing, mockDevices, mockFlows]);
-
-  // Select data source based on API availability
-  const devices = USE_REAL_API ? apiData.devices : mockDevices;
-  const flows = USE_REAL_API ? apiData.flows : mockFlows;
-  const threats = USE_REAL_API ? apiData.threats : mockThreats;
-  const analyticsData = USE_REAL_API ? apiData.analyticsData : mockAnalyticsData;
-  const protocolStats = USE_REAL_API ? apiData.protocolStats : mockProtocolStats;
-  const isCapturing = USE_REAL_API ? apiData.isCapturing : mockIsCapturing;
-  const isLoading = USE_REAL_API ? apiData.isLoading : false;
-  const isConnected = USE_REAL_API ? apiData.isConnected : false;
-  const error = USE_REAL_API ? apiData.error : null;
+  const {
+    devices,
+    flows,
+    threats,
+    analyticsData,
+    protocolStats,
+    isCapturing,
+    isLoading,
+    isConnected,
+    error,
+    summaryStats,
+    bandwidthTimeline,
+    handleDismissThreat,
+    handleToggleCapture,
+    startCapture,
+    refresh,
+    USE_REAL_API,
+    useRealApi,
+  } = useDataSource();
 
   // Handle loading state (only when using real API)
-  if (isLoading && USE_REAL_API) {
+  if (isLoading && API_CONFIG.USE_REAL_API) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
@@ -182,30 +98,7 @@ function App() {
   }
 
   // Handle dismiss threat
-  const handleDismissThreat = (id: string) => {
-    if (USE_REAL_API) {
-      apiData.dismissThreat(id);
-    } else {
-      setMockThreats(currentThreats => {
-        if (!currentThreats) return [];
-        return currentThreats.map(t => (t.id === id ? { ...t, dismissed: true } : t));
-      });
-    }
-  };
-
   // Handle capture toggle
-  const handleToggleCapture = () => {
-    if (USE_REAL_API) {
-      if (isCapturing) {
-        apiData.stopCapture();
-      } else {
-        apiData.startCapture();
-      }
-    } else {
-      setMockIsCapturing(!mockIsCapturing);
-    }
-  };
-
   const activeThreats = threats.filter(t => !t.dismissed);
   const activeFlows = flows.filter(f => f.status === 'active');
 
@@ -544,7 +437,7 @@ function App() {
                 <ConnectionHealthMonitor
                   isConnected={isConnected}
                   error={error}
-                  onRetry={() => apiData.refresh()}
+                  onRetry={() => refresh()}
                   enableMetrics={true}
                 />
               </ErrorBoundary>
@@ -633,16 +526,10 @@ function App() {
               <DevicesListEnhanced
                 devices={devices}
                 onDeviceUpdate={_updatedDevice => {
-                  // Update device in local state
-                  if (USE_REAL_API && apiData) {
-                    // Refresh devices from API
-                    apiData.refresh();
-                  }
+                  if (USE_REAL_API) refresh();
                 }}
                 onRefresh={() => {
-                  if (USE_REAL_API && apiData) {
-                    apiData.refresh();
-                  }
+                  if (USE_REAL_API) refresh();
                 }}
               />
               {USE_REAL_API && devices.length === 0 && isConnected && (
@@ -656,9 +543,7 @@ function App() {
                     {!isCapturing && (
                       <Button
                         size="sm"
-                        onClick={() => {
-                          apiData.startCapture();
-                        }}
+                        onClick={startCapture}
                         className="mt-2"
                       >
                         Start Capture

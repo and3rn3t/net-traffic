@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton';
 import { Gauge, Activity, AlertTriangle, TrendingUp } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 import {
   LineChart,
   Line,
@@ -80,7 +81,7 @@ export function NetworkQualityDashboard({ hours = 24, deviceId }: NetworkQuality
   } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedHours, setSelectedHours] = useState(hours);
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   useEffect(() => {
     if (!USE_REAL_API) {

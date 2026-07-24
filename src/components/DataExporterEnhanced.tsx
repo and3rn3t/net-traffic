@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { API_CONFIG } from '@/hooks/useApiConfig';
 import {
   Select,
   SelectContent,
@@ -46,17 +47,17 @@ export function DataExporterEnhanced({ flows, devices, threats }: DataExporterEn
     deviceId: null,
   });
   const [isExporting, setIsExporting] = useState(false);
-  const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   // Local export functions (fallback)
-  const exportToCSV = (data: any[], filename: string, headers: string[]) => {
+  const exportToCSV = (data: Record<string, unknown>[], filename: string, headers: string[]) => {
     const csvContent = [
       headers.join(','),
       ...data.map(row =>
         headers
           .map(header => {
             const key = header.toLowerCase().replace(/ /g, '');
-            const value = row[key];
+            const value = (row as Record<string, unknown>)[key];
             if (value === null || value === undefined) return '';
             if (typeof value === 'string' && value.includes(',')) return `"${value}"`;
             return value;
@@ -78,7 +79,7 @@ export function DataExporterEnhanced({ flows, devices, threats }: DataExporterEn
     toast.success(`Exported ${data.length} records to CSV`);
   };
 
-  const exportToJSON = (data: any, filename: string) => {
+  const exportToJSON = (data: unknown, filename: string) => {
     const jsonContent = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonContent], { type: 'application/json' });
     const url = globalThis.URL.createObjectURL(blob);
