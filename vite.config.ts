@@ -15,7 +15,7 @@ export default defineConfig({
     tailwindcss(),
     // DO NOT REMOVE
     createIconImportProxy() as PluginOption,
-    sparkPlugin() as PluginOption,
+    sparkPlugin({ port: 5001 }) as PluginOption,
   ],
   server: {
     port: 5173,
