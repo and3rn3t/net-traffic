@@ -2,6 +2,7 @@
  * Enhanced DevicesList component with device management (edit name, type, notes)
  */
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -31,6 +32,7 @@ import { Pencil, Check, X, TrendingUp, RefreshCw } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import { API_CONFIG } from '@/hooks/useApiConfig';
+import { DeviceAnalyticsView } from '@/components/DeviceAnalyticsView';
 interface DevicesListEnhancedProps {
   readonly devices: Device[];
   readonly onDeviceUpdate?: (device: Device) => void;
