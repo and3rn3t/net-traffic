@@ -3,7 +3,7 @@
  * Shared utilities for E2E tests
  */
 
-import { Page, expect } from '@playwright/test';
+import { Locator, Page, expect } from '@playwright/test';
 
 /**
  * Wait for the application to be ready
@@ -101,7 +101,7 @@ export async function navigateToView(
   }
 
   // Try multiple strategies to find and click the tab
-  let tabElement = null;
+  let tabElement: Locator | null;
 
   // Strategy 1: Use role="tab" - Radix UI exposes this (most reliable)
   try {

@@ -190,7 +190,7 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
     const params = filtersToApiParams(debouncedFilters);
 
     // If multiple protocols selected, we need to fetch for each and merge
-    let allFlows: NetworkFlow[] = [];
+    let allFlows: NetworkFlow[];
 
     if (debouncedFilters.protocols.length > 1) {
       // Fetch for each protocol and merge results

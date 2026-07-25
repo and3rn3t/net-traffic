@@ -93,7 +93,7 @@ export class ApiClient {
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
-          throw new Error('Request timeout - backend may be unavailable');
+          throw new Error('Request timeout - backend may be unavailable', { cause: error });
         }
 
         // If this is the last attempt, throw the error
