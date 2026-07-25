@@ -58,6 +58,7 @@ import { ApplicationUsageDashboard } from '@/components/ApplicationUsageDashboar
 import { MaintenancePanel } from '@/components/MaintenancePanel';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
+import { AccountMenu } from '@/components/AccountMenu';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useDataSource } from '@/hooks/useDataSource';
 import { API_CONFIG } from '@/hooks/useApiConfig';
@@ -156,6 +157,8 @@ function App() {
               </div>
               {/* Theme Toggle */}
               <ThemeToggle />
+              {/* Account / Sign In */}
+              <AccountMenu />
               {/* Keyboard Shortcuts */}
               <KeyboardShortcuts />
               {/* Connection Status Indicator */}

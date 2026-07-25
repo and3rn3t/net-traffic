@@ -106,6 +106,8 @@ export function generateThreat(deviceId: string, flowId: string, id: string): Th
     'botnet',
     'phishing',
     'anomaly',
+    'new_device',
+    'bandwidth_quota',
   ];
   const severities: Threat['severity'][] = ['low', 'medium', 'high', 'critical'];
   const type = types[Math.floor(Math.random() * types.length)];
@@ -117,6 +119,8 @@ export function generateThreat(deviceId: string, flowId: string, id: string): Th
     botnet: 'Device communicating with known botnet infrastructure',
     phishing: 'Connection to suspected phishing domain with credential submission',
     anomaly: 'Behavioral anomaly detected - device accessing unusual services at abnormal time',
+    new_device: 'New device detected on the network',
+    bandwidth_quota: 'Device exceeded the configured 24-hour bandwidth threshold',
   };
 
   const recommendations: Record<Threat['type'], string> = {
@@ -126,6 +130,8 @@ export function generateThreat(deviceId: string, flowId: string, id: string): Th
     botnet: 'Disconnect device and perform factory reset, change all passwords',
     phishing: 'Change credentials immediately and enable 2FA on affected accounts',
     anomaly: 'Monitor device closely for 24h and investigate if behavior continues',
+    new_device: 'Verify this device is recognized; tag or rename it if legitimate',
+    bandwidth_quota: 'Review device activity and consider adjusting the bandwidth threshold',
   };
 
   return {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -42,6 +42,7 @@ export function ConnectionsTableEnhanced({
     applyFilters,
     savePreset,
     loadPreset,
+    deletePreset,
   } = useFlowFilters({
     autoFetch: useApiFilters,
     devices: devices.map(d => ({ id: d.id, name: d.name })),
@@ -102,6 +103,7 @@ export function ConnectionsTableEnhanced({
                   onClear={clearFilters}
                   onSavePreset={savePreset}
                   onLoadPreset={loadPreset}
+                  onDeletePreset={deletePreset}
                   savedPresets={savedPresets}
                   devices={devices.map(d => ({ id: d.id, name: d.name }))}
                   availableProtocols={availableProtocols}

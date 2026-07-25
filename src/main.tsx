@@ -8,6 +8,7 @@ import App from './App.tsx';
 import { ErrorFallback } from './ErrorFallback.tsx';
 import { queryClient } from './lib/queryClient';
 import { AppProvider } from './contexts/AppContext';
+import { AuthProvider } from './contexts/AuthContext';
 
 import './main.css';
 import './styles/theme.css';
@@ -17,9 +18,11 @@ createRoot(document.getElementById('root')!).render(
   <ErrorBoundary FallbackComponent={ErrorFallback}>
     <ThemeProvider attribute="data-appearance" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
-        <AppProvider>
-          <App />
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <App />
+          </AppProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   </ErrorBoundary>

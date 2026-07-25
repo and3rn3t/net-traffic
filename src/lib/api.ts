@@ -13,10 +13,20 @@ import type {
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const AUTH_TOKEN_STORAGE_KEY = 'netinsight_auth_token';
 
 export interface ApiConfig {
   baseURL: string;
   timeout?: number;
+}
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  email?: string;
+  full_name?: string;
+  role: 'admin' | 'operator' | 'viewer';
+  disabled: boolean;
 }
 
 export class ApiClient {
@@ -28,10 +38,36 @@ export class ApiClient {
   private wsReconnectTimeout: NodeJS.Timeout | null = null;
   private wsListeners: Map<string, Set<(data: unknown) => void>> = new Map();
   private wsPingInterval: NodeJS.Timeout | null = null;
+  private authToken: string | null = null;
+  private onUnauthorized: (() => void) | null = null;
 
   constructor(config: ApiConfig = { baseURL: API_BASE_URL, timeout: 30000 }) {
     this.baseURL = config.baseURL;
     this.timeout = config.timeout || 30000;
+    if (typeof localStorage !== 'undefined') {
+      this.authToken = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+    }
+  }
+
+  /** Register a callback invoked when a request fails with 401 (e.g. expired token). */
+  setUnauthorizedHandler(handler: (() => void) | null): void {
+    this.onUnauthorized = handler;
+  }
+
+  /** Store (or clear) the JWT used for authenticated requests. */
+  setAuthToken(token: string | null): void {
+    this.authToken = token;
+    if (typeof localStorage !== 'undefined') {
+      if (token) {
+        localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+      } else {
+        localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      }
+    }
+  }
+
+  getAuthToken(): string | null {
+    return this.authToken;
   }
 
   private async request<T>(
@@ -47,6 +83,7 @@ export class ApiClient {
           ...options,
           headers: {
             'Content-Type': 'application/json',
+            ...(this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {}),
             ...options.headers,
           },
           signal: AbortSignal.timeout(this.timeout),
@@ -59,6 +96,10 @@ export class ApiClient {
             response.status >= 400 && response.status < 500
               ? `HTTP ${response.status}${error.message ? `: ${error.message}` : ''}`
               : error.message || `HTTP ${response.status}`;
+
+          if (response.status === 401) {
+            this.onUnauthorized?.();
+          }
 
           // Don't retry on client errors (4xx) - including 429 rate limit
           // Throw immediately without retrying
@@ -74,6 +115,10 @@ export class ApiClient {
           }
 
           throw new Error(errorMessage);
+        }
+
+        if (response.status === 204) {
+          return undefined as T;
         }
 
         return await response.json();
@@ -503,12 +548,54 @@ export class ApiClient {
   // Update Device
   async updateDevice(
     deviceId: string,
-    update: { name?: string; type?: string; notes?: string }
+    update: { name?: string; type?: string; notes?: string; tags?: string[] }
   ): Promise<Device> {
     return this.request<Device>(`/api/devices/${deviceId}`, {
       method: 'PATCH',
       body: JSON.stringify(update),
     });
+  }
+
+  // Authentication
+  async login(username: string, password: string): Promise<{ access_token: string; token_type: string }> {
+    const response = await fetch(`${this.baseURL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password }).toString(),
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async getCurrentUser(): Promise<AuthUser> {
+    return this.request<AuthUser>('/api/auth/me');
+  }
+
+  // Saved Filter Presets
+  async createFilterPreset(
+    name: string,
+    filters: Record<string, unknown>
+  ): Promise<{ id: string; userId: string; name: string; filters: Record<string, unknown>; createdAt: number }> {
+    return this.request('/api/filter-presets', {
+      method: 'POST',
+      body: JSON.stringify({ name, filters }),
+    });
+  }
+
+  async listFilterPresets(): Promise<
+    Array<{ id: string; userId: string; name: string; filters: Record<string, unknown>; createdAt: number }>
+  > {
+    return this.request('/api/filter-presets');
+  }
+
+  async deleteFilterPreset(presetId: string): Promise<void> {
+    await this.request(`/api/filter-presets/${presetId}`, { method: 'DELETE' });
   }
 
   // Search

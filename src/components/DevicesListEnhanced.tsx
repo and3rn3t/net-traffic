@@ -33,6 +33,7 @@ import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
 import { API_CONFIG } from '@/hooks/useApiConfig';
 import { DeviceAnalyticsView } from '@/components/DeviceAnalyticsView';
+import { useAuth } from '@/contexts/AuthContext';
 interface DevicesListEnhancedProps {
   readonly devices: Device[];
   readonly onDeviceUpdate?: (device: Device) => void;
@@ -61,11 +62,14 @@ export function DevicesListEnhanced({
     name: '',
     type: '',
     notes: '',
+    tags: [] as string[],
   });
+  const [tagInput, setTagInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [analyticsDevice, setAnalyticsDevice] = useState<Device | null>(null);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const USE_REAL_API = API_CONFIG.USE_REAL_API;
+  const { isAuthenticated } = useAuth();
 
   const handleEditClick = (device: Device) => {
     setEditingDevice(device);
@@ -73,7 +77,21 @@ export function DevicesListEnhanced({
       name: device.name,
       type: device.type,
       notes: device.notes || '',
+      tags: device.tags || [],
     });
+    setTagInput('');
+  };
+
+  const handleAddTag = () => {
+    const tag = tagInput.trim();
+    if (tag && !editForm.tags.includes(tag)) {
+      setEditForm({ ...editForm, tags: [...editForm.tags, tag] });
+    }
+    setTagInput('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setEditForm({ ...editForm, tags: editForm.tags.filter(t => t !== tag) });
   };
 
   const handleSave = async () => {
@@ -87,6 +105,7 @@ export function DevicesListEnhanced({
           name: editForm.name,
           type: editForm.type,
           notes: editForm.notes,
+          tags: editForm.tags,
         });
 
         if (onDeviceUpdate) {
@@ -99,6 +118,7 @@ export function DevicesListEnhanced({
           ...editingDevice,
           name: editForm.name,
           type: editForm.type as Device['type'],
+          tags: editForm.tags,
           behavioral: {
             ...editingDevice.behavioral,
             notes: editForm.notes,
@@ -121,7 +141,8 @@ export function DevicesListEnhanced({
 
   const handleCancel = () => {
     setEditingDevice(null);
-    setEditForm({ name: '', type: '', notes: '' });
+    setEditForm({ name: '', type: '', notes: '', tags: [] });
+    setTagInput('');
   };
 
   return (
@@ -198,6 +219,15 @@ export function DevicesListEnhanced({
                             <p className="text-xs text-muted-foreground font-mono">{device.ip}</p>
                             {notes && (
                               <p className="text-xs text-muted-foreground mt-1 italic">{notes}</p>
+                            )}
+                            {device.tags && device.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {device.tags.map(tag => (
+                                  <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
@@ -335,6 +365,47 @@ export function DevicesListEnhanced({
                 placeholder="Add notes about this device..."
                 rows={3}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="device-tags">Tags (Optional)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="device-tags"
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddTag();
+                    }
+                  }}
+                  placeholder="e.g. trusted, iot, guest"
+                />
+                <Button type="button" variant="outline" onClick={handleAddTag}>
+                  Add
+                </Button>
+              </div>
+              {editForm.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {editForm.tags.map(tag => (
+                    <Badge key={tag} variant="secondary" className="flex items-center gap-1 text-xs">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="hover:text-destructive"
+                        aria-label={`Remove tag ${tag}`}
+                      >
+                        <X size={10} />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {!isAuthenticated && (
+                <p className="text-xs text-muted-foreground">Sign in to save tag changes.</p>
+              )}
             </div>
           </div>
 

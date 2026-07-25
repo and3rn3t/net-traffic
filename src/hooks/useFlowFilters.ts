@@ -4,6 +4,7 @@ import { apiClient } from '@/lib/api';
 import { API_CONFIG } from '@/hooks/useApiConfig';
 import { NetworkFlow } from '@/lib/types';
 import type { FlowFilters } from '@/components/FlowFilters';
+import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from './useDebounce';
 
 interface UseFlowFiltersOptions {
@@ -13,6 +14,7 @@ interface UseFlowFiltersOptions {
 }
 
 interface SavedPreset {
+  id?: string; // Present when persisted on the backend (vs. local-only)
   name: string;
   filters: FlowFilters;
 }
@@ -47,6 +49,7 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
 
   const [savedPresets, setSavedPresets] = useState<SavedPreset[]>([]);
   const [shouldFetch, setShouldFetch] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   // Debounce filters to avoid excessive API calls
   // Debounce text inputs (IP addresses) more aggressively
@@ -62,8 +65,20 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
   // Use React Query for caching and automatic request management
   const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
-  // Load saved presets from localStorage
+  // Load saved presets: from the backend when signed in (synced across devices),
+  // otherwise fall back to this browser's localStorage.
   useEffect(() => {
+    if (isAuthenticated) {
+      apiClient
+        .listFilterPresets()
+        .then(presets =>
+          setSavedPresets(
+            presets.map(p => ({ id: p.id, name: p.name, filters: p.filters as unknown as FlowFilters }))
+          )
+        )
+        .catch(e => console.error('Failed to load filter presets:', e));
+      return;
+    }
     try {
       const stored = localStorage.getItem(PRESET_STORAGE_KEY);
       if (stored) {
@@ -73,7 +88,7 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
     } catch (e) {
       console.error('Failed to load saved presets:', e);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Save presets to localStorage
   const savePresetsToStorage = useCallback((presets: SavedPreset[]) => {
@@ -325,6 +340,18 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
   // Save filter preset
   const savePreset = useCallback(
     (name: string) => {
+      if (isAuthenticated) {
+        apiClient
+          .createFilterPreset(name, filters as unknown as Record<string, unknown>)
+          .then(created =>
+            setSavedPresets(prev => [
+              ...prev,
+              { id: created.id, name: created.name, filters: created.filters as unknown as FlowFilters },
+            ])
+          )
+          .catch(e => console.error('Failed to save filter preset:', e));
+        return;
+      }
       const newPreset: SavedPreset = {
         name,
         filters: { ...filters },
@@ -333,7 +360,7 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
       setSavedPresets(updated);
       savePresetsToStorage(updated);
     },
-    [filters, savedPresets, savePresetsToStorage]
+    [filters, savedPresets, savePresetsToStorage, isAuthenticated]
   );
 
   // Load filter preset
@@ -343,12 +370,24 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
 
   // Delete preset
   const deletePreset = useCallback(
-    (name: string) => {
+    async (name: string) => {
+      if (isAuthenticated) {
+        const preset = savedPresets.find(p => p.name === name);
+        if (!preset?.id) return;
+        try {
+          await apiClient.deleteFilterPreset(preset.id);
+          const remaining = savedPresets.filter(p => p.name !== name);
+          setSavedPresets(remaining);
+        } catch (e) {
+          console.error('Failed to delete filter preset:', e);
+        }
+        return;
+      }
       const updated = savedPresets.filter(p => p.name !== name);
       setSavedPresets(updated);
       savePresetsToStorage(updated);
     },
-    [savedPresets, savePresetsToStorage]
+    [savedPresets, savePresetsToStorage, isAuthenticated]
   );
 
   return {

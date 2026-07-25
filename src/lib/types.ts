@@ -63,18 +63,35 @@ export interface Device {
   connectionQuality?: 'good' | 'fair' | 'poor';
   applications?: string[];
   notes?: string; // User-added notes about the device
+  tags?: string[]; // User-defined groups, e.g. 'iot', 'trusted', 'guest'
 }
 
 export interface Threat {
   id: string;
   timestamp: number;
-  type: 'malware' | 'exfiltration' | 'scan' | 'botnet' | 'phishing' | 'anomaly';
+  type:
+    | 'malware'
+    | 'exfiltration'
+    | 'scan'
+    | 'botnet'
+    | 'phishing'
+    | 'anomaly'
+    | 'new_device'
+    | 'bandwidth_quota';
   severity: 'low' | 'medium' | 'high' | 'critical';
   deviceId: string;
   flowId: string;
   description: string;
   recommendation: string;
   dismissed: boolean;
+}
+
+export interface FilterPreset {
+  id: string;
+  userId: string;
+  name: string;
+  filters: Record<string, unknown>;
+  createdAt: number;
 }
 
 export interface AnalyticsData {

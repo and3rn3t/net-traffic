@@ -10,6 +10,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { DevicesListEnhanced } from '@/components/DevicesListEnhanced';
 import { apiClient } from '@/lib/api';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { Device } from '@/lib/types';
 // Toast is mocked below
 
@@ -49,6 +50,14 @@ vi.mock('@/lib/api', () => ({
     connectWebSocket: vi.fn(() => () => {}),
     on: vi.fn(),
     off: vi.fn(),
+    getAuthToken: vi.fn(() => null),
+    setAuthToken: vi.fn(),
+    setUnauthorizedHandler: vi.fn(),
+    login: vi.fn(),
+    getCurrentUser: vi.fn(),
+    listFilterPresets: vi.fn(() => Promise.resolve([])),
+    createFilterPreset: vi.fn(),
+    deleteFilterPreset: vi.fn(),
   },
 }));
 
@@ -74,7 +83,9 @@ const renderDevicesList = (
   const defaultProps = { devices: [] as Device[] };
   return render(
     <QueryClientProvider client={queryClient}>
-      <DevicesListEnhanced {...defaultProps} {...props} />
+      <AuthProvider>
+        <DevicesListEnhanced {...defaultProps} {...props} />
+      </AuthProvider>
     </QueryClientProvider>
   );
 };
@@ -215,6 +226,7 @@ describe('DevicesListEnhanced', () => {
           name: 'Updated Device',
           type: 'laptop',
           notes: '',
+          tags: [],
         });
       });
     });

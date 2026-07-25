@@ -26,6 +26,8 @@ export function ThreatAlert({ threat, onDismiss }: ThreatAlertProps) {
     botnet: '🤖 Botnet',
     phishing: '🎣 Phishing',
     anomaly: '⚠️ Anomaly',
+    new_device: '🆕 New Device',
+    bandwidth_quota: '📊 Bandwidth Alert',
   };
 
   return (

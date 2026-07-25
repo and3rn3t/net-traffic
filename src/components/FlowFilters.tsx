@@ -53,6 +53,7 @@ interface FlowFiltersProps {
   onClear: () => void;
   onSavePreset?: (name: string) => void;
   onLoadPreset?: (preset: FlowFilters) => void;
+  onDeletePreset?: (name: string) => void;
   savedPresets?: Array<{ name: string; filters: FlowFilters }>;
   devices?: Array<{ id: string; name: string }>;
   availableProtocols?: string[];
@@ -100,6 +101,7 @@ export function FlowFiltersComponent({
   onClear,
   onSavePreset,
   onLoadPreset,
+  onDeletePreset,
   savedPresets = [],
   devices = [],
   availableProtocols = DEFAULT_PROTOCOLS,
@@ -259,10 +261,10 @@ export function FlowFiltersComponent({
                 <Label className="text-sm font-semibold">Saved Presets</Label>
                 <div className="flex flex-wrap gap-2">
                   {savedPresets.map((preset, idx) => (
-                    <Button
+                    <Badge
                       key={idx}
                       variant="outline"
-                      size="sm"
+                      className="flex items-center gap-1.5 pl-2.5 pr-1 py-1 text-xs cursor-pointer hover:bg-accent/10"
                       onClick={() => {
                         setLocalFilters(preset.filters);
                         onFiltersChange(preset.filters);
@@ -270,10 +272,22 @@ export function FlowFiltersComponent({
                           onLoadPreset(preset.filters);
                         }
                       }}
-                      className="text-xs"
                     >
                       {preset.name}
-                    </Button>
+                      {onDeletePreset && (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            onDeletePreset(preset.name);
+                          }}
+                          className="hover:text-destructive"
+                          aria-label={`Delete preset ${preset.name}`}
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </Badge>
                   ))}
                 </div>
               </div>
