@@ -15,8 +15,14 @@ RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
-# Security settings (commented out to allow packet capture)
-# NoNewPrivileges=true
+# Grant raw-socket access for Scapy packet capture without running as root.
+# Ambient capabilities are applied by systemd directly (no setcap/file-capability
+# dance needed), so NoNewPrivileges can stay enabled.
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+# Security settings
+NoNewPrivileges=true
 PrivateTmp=true
 
 # Resource limits (adjust as needed)
