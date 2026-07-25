@@ -5,6 +5,7 @@ Captures network traffic and extracts flow information
 import asyncio
 import logging
 import socket
+import time
 from typing import Optional, Callable, Dict, List
 from datetime import datetime
 import uuid
@@ -176,14 +177,25 @@ class PacketCaptureService:
         )
 
     async def stop(self):
-        """Stop packet capture"""
+        """Stop packet capture.
+
+        Each phase is timed and logged at INFO level. This shutdown path has
+        twice been the source of multi-minute stalls in production (blocking
+        sniff() and, separately, sequential websocket broadcasts) so the
+        visibility is kept permanently rather than as throwaway debug code.
+        """
         if not self._running:
             return
 
         self._running = False
+        shutdown_start = time.monotonic()
+
+        def _elapsed() -> float:
+            return round(time.monotonic() - shutdown_start, 2)
 
         # Flush any pending writes
         await self._flush_write_queue()
+        logger.info(f"Capture stop: flushed write queue ({_elapsed()}s elapsed)")
 
         # Cancel tasks
         if self._capture_task:
@@ -192,6 +204,7 @@ class PacketCaptureService:
                 await self._capture_task
             except asyncio.CancelledError:
                 pass
+        logger.info(f"Capture stop: capture task stopped ({_elapsed()}s elapsed)")
 
         if self._batch_write_task:
             self._batch_write_task.cancel()
@@ -213,17 +226,14 @@ class PacketCaptureService:
                 await self._cleanup_task
             except asyncio.CancelledError:
                 pass
-
-        # Cancel cleanup task
-        if hasattr(self, '_cleanup_task') and self._cleanup_task:
-            self._cleanup_task.cancel()
-            try:
-                await self._cleanup_task
-            except asyncio.CancelledError:
-                pass
+        logger.info(f"Capture stop: background tasks stopped ({_elapsed()}s elapsed)")
 
         # Finalize all remaining active flows
         await self._finalize_all_flows()
+        logger.info(
+            f"Capture stop: finalized {len(self._active_flows)} remaining flows "
+            f"({_elapsed()}s elapsed)"
+        )
 
         logger.info("Packet capture stopped")
 
@@ -1065,11 +1075,17 @@ class PacketCaptureService:
 
         # Finalize flows outside lock to avoid blocking
         for flow_key, flow_data in flows_to_finalize:
+            flow_start = time.monotonic()
             try:
                 await self._finalize_flow(flow_key, flow_data)
             except Exception as e:
                 logger.error(
                     f"Error finalizing flow {flow_key}: {e}"
+                )
+            flow_elapsed = time.monotonic() - flow_start
+            if flow_elapsed > 0.5:
+                logger.warning(
+                    f"Slow flow finalization: {flow_key} took {round(flow_elapsed, 2)}s"
                 )
 
     async def _extract_domain_from_packet(self, packet, ip: str) -> Optional[str]:
