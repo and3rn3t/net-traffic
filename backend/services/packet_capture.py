@@ -112,6 +112,7 @@ class PacketCaptureService:
         self._packet_queue_lock = asyncio.Lock()
         self._packet_batch_size = 100  # Process packets in batches
         self._packet_queue_task: Optional[asyncio.Task] = None
+        self._pending_batch_tasks: set = set()  # Untracked fire-and-forget batch tasks, so stop() can cancel them
 
         # Device lookup cache (reduce async database calls)
         self._device_cache: Dict[str, str] = {}  # IP -> device_id
@@ -226,6 +227,11 @@ class PacketCaptureService:
                 await self._cleanup_task
             except asyncio.CancelledError:
                 pass
+
+        if self._pending_batch_tasks:
+            for task in self._pending_batch_tasks:
+                task.cancel()
+            await asyncio.gather(*self._pending_batch_tasks, return_exceptions=True)
         logger.info(f"Capture stop: background tasks stopped ({_elapsed()}s elapsed)")
 
         # Finalize all remaining active flows
@@ -676,8 +682,10 @@ class PacketCaptureService:
             self._packet_queue.append(packet)
             # Process immediately if batch size reached
             if len(self._packet_queue) >= self._packet_batch_size:
-                # Trigger processing (non-blocking)
-                asyncio.create_task(self._process_packet_batch())
+                # Trigger processing (non-blocking), tracked so stop() can cancel it
+                task = asyncio.create_task(self._process_packet_batch())
+                self._pending_batch_tasks.add(task)
+                task.add_done_callback(self._pending_batch_tasks.discard)
 
     async def _process_packet_queue(self):
         """Process queued packets in batches"""
@@ -1138,7 +1146,19 @@ class PacketCaptureService:
                 import socket
                 # Only do reverse lookup for non-local IPs
                 if not self._is_local_ip(ip):
-                    hostname = socket.gethostbyaddr(ip)[0]
+                    # socket.gethostbyaddr() is a blocking, synchronous call with
+                    # no built-in timeout. Called directly it can freeze the
+                    # entire single-threaded event loop for as long as the OS
+                    # resolver takes to give up (observed: this was the actual
+                    # cause of ~90s shutdown stalls - the untracked packet
+                    # processing task got stuck here and blocked everything,
+                    # including the shutdown coroutine itself, until systemd's
+                    # TimeoutStopSec forced a SIGKILL). Run it in a thread and
+                    # bound it with a hard timeout so it can never do that again.
+                    hostname = (await asyncio.wait_for(
+                        asyncio.to_thread(socket.gethostbyaddr, ip),
+                        timeout=2.0,
+                    ))[0]
                     if hostname and hostname != ip:
                         domain = (
                             hostname.split('.')[0]
@@ -1148,9 +1168,10 @@ class PacketCaptureService:
                         async with self._dns_cache_lock:
                             self._dns_cache[ip] = domain
                         return domain
-            except (socket.herror, socket.gaierror, OSError):
-                # Reverse DNS lookup failed,
-                # cache empty string to avoid retrying
+            except OSError:
+                # Reverse DNS lookup failed or timed out (socket.herror,
+                # socket.gaierror, and asyncio.TimeoutError are all OSError
+                # subclasses in Python 3.10+), cache empty string to avoid retrying
                 async with self._dns_cache_lock:
                     self._dns_cache[ip] = ""
 
