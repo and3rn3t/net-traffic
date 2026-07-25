@@ -1,7 +1,8 @@
 """WebSocket endpoint for real-time updates."""
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 import state
 
@@ -10,10 +11,22 @@ router = APIRouter(tags=["websocket"])
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time updates."""
+async def websocket_endpoint(
+    websocket: WebSocket,
+    topics: Optional[str] = Query(
+        None, description="Comma-separated event types to receive (e.g. 'threat_update,new_device'). Omit for all events."
+    ),
+):
+    """WebSocket endpoint for real-time updates.
+
+    Clients may opt into a subset of broadcast event types via the `topics`
+    query parameter to reduce load on both the server and the client, e.g.
+    `/ws?topics=threat_update,device_update`.
+    """
     await websocket.accept()
     state.active_connections.append(websocket)
+    topic_set = {t.strip() for t in topics.split(",") if t.strip()} if topics else None
+    state.connection_topics[websocket] = topic_set
     logger.info(f"WebSocket client connected. Total connections: {len(state.active_connections)}")
 
     try:
@@ -40,4 +53,5 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         if websocket in state.active_connections:
             state.active_connections.remove(websocket)
+        state.connection_topics.pop(websocket, None)
         logger.info(f"WebSocket client removed. Total connections: {len(state.active_connections)}")

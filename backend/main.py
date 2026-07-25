@@ -4,12 +4,15 @@ Raspberry Pi 5 compatible network traffic analysis service
 """
 import asyncio
 import logging
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import state
+from models.types import Threat
 from utils.config import config
 from utils.constants import CLEANUP_INTERVAL_HOURS, SECONDS_PER_HOUR
 from utils.logging_config import StructuredLogger, setup_logging
@@ -27,6 +30,8 @@ setup_logging(
 )
 logger = StructuredLogger(__name__)
 
+BANDWIDTH_CHECK_INTERVAL_HOURS = 1
+
 
 async def _periodic_cleanup(interval_hours: int) -> None:
     """Periodic cleanup task for old data."""
@@ -41,6 +46,56 @@ async def _periodic_cleanup(interval_hours: int) -> None:
             break
         except Exception as e:
             logger.error(f"Error in periodic cleanup: {e}")
+
+
+async def _periodic_bandwidth_check(interval_hours: int) -> None:
+    """Periodically check rolling 24h bandwidth against a configured threshold.
+
+    Alerts at most once per calendar day (UTC) to avoid repeatedly notifying
+    while usage stays above the threshold.
+    """
+    last_alert_date: str | None = None
+    while True:
+        try:
+            await asyncio.sleep(interval_hours * SECONDS_PER_HOUR)
+            threshold_mb = config.bandwidth_alert_threshold_mb
+            if not threshold_mb or not state.storage:
+                continue
+
+            since_ms = int((datetime.now(timezone.utc) - timedelta(hours=24)).timestamp() * 1000)
+            total_bytes = await state.storage.get_total_bytes_since(since_ms)
+            total_mb = total_bytes / (1024 * 1024)
+
+            if total_mb < threshold_mb:
+                continue
+
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            if today == last_alert_date:
+                continue
+            last_alert_date = today
+
+            threat = Threat(
+                id=str(uuid.uuid4()),
+                timestamp=int(datetime.now(timezone.utc).timestamp() * 1000),
+                type="bandwidth_quota",
+                severity="medium",
+                deviceId="network",
+                flowId="n/a",
+                description=(
+                    f"Network-wide bandwidth over the last 24h ({total_mb:.1f} MB) "
+                    f"exceeded the configured threshold ({threshold_mb:.1f} MB)"
+                ),
+                recommendation="Review top talkers and consider investigating unexpected usage spikes.",
+                dismissed=False,
+            )
+            await state.storage.add_threat(threat)
+            await state.on_threat_update(threat)
+            logger.warning(f"Bandwidth alert triggered: {total_mb:.1f} MB / {threshold_mb:.1f} MB threshold")
+        except asyncio.CancelledError:
+            logger.info("Bandwidth check task cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Error in periodic bandwidth check: {e}")
 
 
 @asynccontextmanager
@@ -97,6 +152,7 @@ async def lifespan(app: FastAPI):
         capture_task = asyncio.create_task(asyncio.sleep(0))
 
     cleanup_task = asyncio.create_task(_periodic_cleanup(CLEANUP_INTERVAL_HOURS))
+    bandwidth_task = asyncio.create_task(_periodic_bandwidth_check(BANDWIDTH_CHECK_INTERVAL_HOURS))
 
     yield
 
@@ -112,7 +168,8 @@ async def lifespan(app: FastAPI):
 
     capture_task.cancel()
     cleanup_task.cancel()
-    for task in (capture_task, cleanup_task):
+    bandwidth_task.cancel()
+    for task in (capture_task, cleanup_task, bandwidth_task):
         try:
             await task
         except asyncio.CancelledError:
@@ -124,6 +181,7 @@ async def lifespan(app: FastAPI):
         await state.auth_service.close()
     if state.cache_service:
         await state.cache_service.close()
+    await state.drain_webhook_tasks()
     logger.info("NetInsight Backend stopped")
 
 
@@ -164,7 +222,9 @@ async def root():
 
 
 # Register routers
-from routers import analytics, auth, cache, capture, devices, flows, health, maintenance, threats, websocket  # noqa: E402
+from routers import (
+    analytics, auth, cache, capture, devices, filter_presets, flows, health, maintenance, threats, websocket,
+)  # noqa: E402
 
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -176,6 +236,7 @@ app.include_router(analytics.router)
 app.include_router(capture.router)
 app.include_router(maintenance.router)
 app.include_router(websocket.router)
+app.include_router(filter_presets.router)
 
 
 if __name__ == "__main__":

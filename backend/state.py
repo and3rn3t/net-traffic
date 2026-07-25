@@ -6,9 +6,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
 
+import requests
 from fastapi import WebSocket
+
+from utils.config import config
 
 if TYPE_CHECKING:
     from services.packet_capture import PacketCaptureService
@@ -43,6 +46,13 @@ service_manager: Optional["ServiceManager"] = None
 # Active WebSocket connections
 active_connections: List[WebSocket] = []
 
+# Per-connection topic subscriptions. A value of None means "subscribed to
+# all topics" (the default for clients that don't request filtering).
+connection_topics: Dict[WebSocket, Optional[Set[str]]] = {}
+
+# Fire-and-forget webhook delivery tasks, tracked so they can be drained on shutdown.
+pending_webhook_tasks: Set[asyncio.Task] = set()
+
 
 async def notify_clients(data: dict) -> None:
     """Notify all connected WebSocket clients concurrently, with retry logic.
@@ -54,6 +64,14 @@ async def notify_clients(data: dict) -> None:
     client could previously stall the whole broadcast loop for minutes.
     """
     if not active_connections:
+        return
+
+    topic = data.get("type")
+    recipients = [
+        c for c in active_connections
+        if (topics := connection_topics.get(c)) is None or topic in topics
+    ]
+    if not recipients:
         return
 
     async def _send(connection: WebSocket) -> tuple[str, WebSocket] | None:
@@ -74,7 +92,7 @@ async def notify_clients(data: dict) -> None:
             logger.warning(f"Unknown WebSocket error: {e}")
             return ("retry", connection)
 
-    results = await asyncio.gather(*(_send(c) for c in active_connections))
+    results = await asyncio.gather(*(_send(c) for c in recipients))
 
     disconnected = [conn for outcome in results if outcome and outcome[0] == "disconnect" for conn in [outcome[1]]]
     failed_connections = [conn for outcome in results if outcome and outcome[0] == "retry" for conn in [outcome[1]]]
@@ -82,6 +100,7 @@ async def notify_clients(data: dict) -> None:
     for conn in disconnected:
         if conn in active_connections:
             active_connections.remove(conn)
+            connection_topics.pop(conn, None)
             logger.info(f"Removed disconnected WebSocket client. Remaining: {len(active_connections)}")
 
     if failed_connections:
@@ -99,6 +118,7 @@ async def notify_clients(data: dict) -> None:
         for connection in retry_results:
             if connection is not None and connection in active_connections:
                 active_connections.remove(connection)
+                connection_topics.pop(connection, None)
                 logger.info(f"Removed WebSocket client after failed retry. Remaining: {len(active_connections)}")
 
 
@@ -122,6 +142,7 @@ async def close_all_connections() -> None:
     await asyncio.gather(*(_close(c) for c in active_connections), return_exceptions=True)
     count = len(active_connections)
     active_connections.clear()
+    connection_topics.clear()
     logger.info(f"Closed {count} WebSocket connection(s) for shutdown")
 
 
@@ -137,6 +158,47 @@ async def on_threat_update(threat) -> None:
     await notify_clients({"type": "threat_update", "threat": threat.dict()})
     if cache_service and cache_service.is_enabled():
         await cache_service.invalidate_threats()
+    _dispatch_webhook(threat)
+
+
+def _deliver_webhook_sync(threat) -> None:
+    """Blocking webhook POST - always run via asyncio.to_thread."""
+    payload = {
+        "event": "threat_detected",
+        "threat": threat.dict(),
+    }
+    try:
+        response = requests.post(config.webhook_url, json=payload, timeout=5)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.warning(f"Webhook delivery failed: {e}")
+
+
+def _dispatch_webhook(threat) -> None:
+    """Fire-and-forget webhook delivery for a threat, if configured.
+
+    Runs as a tracked background task so it never blocks threat creation
+    (which can happen during shutdown flow finalization) and so pending
+    deliveries can be drained on shutdown instead of being silently dropped.
+    """
+    if not config.webhook_url:
+        return
+
+    task = asyncio.create_task(asyncio.to_thread(_deliver_webhook_sync, threat))
+    pending_webhook_tasks.add(task)
+    task.add_done_callback(pending_webhook_tasks.discard)
+
+
+async def drain_webhook_tasks(timeout: float = 5.0) -> None:
+    """Wait briefly for in-flight webhook deliveries to finish during shutdown."""
+    if not pending_webhook_tasks:
+        return
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(*pending_webhook_tasks, return_exceptions=True), timeout=timeout
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Timed out waiting for {len(pending_webhook_tasks)} webhook task(s) to finish")
 
 
 async def on_flow_update(data: dict) -> None:

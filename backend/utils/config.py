@@ -301,6 +301,21 @@ class Config:
         except ValueError:
             return 6379
 
+    @property
+    def webhook_url(self) -> Optional[str]:
+        """Get webhook URL for outbound threat notifications (Slack/Discord/generic HTTP POST)"""
+        url = os.getenv("WEBHOOK_URL", "").strip()
+        return url or None
+
+    @property
+    def bandwidth_alert_threshold_mb(self) -> Optional[float]:
+        """Get 24h bandwidth threshold in MB that triggers an alert. None/0 disables the check."""
+        try:
+            value = float(os.getenv("BANDWIDTH_ALERT_THRESHOLD_MB", "0"))
+            return value if value > 0 else None
+        except ValueError:
+            return None
+
 
 # Global config instance
 config = Config()
