@@ -45,30 +45,39 @@ active_connections: List[WebSocket] = []
 
 
 async def notify_clients(data: dict) -> None:
-    """Notify all connected WebSocket clients with retry logic."""
+    """Notify all connected WebSocket clients concurrently, with retry logic.
+
+    Sends are fanned out with asyncio.gather so N clients bound total latency
+    to a single timeout window (~5s) instead of N * timeout when done
+    sequentially - this matters because notify_clients() is called once per
+    flow/threat during shutdown flow finalization, and a single slow/stale
+    client could previously stall the whole broadcast loop for minutes.
+    """
     if not active_connections:
         return
 
-    disconnected = []
-    failed_connections = []
-
-    for connection in active_connections:
+    async def _send(connection: WebSocket) -> tuple[str, WebSocket] | None:
         try:
             await asyncio.wait_for(connection.send_json(data), timeout=5.0)
+            return None
         except asyncio.TimeoutError:
             logger.warning("WebSocket send timeout - connection may be slow")
-            failed_connections.append(connection)
+            return ("retry", connection)
         except (ConnectionError, RuntimeError) as e:
             logger.debug(f"Permanent WebSocket error: {e}")
-            disconnected.append(connection)
+            return ("disconnect", connection)
         except Exception as e:
             error_str = str(e).lower()
             if any(k in error_str for k in ["closed", "disconnect", "broken", "reset"]):
                 logger.debug(f"WebSocket connection closed: {e}")
-                disconnected.append(connection)
-            else:
-                logger.warning(f"Unknown WebSocket error: {e}")
-                failed_connections.append(connection)
+                return ("disconnect", connection)
+            logger.warning(f"Unknown WebSocket error: {e}")
+            return ("retry", connection)
+
+    results = await asyncio.gather(*(_send(c) for c in active_connections))
+
+    disconnected = [conn for outcome in results if outcome and outcome[0] == "disconnect" for conn in [outcome[1]]]
+    failed_connections = [conn for outcome in results if outcome and outcome[0] == "retry" for conn in [outcome[1]]]
 
     for conn in disconnected:
         if conn in active_connections:
@@ -77,15 +86,43 @@ async def notify_clients(data: dict) -> None:
 
     if failed_connections:
         await asyncio.sleep(0.1)
-        for connection in failed_connections[:]:
+
+        async def _retry(connection: WebSocket) -> WebSocket | None:
             try:
                 await asyncio.wait_for(connection.send_json(data), timeout=2.0)
-                failed_connections.remove(connection)
+                return None
             except Exception as e:
                 logger.warning(f"WebSocket retry failed: {e}")
-                if connection in active_connections:
-                    active_connections.remove(connection)
-                    logger.info(f"Removed WebSocket client after failed retry. Remaining: {len(active_connections)}")
+                return connection
+
+        retry_results = await asyncio.gather(*(_retry(c) for c in failed_connections))
+        for connection in retry_results:
+            if connection is not None and connection in active_connections:
+                active_connections.remove(connection)
+                logger.info(f"Removed WebSocket client after failed retry. Remaining: {len(active_connections)}")
+
+
+async def close_all_connections() -> None:
+    """Proactively close all WebSocket connections during shutdown.
+
+    Must run before packet capture finalizes remaining active flows, since
+    each finalized flow triggers a notify_clients() broadcast - closing
+    connections up front makes those broadcasts instant no-ops instead of
+    attempting to reach clients that are about to lose the connection anyway.
+    """
+    if not active_connections:
+        return
+
+    async def _close(connection: WebSocket) -> None:
+        try:
+            await asyncio.wait_for(connection.close(), timeout=1.0)
+        except Exception:
+            pass
+
+    await asyncio.gather(*(_close(c) for c in active_connections), return_exceptions=True)
+    count = len(active_connections)
+    active_connections.clear()
+    logger.info(f"Closed {count} WebSocket connection(s) for shutdown")
 
 
 async def on_device_update(device) -> None:

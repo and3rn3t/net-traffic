@@ -102,6 +102,14 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down NetInsight Backend...")
+
+    # Close WebSocket connections first so flow finalization below (triggered
+    # via service_manager.cleanup() -> packet_capture.stop()) doesn't try to
+    # broadcast to clients that are about to be disconnected anyway. Without
+    # this, a slow/stale client could stall shutdown by many minutes since
+    # notify_clients() is called once per finalized flow.
+    await state.close_all_connections()
+
     capture_task.cancel()
     cleanup_task.cancel()
     for task in (capture_task, cleanup_task):
