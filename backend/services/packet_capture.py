@@ -1354,11 +1354,22 @@ class PacketCaptureService:
 
             # Queue for batch write (Pi optimization)
             if self.storage:
+                should_flush = False
                 async with self._write_queue_lock:
                     self._write_queue.append(flow)
                     # Flush if batch size reached
                     if len(self._write_queue) >= self._batch_size:
-                        await self._flush_write_queue()
+                        should_flush = True
+                # _flush_write_queue() acquires _write_queue_lock itself, so it
+                # must be called after releasing it above - calling it while
+                # still holding the lock self-deadlocks forever, since
+                # asyncio.Lock is not reentrant. This was the actual cause of
+                # the ~90s shutdown stalls: _finalize_all_flows() would hang
+                # permanently the moment the 50th (batch-size'd) flow was
+                # finalized during shutdown, until systemd's TimeoutStopSec
+                # forced a SIGKILL.
+                if should_flush:
+                    await self._flush_write_queue()
 
             # Notify clients
             if self.on_flow_update:
