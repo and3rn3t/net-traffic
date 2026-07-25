@@ -1,9 +1,9 @@
 """
 Geolocation service using GeoIP2
 """
+import ipaddress
 import logging
 from typing import Optional, Dict, Tuple
-import socket
 
 try:
     import geoip2.database
@@ -64,7 +64,7 @@ class GeolocationService:
         try:
             self.reader = geoip2.database.Reader(db_path)
             return True
-        except (FileNotFoundError, geoip2.errors.AddressNotFoundError, Exception) as e:
+        except Exception as e:
             logger.debug(f"Could not open GeoIP2 database at {db_path}: {e}")
             return False
 
@@ -89,13 +89,8 @@ class GeolocationService:
             city = response.city.name if response.city.name else None
 
             # Try to get ASN (requires GeoLite2-ASN database)
+            # This would require a separate ASN database - not implemented yet
             asn = None
-            try:
-                # This would require a separate ASN database
-                # For now, we'll leave it as None
-                pass
-            except:
-                pass
 
             return {
                 "country": country,
@@ -109,18 +104,18 @@ class GeolocationService:
             return {"country": None, "city": None, "asn": None}
 
     def _is_local_ip(self, ip: str) -> bool:
-        """Check if IP is local/private"""
+        """Check if IP is local/private (IPv4 and IPv6)"""
         try:
-            socket.inet_aton(ip)
-            return (
-                ip.startswith("192.168.") or
-                ip.startswith("10.") or
-                ip.startswith("172.16.") or
-                ip.startswith("127.") or
-                ip.startswith("169.254.")  # Link-local
-            )
-        except (socket.error, OSError):
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
             return False
+        return (
+            addr.is_private
+            or addr.is_link_local
+            or addr.is_loopback
+            or addr.is_multicast
+            or addr.is_reserved
+        )
 
     def close(self):
         """Close GeoIP2 database reader"""

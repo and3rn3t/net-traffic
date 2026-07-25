@@ -3,6 +3,7 @@ Packet capture service using Scapy
 Captures network traffic and extracts flow information
 """
 import asyncio
+import ipaddress
 import logging
 import socket
 import time
@@ -281,7 +282,7 @@ class PacketCaptureService:
                     loop
                 )
             except Exception as e:
-                logger.error(f"Error handling packet: {e}")
+                logger.exception(f"Error handling packet: {e}")
                 self._packets_dropped += 1
 
         try:
@@ -303,7 +304,7 @@ class PacketCaptureService:
                     timeout=2,  # seconds; re-checks self._running when idle
                 )
         except Exception as e:
-            logger.error(f"Capture error: {e}")
+            logger.exception(f"Capture error: {e}")
             self._running = False
 
     def _extract_tcp_flags(self, packet) -> Optional[List[str]]:
@@ -506,7 +507,7 @@ class PacketCaptureService:
                         parts = first_line.split(' ')
                         if len(parts) > 1:
                             result["url"] = parts[1]
-                except:
+                except Exception:
                     pass
 
                 # Extract User-Agent
@@ -517,7 +518,6 @@ class PacketCaptureService:
                         break
         except Exception as e:
             logger.debug(f"Error extracting HTTP info: {e}")
-            pass
 
         return result
 
@@ -661,7 +661,7 @@ class PacketCaptureService:
             else:
                 self._retransmissions[seq_key] = 1
                 return False
-        except:
+        except Exception:
             return False
 
     def _has_layer_cached(self, packet, layer_name) -> bool:
@@ -696,7 +696,7 @@ class PacketCaptureService:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in packet queue processing: {e}")
+                logger.exception(f"Error in packet queue processing: {e}")
 
     async def _process_packet_batch(self):
         """Process a batch of queued packets"""
@@ -966,7 +966,7 @@ class PacketCaptureService:
                     self._dns_cache[dst_ip] = domain
 
         except Exception as e:
-            logger.error(f"Error processing packet: {e}")
+            logger.exception(f"Error processing packet: {e}")
 
     async def _flush_write_queue(self):
         """Flush queued flows to database in batch (Pi optimization)"""
@@ -985,7 +985,7 @@ class PacketCaptureService:
                 await self.storage.add_flows_batch(flows_to_write)
                 logger.debug(f"Batch wrote {len(flows_to_write)} flows to database")
             except Exception as e:
-                logger.error(f"Error in batch write: {e}")
+                logger.exception(f"Error in batch write: {e}")
 
     async def _batch_write_loop(self):
         """Periodic batch write loop (Pi optimization)"""
@@ -1000,7 +1000,7 @@ class PacketCaptureService:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in batch write loop: {e}")
+                logger.exception(f"Error in batch write loop: {e}")
 
     async def _cleanup_old_flows(self):
         """Cleanup old flows to prevent memory exhaustion (Pi optimization)"""
@@ -1070,7 +1070,7 @@ class PacketCaptureService:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic cleanup: {e}")
+                logger.exception(f"Error in periodic cleanup: {e}")
 
     async def _finalize_all_flows(self):
         """Finalize all active flows (called on shutdown)"""
@@ -1086,10 +1086,8 @@ class PacketCaptureService:
             flow_start = time.monotonic()
             try:
                 await self._finalize_flow(flow_key, flow_data)
-            except Exception as e:
-                logger.error(
-                    f"Error finalizing flow {flow_key}: {e}"
-                )
+            except Exception:
+                logger.exception(f"Error finalizing flow {flow_key}")
             flow_elapsed = time.monotonic() - flow_start
             if flow_elapsed > 0.5:
                 logger.warning(
@@ -1233,19 +1231,29 @@ class PacketCaptureService:
         return await self._get_or_create_device_cached(ip, packet)
 
     def _is_local_ip(self, ip: str) -> bool:
-        """Check if IP is local/private"""
+        """Check if IP is local/private (IPv4 and IPv6).
+
+        Previously only checked IPv4 dotted-quad prefixes via socket.inet_aton(),
+        which silently returned False (i.e. "not local") for every IPv6 address -
+        including link-local (fe80::/10) and multicast (ff00::/8) traffic like
+        mDNS (ff02::fb). That caused benign local multicast to be treated as
+        external: triggering unnecessary reverse-DNS lookups and getting flagged
+        as "Behavioral anomaly: unknown protocol connection" threats. It also had
+        a narrower bug even for IPv4: `startswith("172.16.")` only matches that
+        one /24, missing the rest of the private 172.16.0.0/12 range
+        (172.17.0.0-172.31.255.255). Using ipaddress fixes both.
+        """
         try:
-            socket.inet_aton(ip)
-            # Private IP ranges
-            return (
-                ip.startswith("192.168.") or
-                ip.startswith("10.") or
-                ip.startswith("172.16.") or
-                ip.startswith("127.") or
-                ip.startswith("169.254.")  # Link-local
-            )
-        except (socket.error, OSError):
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
             return False
+        return (
+            addr.is_private
+            or addr.is_link_local
+            or addr.is_loopback
+            or addr.is_multicast
+            or addr.is_reserved
+        )
 
     async def _finalize_flow(self, flow_key: str, flow_data: dict):
         """Finalize and save flow"""
