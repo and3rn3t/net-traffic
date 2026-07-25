@@ -98,6 +98,10 @@ class ThreatDetectionService:
         # 6. Poor connection quality (NEW) - could indicate DDoS
         jitter = flow_data.get("jitter")
         rtt = flow_data.get("rtt")
+        # rtt may be a list of recent samples (see packet_capture._process_packet)
+        # rather than a single scalar - normalize to an average before comparing.
+        if isinstance(rtt, list):
+            rtt = (sum(rtt) / len(rtt)) if rtt else None
         if jitter and jitter > HIGH_JITTER_MS:
             threat_score += THREAT_SCORE_HIGH_JITTER
         if rtt and rtt > HIGH_RTT_MS:

@@ -105,10 +105,6 @@ class PacketCaptureService:
         self._sampling_counter = 0
         self._enable_ipv6 = True  # Enable IPv6 support
         self._skip_local_traffic = False  # Skip localhost traffic
-        
-        # Layer cache for performance (avoid repeated haslayer() calls)
-        self._layer_cache: Dict[str, bool] = {}
-        self._layer_cache_size = 1000
 
         # Packet processing queue for batching (reduces async overhead)
         self._packet_queue: List = []
@@ -644,22 +640,17 @@ class PacketCaptureService:
         except:
             return False
 
-    def _has_layer_cached(self, packet, layer_name: str) -> bool:
-        """Check if packet has layer (with caching for performance)"""
-        cache_key = f"{id(packet)}_{layer_name}"
-        if cache_key in self._layer_cache:
-            return self._layer_cache[cache_key]
-        
-        # Limit cache size
-        if len(self._layer_cache) > self._layer_cache_size:
-            # Clear 50% of cache (oldest entries)
-            keys_to_remove = list(self._layer_cache.keys())[:self._layer_cache_size // 2]
-            for key in keys_to_remove:
-                del self._layer_cache[key]
-        
-        has_layer = packet.haslayer(layer_name)
-        self._layer_cache[cache_key] = has_layer
-        return has_layer
+    def _has_layer_cached(self, packet, layer_name) -> bool:
+        """Check if packet has layer.
+
+        NOTE: This intentionally does NOT cache across calls. Packet objects are
+        short-lived and Python can reuse id(packet) for a brand-new object once the
+        old one is garbage collected, which previously caused stale True/False
+        results to leak onto unrelated packets (manifesting as spurious
+        "Layer [IP]/[IPv6] not found" errors when a cached True hit didn't
+        actually apply to the current packet).
+        """
+        return packet.haslayer(layer_name)
 
     async def _queue_packet(self, packet):
         """Queue packet for batch processing (reduces async overhead)"""
@@ -1345,5 +1336,5 @@ class PacketCaptureService:
                 del self._connection_states[flow_key]
 
         except Exception as e:
-            logger.error(f"Error finalizing flow: {e}")
+            logger.exception(f"Error finalizing flow: {e}")
 

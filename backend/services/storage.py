@@ -492,7 +492,7 @@ class StorageService:
              tcp_flags, ttl, connection_state, rtt, retransmissions, jitter,
              application, user_agent, http_method, url, dns_query_type, dns_response_code)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
             flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
@@ -503,6 +503,44 @@ class StorageService:
         ))
         await self._ensure_connection()
         await self.db.commit()
+
+    async def add_flows_batch(self, flows: List[NetworkFlow]):
+        """Insert multiple flows in a single transaction (Pi optimization: fewer commits/fsyncs)."""
+        if not flows:
+            return
+
+        query = """
+            INSERT OR REPLACE INTO flows
+            (id, timestamp, source_ip, source_port, dest_ip, dest_port, protocol,
+             bytes_in, bytes_out, packets_in, packets_out, duration, status,
+             country, city, asn, domain, sni, threat_level, device_id,
+             tcp_flags, ttl, connection_state, rtt, retransmissions, jitter,
+             application, user_agent, http_method, url, dns_query_type, dns_response_code)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        params = [
+            (
+                flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
+                flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
+                flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
+                flow.country, flow.city, flow.asn, flow.domain, flow.sni, flow.threatLevel, flow.deviceId,
+                ",".join(flow.tcpFlags) if flow.tcpFlags else None, flow.ttl, flow.connectionState,
+                flow.rtt, flow.retransmissions, flow.jitter,
+                flow.application, flow.userAgent, flow.httpMethod, flow.url,
+                flow.dnsQueryType, flow.dnsResponseCode
+            )
+            for flow in flows
+        ]
+
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                await conn.executemany(query, params)
+                await conn.commit()
+        else:
+            await self._ensure_connection()
+            await self.db.executemany(query, params)
+            await self.db.commit()
 
     async def get_flows(self, limit: int = 100, device_id: Optional[str] = None,
                        status: Optional[str] = None, protocol: Optional[str] = None,
