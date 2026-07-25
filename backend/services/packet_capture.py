@@ -269,15 +269,23 @@ class PacketCaptureService:
                 self._packets_dropped += 1
 
         try:
-            # Run sniff in executor with BPF filter for performance
-            await asyncio.to_thread(
-                sniff,
-                iface=self.interface,
-                prn=packet_handler,
-                stop_filter=lambda x: not self._running,
-                store=False,
-                filter=self._bpf_filter  # BPF filter reduces kernel->user overhead
-            )
+            # Run sniff in executor with BPF filter for performance.
+            # Scapy only evaluates `stop_filter` after a packet arrives, so
+            # without a `timeout`, sniff() blocks indefinitely on quiet
+            # interfaces and stop()/shutdown can stall for a long time
+            # waiting for the next packet. Passing a short `timeout` makes
+            # sniff() return periodically even with no traffic, so this loop
+            # can re-check `self._running` promptly and exit quickly.
+            while self._running:
+                await asyncio.to_thread(
+                    sniff,
+                    iface=self.interface,
+                    prn=packet_handler,
+                    stop_filter=lambda x: not self._running,
+                    store=False,
+                    filter=self._bpf_filter,  # BPF filter reduces kernel->user overhead
+                    timeout=2,  # seconds; re-checks self._running when idle
+                )
         except Exception as e:
             logger.error(f"Capture error: {e}")
             self._running = False
