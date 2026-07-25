@@ -58,6 +58,10 @@ async def update_device(
         valid_types = ["smartphone", "laptop", "desktop", "tablet", "iot", "server", "unknown"]
         if update.type not in valid_types:
             raise HTTPException(status_code=400, detail=f"type must be one of {valid_types}, got {update.type}")
+    if update.tags is not None:
+        if len(update.tags) > 20:
+            raise HTTPException(status_code=400, detail="A device may have at most 20 tags")
+        update.tags = [validate_string_param(tag, "tags", max_length=50) for tag in update.tags]
 
     if update.name is not None:
         device.name = update.name
@@ -65,6 +69,8 @@ async def update_device(
         device.type = update.type
     if update.notes is not None:
         device.notes = update.notes
+    if update.tags is not None:
+        device.tags = update.tags
 
     await state.storage.upsert_device(device)
     await state.on_device_update(device)

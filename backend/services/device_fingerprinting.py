@@ -13,7 +13,7 @@ try:
 except ImportError:
     SCAPY_AVAILABLE = False
 
-from models.types import Device
+from models.types import Device, Threat
 from services.storage import StorageService
 from utils.constants import VENDOR_DB
 
@@ -21,9 +21,15 @@ logger = logging.getLogger(__name__)
 
 
 class DeviceFingerprintingService:
-    def __init__(self, storage: StorageService, on_device_update: Optional[Callable] = None):
+    def __init__(
+        self,
+        storage: StorageService,
+        on_device_update: Optional[Callable] = None,
+        on_threat_update: Optional[Callable] = None,
+    ):
         self.storage = storage
         self.on_device_update = on_device_update
+        self.on_threat_update = on_threat_update
 
     async def process_arp_packet(self, packet):
         """Process ARP packet for device discovery"""
@@ -97,6 +103,24 @@ class DeviceFingerprintingService:
         # Notify of new device
         if self.on_device_update:
             await self.on_device_update(device)
+
+        # Surface first-seen devices as a dismissible, low-severity alert so
+        # they're noticed immediately instead of silently appearing in the
+        # device list.
+        if self.on_threat_update:
+            threat = Threat(
+                id=str(uuid.uuid4()),
+                timestamp=now,
+                type="new_device",
+                severity="low",
+                deviceId=device.id,
+                flowId="n/a",
+                description=f"New device detected on the network: {device.name} ({device.ip})",
+                recommendation="Verify this device is recognized. If unexpected, investigate or block it.",
+                dismissed=False,
+            )
+            await self.storage.add_threat(threat)
+            await self.on_threat_update(threat)
 
         return device
 

@@ -10,7 +10,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 4
 
 # Migration history
 MIGRATIONS = {
@@ -24,6 +24,24 @@ MIGRATIONS = {
             -- Check if column exists before adding
             -- SQLite doesn't support IF NOT EXISTS for ALTER TABLE ADD COLUMN
             -- So we'll catch the error if it already exists
+        """,
+    },
+    3: {
+        "description": "Add tags field to devices table",
+        "up": """
+            -- Check if column exists before adding (handled in run_migrations)
+        """,
+    },
+    4: {
+        "description": "Add filter_presets table",
+        "up": """
+            CREATE TABLE IF NOT EXISTS filter_presets (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                filters TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
         """,
     },
 }
@@ -119,6 +137,19 @@ async def run_migrations(db: aiosqlite.Connection) -> int:
                             logger.info(f"Column 'notes' already exists in devices table, skipping migration {version}")
                         else:
                             await db.execute("ALTER TABLE devices ADD COLUMN notes TEXT;")
+                            await db.commit()
+                            logger.info(f"Migration {version} applied successfully")
+                elif version == 3:
+                    # Check if tags column exists in devices table
+                    async with db.execute(
+                        "PRAGMA table_info(devices)"
+                    ) as cursor:
+                        columns = await cursor.fetchall()
+                        column_names = [col[1] for col in columns]
+                        if "tags" in column_names:
+                            logger.info(f"Column 'tags' already exists in devices table, skipping migration {version}")
+                        else:
+                            await db.execute("ALTER TABLE devices ADD COLUMN tags TEXT;")
                             await db.commit()
                             logger.info(f"Migration {version} applied successfully")
                 else:

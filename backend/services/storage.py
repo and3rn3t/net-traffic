@@ -8,7 +8,7 @@ import asyncio
 from typing import List, Optional
 from datetime import datetime, timedelta
 
-from models.types import NetworkFlow, Device, Threat
+from models.types import NetworkFlow, Device, Threat, FilterPreset
 from utils.migrations import run_migrations
 from services.db_pool import DatabasePool
 
@@ -180,6 +180,7 @@ class StorageService:
                 avg_rtt REAL,
                 connection_quality TEXT,
                 applications TEXT,
+                tags TEXT,
                 UNIQUE(mac)
             )
         """)
@@ -220,6 +221,21 @@ class StorageService:
                 dns_response_code TEXT,
                 FOREIGN KEY (device_id) REFERENCES devices(id)
             )
+        """)
+
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS filter_presets (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                filters TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            )
+        """)
+
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_filter_presets_user_id
+            ON filter_presets(user_id)
         """)
 
         await self.db.execute("""
@@ -449,18 +465,19 @@ class StorageService:
         """Insert or update device"""
         # Convert applications list to comma-separated string
         applications_str = ",".join(device.applications) if device.applications else None
+        tags_str = json.dumps(device.tags) if device.tags else None
 
         await self._execute_with_retry("""
             INSERT OR REPLACE INTO devices
             (id, name, ip, mac, type, vendor, os, first_seen, last_seen, bytes_total,
              connections_count, threat_score, behavioral, notes, ipv6_support, avg_rtt,
-             connection_quality, applications)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             connection_quality, applications, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             device.id, device.name, device.ip, device.mac, device.type, device.vendor,
             device.os, device.firstSeen, device.lastSeen, device.bytesTotal, device.connectionsCount,
             device.threatScore, json.dumps(device.behavioral), device.notes,
-            1 if device.ipv6Support else 0, device.avgRtt, device.connectionQuality, applications_str
+            1 if device.ipv6Support else 0, device.avgRtt, device.connectionQuality, applications_str, tags_str
         ))
         await self._ensure_connection()
         await self.db.commit()
@@ -827,6 +844,65 @@ class StorageService:
         await self.db.commit()
         return cursor.rowcount > 0
 
+    async def get_total_bytes_since(self, since_ms: int) -> int:
+        """Sum bytes_in + bytes_out across all flows with timestamp >= since_ms"""
+        query = "SELECT COALESCE(SUM(bytes_in + bytes_out), 0) FROM flows WHERE timestamp >= ?"
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, (since_ms,)) as cursor:
+                    row = await cursor.fetchone()
+                    return int(row[0]) if row else 0
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, (since_ms,)) as cursor:
+                row = await cursor.fetchone()
+                return int(row[0]) if row else 0
+
+    # Filter preset methods
+    async def add_filter_preset(self, preset: FilterPreset):
+        """Save a new flow filter preset"""
+        await self._execute_with_retry("""
+            INSERT INTO filter_presets (id, user_id, name, filters, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            preset.id, preset.userId, preset.name, json.dumps(preset.filters), preset.createdAt
+        ))
+        await self._ensure_connection()
+        await self.db.commit()
+
+    async def get_filter_presets(self, user_id: str) -> List[FilterPreset]:
+        """List a user's saved filter presets"""
+        query = "SELECT * FROM filter_presets WHERE user_id = ? ORDER BY created_at DESC"
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, (user_id,)) as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_filter_preset(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, (user_id,)) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_filter_preset(row) for row in rows]
+
+    async def delete_filter_preset(self, preset_id: str, user_id: str) -> bool:
+        """Delete a filter preset, scoped to its owner"""
+        await self._ensure_connection()
+        cursor = await self.db.execute(
+            "DELETE FROM filter_presets WHERE id = ? AND user_id = ?", (preset_id, user_id)
+        )
+        await self.db.commit()
+        return cursor.rowcount > 0
+
+    def _row_to_filter_preset(self, row) -> FilterPreset:
+        """Convert database row to FilterPreset model"""
+        return FilterPreset(
+            id=row["id"],
+            userId=row["user_id"],
+            name=row["name"],
+            filters=json.loads(row["filters"]),
+            createdAt=row["created_at"],
+        )
+
     # Helper methods
     def _row_to_device(self, row) -> Device:
         """Convert database row to Device model"""
@@ -835,11 +911,18 @@ class StorageService:
         if row["applications"]:
             applications = [a.strip() for a in row["applications"].split(",") if a.strip()]
 
-        # Handle missing notes field (for backward compatibility with older databases)
+        # Handle missing notes/tags fields (for backward compatibility with older databases)
         try:
             notes = row["notes"]
         except (KeyError, IndexError):
             notes = None
+
+        tags = None
+        try:
+            if row["tags"]:
+                tags = json.loads(row["tags"])
+        except (KeyError, IndexError):
+            tags = None
 
         return Device(
             id=row["id"],
@@ -859,7 +942,8 @@ class StorageService:
             ipv6Support=bool(row["ipv6_support"]) if row["ipv6_support"] is not None else None,
             avgRtt=row["avg_rtt"],
             connectionQuality=row["connection_quality"],
-            applications=applications
+            applications=applications,
+            tags=tags
         )
 
     def _row_to_flow(self, row) -> NetworkFlow:

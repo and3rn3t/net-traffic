@@ -26,6 +26,13 @@ class DeviceUpdateRequest(BaseModel):
     name: Optional[str] = None
     notes: Optional[str] = None
     type: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class FilterPresetCreate(BaseModel):
+    """Request model for creating a saved flow filter preset"""
+    name: str = Field(..., min_length=1, max_length=100)
+    filters: dict
 
 
 class TimeRangeRequest(BaseModel):

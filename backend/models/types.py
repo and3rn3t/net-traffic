@@ -64,12 +64,21 @@ class Device(BaseModel):
     avgRtt: Optional[float] = None  # Average round-trip time
     connectionQuality: Optional[str] = None  # 'good' | 'fair' | 'poor'
     applications: Optional[List[str]] = None  # Detected applications
+    tags: Optional[List[str]] = None  # User-defined tags/groups, e.g. 'iot', 'trusted', 'guest'
+
+
+class FilterPreset(BaseModel):
+    id: str
+    userId: str
+    name: str
+    filters: dict
+    createdAt: int  # Unix timestamp in milliseconds
 
 
 class Threat(BaseModel):
     id: str
     timestamp: int  # Unix timestamp
-    type: str  # 'malware' | 'exfiltration' | 'scan' | 'botnet' | 'phishing' | 'anomaly'
+    type: str  # 'malware' | 'exfiltration' | 'scan' | 'botnet' | 'phishing' | 'anomaly' | 'new_device' | 'bandwidth_quota'
     severity: str  # 'low' | 'medium' | 'high' | 'critical'
     deviceId: str
     flowId: str

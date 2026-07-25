@@ -44,7 +44,7 @@ class ServiceManager:
         """Initialize all services with callbacks"""
         # Initialize services with WebSocket callbacks
         self.device_service = DeviceFingerprintingService(
-            self.storage, on_device_update=on_device_update
+            self.storage, on_device_update=on_device_update, on_threat_update=on_threat_update
         )
         self.threat_service = ThreatDetectionService(
             self.storage, on_threat_update=on_threat_update
