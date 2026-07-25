@@ -3,9 +3,10 @@ Authentication Service
 Handles user authentication, JWT token generation, and API key management
 """
 import logging
+import os
 import secrets
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import aiosqlite
 from jose import JWTError, jwt
@@ -21,8 +22,21 @@ logger = logging.getLogger(__name__)
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# JWT settings (should be in environment variables in production)
-SECRET_KEY = "your-secret-key-change-in-production"  # TODO: Load from env
+# JWT settings
+_env_secret = os.getenv("JWT_SECRET_KEY")
+if _env_secret:
+    SECRET_KEY = _env_secret
+else:
+    # No secret configured: generate a random one for this process only.
+    # This prevents anyone who reads this public repo from forging tokens,
+    # but it means all sessions are invalidated on every restart. Set
+    # JWT_SECRET_KEY in the environment for stable sessions in production.
+    SECRET_KEY = secrets.token_urlsafe(32)
+    logger.warning(
+        "JWT_SECRET_KEY is not set - generated a random secret for this "
+        "process. All existing sessions/tokens will be invalidated on "
+        "restart. Set JWT_SECRET_KEY in the environment for production."
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -93,16 +107,22 @@ class AuthService:
         async with self.db.execute("SELECT COUNT(*) FROM users") as cursor:
             row = await cursor.fetchone()
             if row[0] == 0:
-                # Create default admin user
+                # Create default admin user. Use DEFAULT_ADMIN_PASSWORD if set,
+                # otherwise generate a random one-time password (logged below)
+                # so the credentials aren't a fixed, publicly-known value.
+                admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD") or secrets.token_urlsafe(12)
                 admin_user = UserCreate(
                     username="admin",
                     email="admin@netinsight.com",
-                    password="Admin123!",  # CHANGE THIS IN PRODUCTION
+                    password=admin_password,
                     full_name="Administrator",
                     role=UserRole.ADMIN
                 )
                 await self.create_user(admin_user)
-                logger.warning("Default admin user created - username: admin, password: Admin123! - CHANGE THIS!")
+                if os.getenv("DEFAULT_ADMIN_PASSWORD"):
+                    logger.warning("Default admin user created - username: admin (password from DEFAULT_ADMIN_PASSWORD env var) - CHANGE THIS after first login!")
+                else:
+                    logger.warning(f"Default admin user created - username: admin, password: {admin_password} - CHANGE THIS after first login! (This password is only shown once, in this log line.)")
 
     # Password hashing functions
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
@@ -122,9 +142,9 @@ class AuthService:
         """Create a JWT access token"""
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -175,7 +195,7 @@ class AuthService:
         """Create a new user"""
         user_id = secrets.token_urlsafe(16)
         hashed_password = self.get_password_hash(user_create.password)
-        created_at = int(datetime.utcnow().timestamp())
+        created_at = int(datetime.now(timezone.utc).timestamp())
 
         await self.db.execute(
             """
@@ -217,7 +237,7 @@ class AuthService:
         # Update last login
         await self.db.execute(
             "UPDATE users SET last_login = ? WHERE id = ?",
-            (int(datetime.utcnow().timestamp()), user.id)
+            (int(datetime.now(timezone.utc).timestamp()), user.id)
         )
         await self.db.commit()
 
@@ -310,11 +330,13 @@ class AuthService:
         api_key_id = secrets.token_urlsafe(16)
         raw_key = self.generate_api_key()
         key_hash = self.hash_api_key(raw_key)
-        created_at = int(datetime.utcnow().timestamp())
+        created_at = int(datetime.now(timezone.utc).timestamp())
         expires_at = None
 
         if api_key_create.expires_days:
-            expires_at = int((datetime.utcnow() + timedelta(days=api_key_create.expires_days)).timestamp())
+            expires_at = int(
+                (datetime.now(timezone.utc) + timedelta(days=api_key_create.expires_days)).timestamp()
+            )
 
         await self.db.execute(
             """
@@ -359,13 +381,13 @@ class AuthService:
                 return None
 
         # Check expiration
-        if key_row["expires_at"] and datetime.utcnow().timestamp() > key_row["expires_at"]:
+        if key_row["expires_at"] and datetime.now(timezone.utc).timestamp() > key_row["expires_at"]:
             return None
 
         # Update last used
         await self.db.execute(
             "UPDATE api_keys SET last_used = ? WHERE id = ?",
-            (int(datetime.utcnow().timestamp()), key_row["id"])
+            (int(datetime.now(timezone.utc).timestamp()), key_row["id"])
         )
         await self.db.commit()
 

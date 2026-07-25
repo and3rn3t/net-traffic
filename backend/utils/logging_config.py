@@ -6,7 +6,7 @@ import logging
 import sys
 from pythonjsonlogger import jsonlogger
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -24,7 +24,7 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 
         # Add timestamp in ISO format
         if not log_record.get('timestamp'):
-            log_record['timestamp'] = datetime.utcnow().isoformat() + 'Z'
+            log_record['timestamp'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 
         # Add log level (use renamed 'level' if available, otherwise use levelname)
         if log_record.get('level'):
