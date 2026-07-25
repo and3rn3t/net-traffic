@@ -129,10 +129,15 @@ app = FastAPI(
 # Middleware (order matters: logging -> rate limit -> CORS)
 app.add_middleware(RequestLoggingMiddleware, log_excluded_paths=False)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=config.rate_limit_per_minute)
+# Auth uses a Bearer token in the Authorization header, not cookies, so the
+# frontend never needs `credentials: 'include'`. Wildcard origin + credentials
+# is also an invalid/dangerous combination per the CORS spec (it would let
+# any site make credentialed requests). Credentials are disabled entirely
+# since nothing in this API relies on cookie-based auth.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.allowed_origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

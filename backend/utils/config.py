@@ -168,9 +168,24 @@ class Config:
 
     @property
     def allowed_origins(self) -> list[str]:
-        """Get allowed CORS origins"""
-        origins = os.getenv("ALLOWED_ORIGINS", "*")
-        return [o.strip() for o in origins.split(",") if o.strip()]
+        """Get allowed CORS origins.
+
+        Defaults to common local dev origins if ALLOWED_ORIGINS is not set,
+        rather than "*". A wildcard is dangerous to combine with credentialed
+        requests and should be an explicit opt-in, not a silent fallback.
+        """
+        origins = os.getenv("ALLOWED_ORIGINS")
+        if not origins:
+            return ["http://localhost:5173", "http://localhost:3000"]
+
+        parsed = [o.strip() for o in origins.split(",") if o.strip()]
+        if "*" in parsed:
+            logger.warning(
+                "ALLOWED_ORIGINS includes '*' (wildcard). This allows any "
+                "website to call this API. CORS credentials are disabled "
+                "in main.py regardless of this setting."
+            )
+        return parsed
 
     @property
     def debug(self) -> bool:
