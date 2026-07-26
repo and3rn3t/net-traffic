@@ -386,15 +386,26 @@ class PacketCaptureService:
         loop = asyncio.get_event_loop()
         reconnect_delay = 2.0
         max_reconnect_delay = 30.0
+        # Only reset backoff to the minimum after a connection has proven
+        # itself stable for this long. Without this, a persistent failure
+        # (bad key, wrong host, remote command rejected) would still reset
+        # the delay right after every subprocess spawn - since spawning
+        # succeeds even when the SSH handshake/auth then immediately fails -
+        # and hammer the remote host every ~2s indefinitely instead of
+        # backing off.
+        stable_connection_threshold = 10.0
+        consecutive_failures = 0
 
         while self._running:
             proc: Optional[subprocess.Popen] = None
+            connect_time = time.monotonic()
             try:
                 cmd = [
                     "ssh",
                     "-i", self.remote_ssh_key,
                     "-o", "StrictHostKeyChecking=accept-new",
                     "-o", "BatchMode=yes",
+                    "-o", "ConnectTimeout=10",
                     "-o", "ServerAliveInterval=5",
                     "-o", "ServerAliveCountMax=3",
                     f"{self.remote_user}@{self.remote_host}",
@@ -413,7 +424,6 @@ class PacketCaptureService:
                     bufsize=0,
                 )
                 self._remote_capture_proc = proc
-                reconnect_delay = 2.0  # reset backoff after a successful connect
 
                 def read_packets(proc: subprocess.Popen):
                     try:
@@ -439,6 +449,20 @@ class PacketCaptureService:
                         self._remote_capture_proc = None
 
             if self._running:
+                if time.monotonic() - connect_time >= stable_connection_threshold:
+                    # Was connected long enough to be considered healthy;
+                    # start backing off from scratch on the next failure.
+                    reconnect_delay = 2.0
+                    consecutive_failures = 0
+                else:
+                    consecutive_failures += 1
+                    if consecutive_failures in (3, 10) or consecutive_failures % 30 == 0:
+                        logger.error(
+                            f"Remote capture has failed to establish a stable "
+                            f"connection {consecutive_failures} times in a row "
+                            f"({self.remote_user}@{self.remote_host}). Check SSH "
+                            f"key/host reachability - this needs attention."
+                        )
                 logger.warning(
                     f"Remote capture disconnected; reconnecting in "
                     f"{reconnect_delay:.0f}s"
