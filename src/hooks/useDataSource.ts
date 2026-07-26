@@ -102,7 +102,11 @@ export function useDataSource() {
 
   const handleToggleCapture = () => {
     if (API_CONFIG.USE_REAL_API) {
-      isCapturing ? apiData.stopCapture() : apiData.startCapture();
+      if (isCapturing) {
+        apiData.stopCapture();
+      } else {
+        apiData.startCapture();
+      }
     } else {
       setMockIsCapturing(prev => !prev);
     }
