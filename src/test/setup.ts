@@ -25,6 +25,9 @@ if (!import.meta.env.VITE_USE_REAL_API) {
 // Cleanup after each test
 afterEach(() => {
   cleanup();
+  // Reset any vi.stubEnv() overrides so they don't leak into other test files
+  // that share the same worker (e.g. VITE_USE_REAL_API stubbed to 'false').
+  vi.unstubAllEnvs();
 });
 
 // Mock window.matchMedia

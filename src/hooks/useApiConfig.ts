@@ -20,8 +20,17 @@ export function useApiConfig() {
 /**
  * Direct constant access (for use outside React components)
  * Use this in non-component files like hooks, utilities, etc.
+ *
+ * Uses getters (not cached values) so that test utilities like
+ * `vi.stubEnv('VITE_USE_REAL_API', ...)` are reflected on next read,
+ * since consumers typically read these per-render/per-call rather than
+ * caching them at module scope.
  */
 export const API_CONFIG = {
-  USE_REAL_API: import.meta.env.VITE_USE_REAL_API === 'true',
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
-} as const;
+  get USE_REAL_API() {
+    return import.meta.env.VITE_USE_REAL_API === 'true';
+  },
+  get API_BASE_URL() {
+    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  },
+};

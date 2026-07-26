@@ -47,12 +47,7 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-// Mock environment variable
-vi.mock('import.meta', () => ({
-  env: {
-    VITE_USE_REAL_API: 'true',
-  },
-}));
+// Note: VITE_USE_REAL_API is set to 'true' globally in vitest.config.ts's test.env
 
 const mockSummaryStats = {
   total_devices: 10,
