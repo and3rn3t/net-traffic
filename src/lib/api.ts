@@ -557,7 +557,10 @@ export class ApiClient {
   }
 
   // Authentication
-  async login(username: string, password: string): Promise<{ access_token: string; token_type: string }> {
+  async login(
+    username: string,
+    password: string
+  ): Promise<{ access_token: string; token_type: string }> {
     const response = await fetch(`${this.baseURL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -581,7 +584,13 @@ export class ApiClient {
   async createFilterPreset(
     name: string,
     filters: Record<string, unknown>
-  ): Promise<{ id: string; userId: string; name: string; filters: Record<string, unknown>; createdAt: number }> {
+  ): Promise<{
+    id: string;
+    userId: string;
+    name: string;
+    filters: Record<string, unknown>;
+    createdAt: number;
+  }> {
     return this.request('/api/filter-presets', {
       method: 'POST',
       body: JSON.stringify({ name, filters }),
@@ -589,7 +598,13 @@ export class ApiClient {
   }
 
   async listFilterPresets(): Promise<
-    Array<{ id: string; userId: string; name: string; filters: Record<string, unknown>; createdAt: number }>
+    Array<{
+      id: string;
+      userId: string;
+      name: string;
+      filters: Record<string, unknown>;
+      createdAt: number;
+    }>
   > {
     return this.request('/api/filter-presets');
   }

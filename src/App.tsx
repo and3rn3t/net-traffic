@@ -544,11 +544,7 @@ function App() {
                       is running.
                     </p>
                     {!isCapturing && (
-                      <Button
-                        size="sm"
-                        onClick={startCapture}
-                        className="mt-2"
-                      >
+                      <Button size="sm" onClick={startCapture} className="mt-2">
                         Start Capture
                       </Button>
                     )}

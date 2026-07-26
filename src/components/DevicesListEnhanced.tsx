@@ -223,7 +223,11 @@ export function DevicesListEnhanced({
                             {device.tags && device.tags.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {device.tags.map(tag => (
-                                  <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                  <Badge
+                                    key={tag}
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0"
+                                  >
                                     {tag}
                                   </Badge>
                                 ))}
@@ -389,7 +393,11 @@ export function DevicesListEnhanced({
               {editForm.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {editForm.tags.map(tag => (
-                    <Badge key={tag} variant="secondary" className="flex items-center gap-1 text-xs">
+                    <Badge
+                      key={tag}
+                      variant="secondary"
+                      className="flex items-center gap-1 text-xs"
+                    >
                       {tag}
                       <button
                         type="button"

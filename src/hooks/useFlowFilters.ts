@@ -73,7 +73,11 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
         .listFilterPresets()
         .then(presets =>
           setSavedPresets(
-            presets.map(p => ({ id: p.id, name: p.name, filters: p.filters as unknown as FlowFilters }))
+            presets.map(p => ({
+              id: p.id,
+              name: p.name,
+              filters: p.filters as unknown as FlowFilters,
+            }))
           )
         )
         .catch(e => console.error('Failed to load filter presets:', e));
@@ -346,7 +350,11 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
           .then(created =>
             setSavedPresets(prev => [
               ...prev,
-              { id: created.id, name: created.name, filters: created.filters as unknown as FlowFilters },
+              {
+                id: created.id,
+                name: created.name,
+                filters: created.filters as unknown as FlowFilters,
+              },
             ])
           )
           .catch(e => console.error('Failed to save filter preset:', e));
