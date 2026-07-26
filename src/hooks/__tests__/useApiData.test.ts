@@ -417,8 +417,7 @@ describe('useApiData', () => {
       const error = new Error('Request timeout');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
-      // Use maxRetries: 0 to disable retries and avoid infinite loops
-      const { result } = renderHook(() => useApiData({ maxRetries: 0 }));
+      const { result } = renderHook(() => useApiData());
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -434,8 +433,7 @@ describe('useApiData', () => {
         { timeout: 1000 }
       );
 
-      // With maxRetries: 0, when error includes "timeout", it shows "Backend unavailable"
-      // because the error message check happens even with 0 retries
+      // The hook always shows "Backend unavailable" on fetch failure (ApiClient handles internal retries)
       expect(toast.error).toHaveBeenCalledWith(
         'Backend unavailable',
         expect.objectContaining({
@@ -452,8 +450,7 @@ describe('useApiData', () => {
       const error = new Error('Service unavailable');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
-      // Use maxRetries: 0 to disable retries and avoid infinite loops
-      const { result } = renderHook(() => useApiData({ maxRetries: 0 }));
+      const { result } = renderHook(() => useApiData());
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -480,8 +477,7 @@ describe('useApiData', () => {
       const error = new Error('Network error');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
-      // Use maxRetries: 0 to disable retries and avoid infinite loops
-      const { result } = renderHook(() => useApiData({ maxRetries: 0 }));
+      const { result } = renderHook(() => useApiData());
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -700,7 +696,7 @@ describe('useApiData', () => {
       vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
       // Disable WebSocket to test polling behavior
-      renderHook(() => useApiData({ pollingInterval: 1000, maxRetries: 0, useWebSocket: false }));
+      renderHook(() => useApiData({ pollingInterval: 1000, useWebSocket: false }));
 
       await waitFor(() => {
         expect(apiClient.healthCheck).toHaveBeenCalled();

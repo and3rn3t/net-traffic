@@ -67,6 +67,10 @@ describe('useApiData Integration Tests', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe('Initial Data Fetching', () => {
     it('should fetch all data on mount', async () => {
       const mockHealth = {
@@ -117,8 +121,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockRejectedValue(error);
       (apiClient.getProtocolStats as any).mockRejectedValue(error);
 
-      // Use maxRetries: 0 to disable retries and avoid infinite loops
-      const { result } = renderHook(() => useApiData({ maxRetries: 0 }));
+      const { result } = renderHook(() => useApiData());
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -372,7 +375,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
       (apiClient.dismissThreat as any).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useApiData({ maxRetries: 0 }));
+      const { result } = renderHook(() => useApiData());
 
       await waitFor(
         () => {
