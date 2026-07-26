@@ -14,6 +14,7 @@ import {
   Circle,
   WifiOff,
   Database,
+  Bell,
 } from 'lucide-react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
@@ -56,6 +57,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { NetworkQualityDashboard } from '@/components/NetworkQualityDashboard';
 import { ApplicationUsageDashboard } from '@/components/ApplicationUsageDashboard';
 import { MaintenancePanel } from '@/components/MaintenancePanel';
+import { AlertRules } from '@/components/AlertRules';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { AccountMenu } from '@/components/AccountMenu';
@@ -239,6 +241,10 @@ function App() {
             <TabsTrigger value="analytics" className="gap-2">
               <TrendingUp size={16} />
               Analytics
+            </TabsTrigger>
+            <TabsTrigger value="alerts" className="gap-2">
+              <Bell size={16} />
+              Alerts
             </TabsTrigger>
             <TabsTrigger value="maintenance" className="gap-2">
               <Database size={16} />
@@ -655,6 +661,10 @@ function App() {
               devices={devices}
               useApiFilters={USE_REAL_API && isConnected}
             />
+          </TabsContent>
+
+          <TabsContent value="alerts" className="space-y-6">
+            <AlertRules />
           </TabsContent>
 
           <TabsContent value="maintenance" className="space-y-6">

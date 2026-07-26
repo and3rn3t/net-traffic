@@ -126,6 +126,7 @@ async def lifespan(app: FastAPI):
         on_device_update=state.on_device_update,
         on_threat_update=state.on_threat_update,
         on_flow_update=state.on_flow_update,
+        on_alert_triggered=state.on_alert_triggered,
         network_interface=config.network_interface,
         capture_mode=config.capture_mode,
         remote_capture_host=config.remote_capture_host,
@@ -141,6 +142,8 @@ async def lifespan(app: FastAPI):
     state.network_quality_analytics = state.service_manager.network_quality_analytics
     state.application_analytics = state.service_manager.application_analytics
     state.packet_capture = state.service_manager.packet_capture
+    state.alerting_service = state.service_manager.alerting_service
+    await state.alerting_service.refresh_cache()
 
     # Start packet capture
     capture_source = (
@@ -234,7 +237,7 @@ async def root():
 
 # Register routers
 from routers import (
-    analytics, auth, cache, capture, devices, filter_presets, flows, health, maintenance, threats, websocket,
+    alerts, analytics, auth, cache, capture, devices, filter_presets, flows, health, maintenance, threats, websocket,
 )  # noqa: E402
 
 app.include_router(health.router)
@@ -248,6 +251,7 @@ app.include_router(capture.router)
 app.include_router(maintenance.router)
 app.include_router(websocket.router)
 app.include_router(filter_presets.router)
+app.include_router(alerts.router)
 
 
 if __name__ == "__main__":

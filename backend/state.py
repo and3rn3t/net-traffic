@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from services.application_analytics import ApplicationAnalyticsService
     from services.auth_service import AuthService
     from services.cache_service import CacheService
+    from services.alerting import AlertingService
     from utils.service_manager import ServiceManager
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ network_quality_analytics: Optional["NetworkQualityAnalyticsService"] = None
 application_analytics: Optional["ApplicationAnalyticsService"] = None
 auth_service: Optional["AuthService"] = None
 cache_service: Optional["CacheService"] = None
+alerting_service: Optional["AlertingService"] = None
 service_manager: Optional["ServiceManager"] = None
 
 # Active WebSocket connections
@@ -159,6 +161,11 @@ async def on_threat_update(threat) -> None:
     if cache_service and cache_service.is_enabled():
         await cache_service.invalidate_threats()
     _dispatch_webhook(threat)
+
+
+async def on_alert_triggered(alert) -> None:
+    """Callback when a configurable alert rule triggers."""
+    await notify_clients({"type": "alert_triggered", "alert": alert.dict()})
 
 
 def _deliver_webhook_sync(threat) -> None:

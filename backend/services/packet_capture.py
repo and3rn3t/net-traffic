@@ -38,6 +38,7 @@ from services.threat_detection import ThreatDetectionService
 from services.storage import StorageService
 from services.geolocation import GeolocationService
 from services.enhanced_identification import EnhancedIdentificationService
+from services.alerting import AlertingService
 from utils.constants import MAX_PLAUSIBLE_INTERVAL_SECONDS
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ class PacketCaptureService:
         geolocation_service: Optional[GeolocationService] = None,
         on_flow_update: Optional[Callable] = None,
         enhanced_identification: Optional[EnhancedIdentificationService] = None,
+        alerting_service: Optional[AlertingService] = None,
         capture_mode: str = "local",
         remote_host: str = "",
         remote_user: str = "root",
@@ -82,6 +84,7 @@ class PacketCaptureService:
         self.geolocation_service = geolocation_service
         self.on_flow_update = on_flow_update
         self.enhanced_identification = enhanced_identification
+        self.alerting_service = alerting_service
 
         self._running = False
         self._capture_task: Optional[asyncio.Task] = None
@@ -1564,6 +1567,15 @@ class PacketCaptureService:
                 dnsQueryType=dns_query_type,
                 dnsResponseCode=dns_response_code
             )
+
+            # Evaluate configurable alert rules against the finalized flow.
+            # evaluate_flow() never raises, but guard anyway so a future
+            # change there can't ever break flow finalization.
+            if self.alerting_service:
+                try:
+                    await self.alerting_service.evaluate_flow(flow)
+                except Exception:
+                    logger.exception("Error evaluating alert rules for flow")
 
             # Queue for batch write (Pi optimization)
             if self.storage:

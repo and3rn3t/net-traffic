@@ -14,6 +14,7 @@ from services.network_quality_analytics import NetworkQualityAnalyticsService
 from services.application_analytics import ApplicationAnalyticsService
 from services.packet_capture import PacketCaptureService
 from services.enhanced_identification import EnhancedIdentificationService
+from services.alerting import AlertingService
 from models.types import Device, Threat
 from utils.config import config
 
@@ -33,12 +34,14 @@ class ServiceManager:
         self.network_quality_analytics: Optional[NetworkQualityAnalyticsService] = None
         self.application_analytics: Optional[ApplicationAnalyticsService] = None
         self.packet_capture: Optional[PacketCaptureService] = None
+        self.alerting_service: Optional[AlertingService] = None
 
     def initialize_services(
         self,
         on_device_update: Optional[Callable[[Device], Any]] = None,
         on_threat_update: Optional[Callable[[Threat], Any]] = None,
         on_flow_update: Optional[Callable[[Any], Any]] = None,
+        on_alert_triggered: Optional[Callable[[Any], Any]] = None,
         network_interface: str = "eth0",
         capture_mode: str = "local",
         remote_capture_host: str = "",
@@ -77,6 +80,11 @@ class ServiceManager:
             dns_servers=config.dns_servers if config.dns_servers else None
         )
 
+        # Initialize configurable alert rule engine
+        self.alerting_service = AlertingService(
+            self.storage, on_alert_triggered=on_alert_triggered
+        )
+
         # Initialize packet capture
         self.packet_capture = PacketCaptureService(
             interface=network_interface,
@@ -86,6 +94,7 @@ class ServiceManager:
             geolocation_service=self.geolocation_service,
             on_flow_update=on_flow_update,
             enhanced_identification=enhanced_identification,
+            alerting_service=self.alerting_service,
             capture_mode=capture_mode,
             remote_host=remote_capture_host,
             remote_user=remote_capture_user,

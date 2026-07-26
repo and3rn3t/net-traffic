@@ -10,6 +10,9 @@ import type {
   AnalyticsData,
   ProtocolStats,
   CaptureStatus,
+  AlertRule,
+  AlertRuleInput,
+  TriggeredAlert,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -613,6 +616,39 @@ export class ApiClient {
     await this.request(`/api/filter-presets/${presetId}`, { method: 'DELETE' });
   }
 
+  // Configurable Alert Rules
+  async getAlertRules(): Promise<AlertRule[]> {
+    return this.request('/api/alerts/rules');
+  }
+
+  async createAlertRule(rule: AlertRuleInput): Promise<AlertRule> {
+    return this.request('/api/alerts/rules', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    });
+  }
+
+  async updateAlertRule(ruleId: string, rule: Partial<AlertRuleInput>): Promise<AlertRule> {
+    return this.request(`/api/alerts/rules/${ruleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(rule),
+    });
+  }
+
+  async deleteAlertRule(ruleId: string): Promise<void> {
+    await this.request(`/api/alerts/rules/${ruleId}`, { method: 'DELETE' });
+  }
+
+  async getTriggeredAlerts(limit = 100, acknowledged?: boolean): Promise<TriggeredAlert[]> {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (acknowledged !== undefined) params.append('acknowledged', acknowledged.toString());
+    return this.request(`/api/alerts/triggered?${params.toString()}`);
+  }
+
+  async acknowledgeAlert(alertId: string): Promise<void> {
+    await this.request(`/api/alerts/triggered/${alertId}/acknowledge`, { method: 'POST' });
+  }
+
   // Search
   async search(
     query: string,
@@ -745,6 +781,16 @@ export class ApiClient {
 
           const data = JSON.parse(event.data);
           onMessage(data);
+
+          // Dispatch to any type-specific subscribers registered via on()
+          if (data && typeof data === 'object' && typeof data.type === 'string') {
+            const listeners = this.wsListeners.get(data.type);
+            if (listeners) {
+              for (const listener of listeners) {
+                listener(data);
+              }
+            }
+          }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }

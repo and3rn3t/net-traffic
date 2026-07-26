@@ -94,6 +94,58 @@ export interface FilterPreset {
   createdAt: number;
 }
 
+export type AlertMetric =
+  | 'rtt'
+  | 'retransmissions'
+  | 'jitter'
+  | 'country'
+  | 'application'
+  | 'sni'
+  | 'tcp_flags'
+  | 'threat_level';
+
+export type AlertOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'in' | 'contains';
+
+export interface AlertRule {
+  id: string;
+  userId: string;
+  name: string;
+  enabled: boolean;
+  metric: AlertMetric;
+  operator: AlertOperator;
+  threshold?: number;
+  values?: string[];
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  cooldownMinutes: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AlertRuleInput {
+  name: string;
+  metric: AlertMetric;
+  operator: AlertOperator;
+  threshold?: number;
+  values?: string[];
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  cooldownMinutes: number;
+  enabled: boolean;
+}
+
+export interface TriggeredAlert {
+  id: string;
+  ruleId: string;
+  ruleName: string;
+  timestamp: number;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  deviceId: string;
+  flowId: string;
+  metric: string;
+  value: string;
+  description: string;
+  acknowledged: boolean;
+}
+
 export interface AnalyticsData {
   timestamp: number;
   totalBytes: number;

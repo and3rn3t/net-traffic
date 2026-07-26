@@ -10,7 +10,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 # Migration history
 MIGRATIONS = {
@@ -41,6 +41,38 @@ MIGRATIONS = {
                 name TEXT NOT NULL,
                 filters TEXT NOT NULL,
                 created_at INTEGER NOT NULL
+            );
+        """,
+    },
+    5: {
+        "description": "Add alert_rules and triggered_alerts tables",
+        "up": """
+            CREATE TABLE IF NOT EXISTS alert_rules (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                metric TEXT NOT NULL,
+                operator TEXT NOT NULL,
+                threshold REAL,
+                values_json TEXT,
+                severity TEXT NOT NULL DEFAULT 'medium',
+                cooldown_minutes INTEGER NOT NULL DEFAULT 15,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS triggered_alerts (
+                id TEXT PRIMARY KEY,
+                rule_id TEXT NOT NULL,
+                rule_name TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                severity TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                flow_id TEXT NOT NULL,
+                metric TEXT NOT NULL,
+                value TEXT NOT NULL,
+                description TEXT NOT NULL,
+                acknowledged INTEGER NOT NULL DEFAULT 0
             );
         """,
     },
@@ -153,7 +185,10 @@ async def run_migrations(db: aiosqlite.Connection) -> int:
                             await db.commit()
                             logger.info(f"Migration {version} applied successfully")
                 else:
-                    await db.execute(migration["up"])
+                    # executescript() (not execute()) is required here since some
+                    # migrations (e.g. version 5) contain multiple ';'-separated
+                    # CREATE TABLE statements, which execute() cannot run at once.
+                    await db.executescript(migration["up"])
                     await db.commit()
                     logger.info(f"Migration {version} applied successfully")
             else:

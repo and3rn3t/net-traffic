@@ -9,6 +9,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 
 from models.types import NetworkFlow, Device, Threat, FilterPreset
+from models.alerts import AlertRule, TriggeredAlert
 from utils.migrations import run_migrations
 from services.db_pool import DatabasePool
 
@@ -236,6 +237,53 @@ class StorageService:
         await self.db.execute("""
             CREATE INDEX IF NOT EXISTS idx_filter_presets_user_id
             ON filter_presets(user_id)
+        """)
+
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS alert_rules (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                metric TEXT NOT NULL,
+                operator TEXT NOT NULL,
+                threshold REAL,
+                values_json TEXT,
+                severity TEXT NOT NULL DEFAULT 'medium',
+                cooldown_minutes INTEGER NOT NULL DEFAULT 15,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """)
+
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_alert_rules_user_id
+            ON alert_rules(user_id)
+        """)
+
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS triggered_alerts (
+                id TEXT PRIMARY KEY,
+                rule_id TEXT NOT NULL,
+                rule_name TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                severity TEXT NOT NULL,
+                device_id TEXT NOT NULL,
+                flow_id TEXT NOT NULL,
+                metric TEXT NOT NULL,
+                value TEXT NOT NULL,
+                description TEXT NOT NULL,
+                acknowledged INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_triggered_alerts_timestamp
+            ON triggered_alerts(timestamp DESC)
+        """)
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_triggered_alerts_acknowledged
+            ON triggered_alerts(acknowledged)
         """)
 
         await self.db.execute("""
@@ -901,6 +949,164 @@ class StorageService:
             name=row["name"],
             filters=json.loads(row["filters"]),
             createdAt=row["created_at"],
+        )
+
+    # Alert rule methods
+    async def add_alert_rule(self, rule: AlertRule):
+        """Save a new configurable alert rule"""
+        await self._execute_with_retry("""
+            INSERT INTO alert_rules
+            (id, user_id, name, enabled, metric, operator, threshold, values_json,
+             severity, cooldown_minutes, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            rule.id, rule.userId, rule.name, 1 if rule.enabled else 0, rule.metric,
+            rule.operator, rule.threshold, json.dumps(rule.values) if rule.values else None,
+            rule.severity, rule.cooldownMinutes, rule.createdAt, rule.updatedAt
+        ))
+        await self._ensure_connection()
+        await self.db.commit()
+
+    async def get_alert_rules(self, user_id: Optional[str] = None, enabled_only: bool = False) -> List[AlertRule]:
+        """List alert rules, optionally scoped to a user and/or filtered to enabled ones"""
+        query = "SELECT * FROM alert_rules"
+        clauses = []
+        params: list = []
+        if user_id is not None:
+            clauses.append("user_id = ?")
+            params.append(user_id)
+        if enabled_only:
+            clauses.append("enabled = 1")
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at DESC"
+
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_alert_rule(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_alert_rule(row) for row in rows]
+
+    async def get_alert_rule(self, rule_id: str) -> Optional[AlertRule]:
+        """Get a specific alert rule by ID"""
+        query = "SELECT * FROM alert_rules WHERE id = ?"
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, (rule_id,)) as cursor:
+                    row = await cursor.fetchone()
+                    return self._row_to_alert_rule(row) if row else None
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, (rule_id,)) as cursor:
+                row = await cursor.fetchone()
+                return self._row_to_alert_rule(row) if row else None
+
+    async def update_alert_rule(self, rule: AlertRule):
+        """Update an existing alert rule"""
+        await self._execute_with_retry("""
+            UPDATE alert_rules SET
+                name = ?, enabled = ?, metric = ?, operator = ?, threshold = ?,
+                values_json = ?, severity = ?, cooldown_minutes = ?, updated_at = ?
+            WHERE id = ?
+        """, (
+            rule.name, 1 if rule.enabled else 0, rule.metric, rule.operator, rule.threshold,
+            json.dumps(rule.values) if rule.values else None, rule.severity,
+            rule.cooldownMinutes, rule.updatedAt, rule.id
+        ))
+        await self._ensure_connection()
+        await self.db.commit()
+
+    async def delete_alert_rule(self, rule_id: str, user_id: str) -> bool:
+        """Delete an alert rule, scoped to its owner"""
+        await self._ensure_connection()
+        cursor = await self.db.execute(
+            "DELETE FROM alert_rules WHERE id = ? AND user_id = ?", (rule_id, user_id)
+        )
+        await self.db.commit()
+        return cursor.rowcount > 0
+
+    def _row_to_alert_rule(self, row) -> AlertRule:
+        """Convert database row to AlertRule model"""
+        return AlertRule(
+            id=row["id"],
+            userId=row["user_id"],
+            name=row["name"],
+            enabled=bool(row["enabled"]),
+            metric=row["metric"],
+            operator=row["operator"],
+            threshold=row["threshold"],
+            values=json.loads(row["values_json"]) if row["values_json"] else None,
+            severity=row["severity"],
+            cooldownMinutes=row["cooldown_minutes"],
+            createdAt=row["created_at"],
+            updatedAt=row["updated_at"],
+        )
+
+    # Triggered alert methods
+    async def add_triggered_alert(self, alert: TriggeredAlert):
+        """Persist a triggered alert"""
+        await self._execute_with_retry("""
+            INSERT INTO triggered_alerts
+            (id, rule_id, rule_name, timestamp, severity, device_id, flow_id,
+             metric, value, description, acknowledged)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            alert.id, alert.ruleId, alert.ruleName, alert.timestamp, alert.severity,
+            alert.deviceId, alert.flowId, alert.metric, alert.value, alert.description,
+            1 if alert.acknowledged else 0
+        ))
+        await self._ensure_connection()
+        await self.db.commit()
+
+    async def get_triggered_alerts(self, limit: int = 100, acknowledged: Optional[bool] = None) -> List[TriggeredAlert]:
+        """List triggered alerts, most recent first, optionally filtered by acknowledged state"""
+        query = "SELECT * FROM triggered_alerts"
+        params: list = []
+        if acknowledged is not None:
+            query += " WHERE acknowledged = ?"
+            params.append(1 if acknowledged else 0)
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params.append(limit)
+
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_triggered_alert(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_triggered_alert(row) for row in rows]
+
+    async def acknowledge_triggered_alert(self, alert_id: str) -> bool:
+        """Mark a triggered alert as acknowledged"""
+        await self._ensure_connection()
+        cursor = await self.db.execute(
+            "UPDATE triggered_alerts SET acknowledged = 1 WHERE id = ?", (alert_id,)
+        )
+        await self.db.commit()
+        return cursor.rowcount > 0
+
+    def _row_to_triggered_alert(self, row) -> TriggeredAlert:
+        """Convert database row to TriggeredAlert model"""
+        return TriggeredAlert(
+            id=row["id"],
+            ruleId=row["rule_id"],
+            ruleName=row["rule_name"],
+            timestamp=row["timestamp"],
+            severity=row["severity"],
+            deviceId=row["device_id"],
+            flowId=row["flow_id"],
+            metric=row["metric"],
+            value=row["value"],
+            description=row["description"],
+            acknowledged=bool(row["acknowledged"]),
         )
 
     # Helper methods
