@@ -10,7 +10,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 # Migration history
 MIGRATIONS = {
@@ -73,6 +73,26 @@ MIGRATIONS = {
                 value TEXT NOT NULL,
                 description TEXT NOT NULL,
                 acknowledged INTEGER NOT NULL DEFAULT 0
+            );
+        """,
+    },
+    6: {
+        "description": "Add device_baselines table",
+        "up": """
+            CREATE TABLE IF NOT EXISTS device_baselines (
+                device_id TEXT PRIMARY KEY,
+                bytes_total_mean REAL NOT NULL DEFAULT 0,
+                bytes_total_stddev REAL NOT NULL DEFAULT 0,
+                connections_mean REAL NOT NULL DEFAULT 0,
+                connections_stddev REAL NOT NULL DEFAULT 0,
+                avg_rtt_mean REAL NOT NULL DEFAULT 0,
+                avg_rtt_stddev REAL NOT NULL DEFAULT 0,
+                avg_jitter_mean REAL NOT NULL DEFAULT 0,
+                avg_jitter_stddev REAL NOT NULL DEFAULT 0,
+                retransmission_rate_mean REAL NOT NULL DEFAULT 0,
+                retransmission_rate_stddev REAL NOT NULL DEFAULT 0,
+                sample_count INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0
             );
         """,
     },

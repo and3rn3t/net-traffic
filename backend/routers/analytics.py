@@ -4,6 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query
 
 import state
+from models.baseline import DeviceBaseline
 from models.types import AnalyticsData, ProtocolStats
 from utils.constants import ErrorMessages
 from utils.error_handler import handle_endpoint_error_call
@@ -56,6 +57,25 @@ async def get_summary_stats():
     return await handle_endpoint_error_call(
         lambda: state.advanced_analytics.get_summary_stats(), "Failed to retrieve summary statistics"
     )
+
+
+@router.get("/baselines", response_model=List[DeviceBaseline])
+async def get_device_baselines():
+    """Get learned per-device behavioral baselines (predictive anomaly detection)."""
+    if not state.baseline_learning_service:
+        raise HTTPException(status_code=503, detail=ErrorMessages.BASELINE_NOT_INIT)
+    return state.baseline_learning_service.get_baselines()
+
+
+@router.get("/baselines/{device_id}", response_model=DeviceBaseline)
+async def get_device_baseline(device_id: str):
+    """Get a single device's learned behavioral baseline."""
+    if not state.baseline_learning_service:
+        raise HTTPException(status_code=503, detail=ErrorMessages.BASELINE_NOT_INIT)
+    baseline = state.baseline_learning_service.get_baseline(device_id)
+    if not baseline:
+        raise HTTPException(status_code=404, detail=ErrorMessages.DEVICE_NOT_FOUND)
+    return baseline
 
 
 @router.get("/stats/geographic")

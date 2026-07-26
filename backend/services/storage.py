@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from models.types import NetworkFlow, Device, Threat, FilterPreset
 from models.alerts import AlertRule, TriggeredAlert
+from models.baseline import DeviceBaseline
 from utils.migrations import run_migrations
 from services.db_pool import DatabasePool
 
@@ -284,6 +285,24 @@ class StorageService:
         await self.db.execute("""
             CREATE INDEX IF NOT EXISTS idx_triggered_alerts_acknowledged
             ON triggered_alerts(acknowledged)
+        """)
+
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS device_baselines (
+                device_id TEXT PRIMARY KEY,
+                bytes_total_mean REAL NOT NULL DEFAULT 0,
+                bytes_total_stddev REAL NOT NULL DEFAULT 0,
+                connections_mean REAL NOT NULL DEFAULT 0,
+                connections_stddev REAL NOT NULL DEFAULT 0,
+                avg_rtt_mean REAL NOT NULL DEFAULT 0,
+                avg_rtt_stddev REAL NOT NULL DEFAULT 0,
+                avg_jitter_mean REAL NOT NULL DEFAULT 0,
+                avg_jitter_stddev REAL NOT NULL DEFAULT 0,
+                retransmission_rate_mean REAL NOT NULL DEFAULT 0,
+                retransmission_rate_stddev REAL NOT NULL DEFAULT 0,
+                sample_count INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0
+            )
         """)
 
         await self.db.execute("""
@@ -1107,6 +1126,104 @@ class StorageService:
             value=row["value"],
             description=row["description"],
             acknowledged=bool(row["acknowledged"]),
+        )
+
+    # Device baseline methods (predictive anomaly detection)
+    async def get_device_flow_aggregates(self, start_time: int, end_time: int) -> List[dict]:
+        """Aggregate flow activity per device over [start_time, end_time) for baseline learning.
+
+        Uses SQL-level aggregation (not per-flow Python loops) since this only
+        runs periodically (hourly), not on the packet-capture hot path.
+        """
+        query = """
+            SELECT
+                device_id,
+                SUM(bytes_in + bytes_out) AS bytes_total,
+                COUNT(*) AS connections,
+                AVG(rtt) AS avg_rtt,
+                AVG(jitter) AS avg_jitter,
+                SUM(COALESCE(retransmissions, 0)) AS total_retransmissions,
+                SUM(packets_in + packets_out) AS total_packets
+            FROM flows
+            WHERE timestamp >= ? AND timestamp < ?
+            GROUP BY device_id
+        """
+        params = (start_time, end_time)
+
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
+                    return [dict(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+    async def upsert_device_baseline(self, baseline: DeviceBaseline):
+        """Insert or update a device's learned behavioral baseline"""
+        await self._execute_with_retry("""
+            INSERT OR REPLACE INTO device_baselines
+            (device_id, bytes_total_mean, bytes_total_stddev, connections_mean,
+             connections_stddev, avg_rtt_mean, avg_rtt_stddev, avg_jitter_mean,
+             avg_jitter_stddev, retransmission_rate_mean, retransmission_rate_stddev,
+             sample_count, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            baseline.deviceId, baseline.bytesTotalMean, baseline.bytesTotalStdDev,
+            baseline.connectionsMean, baseline.connectionsStdDev, baseline.avgRttMean,
+            baseline.avgRttStdDev, baseline.avgJitterMean, baseline.avgJitterStdDev,
+            baseline.retransmissionRateMean, baseline.retransmissionRateStdDev,
+            baseline.sampleCount, baseline.updatedAt
+        ))
+        await self._ensure_connection()
+        await self.db.commit()
+
+    async def get_device_baseline(self, device_id: str) -> Optional[DeviceBaseline]:
+        """Get a single device's learned baseline"""
+        query = "SELECT * FROM device_baselines WHERE device_id = ?"
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, (device_id,)) as cursor:
+                    row = await cursor.fetchone()
+                    return self._row_to_device_baseline(row) if row else None
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query, (device_id,)) as cursor:
+                row = await cursor.fetchone()
+                return self._row_to_device_baseline(row) if row else None
+
+    async def get_all_device_baselines(self) -> List[DeviceBaseline]:
+        """Get all learned device baselines"""
+        query = "SELECT * FROM device_baselines"
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query) as cursor:
+                    rows = await cursor.fetchall()
+                    return [self._row_to_device_baseline(row) for row in rows]
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(query) as cursor:
+                rows = await cursor.fetchall()
+                return [self._row_to_device_baseline(row) for row in rows]
+
+    def _row_to_device_baseline(self, row) -> DeviceBaseline:
+        """Convert database row to DeviceBaseline model"""
+        return DeviceBaseline(
+            deviceId=row["device_id"],
+            bytesTotalMean=row["bytes_total_mean"],
+            bytesTotalStdDev=row["bytes_total_stddev"],
+            connectionsMean=row["connections_mean"],
+            connectionsStdDev=row["connections_stddev"],
+            avgRttMean=row["avg_rtt_mean"],
+            avgRttStdDev=row["avg_rtt_stddev"],
+            avgJitterMean=row["avg_jitter_mean"],
+            avgJitterStdDev=row["avg_jitter_stddev"],
+            retransmissionRateMean=row["retransmission_rate_mean"],
+            retransmissionRateStdDev=row["retransmission_rate_stddev"],
+            sampleCount=row["sample_count"],
+            updatedAt=row["updated_at"],
         )
 
     # Helper methods

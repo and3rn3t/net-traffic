@@ -16,6 +16,7 @@ class ErrorMessages:
     THREAT_NOT_FOUND = "Threat not found"
     ANALYTICS_NOT_INIT = "Analytics service not initialized"
     ADV_ANALYTICS_NOT_INIT = "Advanced analytics service not initialized"
+    BASELINE_NOT_INIT = "Baseline learning service not initialized"
     CAPTURE_NOT_INIT = "Packet capture service not initialized"
     UNAUTHORIZED = "Authentication required"
     FORBIDDEN = "Insufficient permissions"
@@ -58,6 +59,29 @@ SUSPICIOUS_DOMAIN_PATTERNS = [".tk", ".ml", ".ga", ".cf", ".xyz"]
 
 # High-risk countries (example list - customize based on your needs)
 HIGH_RISK_COUNTRIES = ["CN", "RU", "KP", "IR"]
+
+# Baseline learning / predictive anomaly detection
+# EMA smoothing factor: higher = baseline adapts faster to recent activity.
+BASELINE_EMA_ALPHA = 0.3
+# Minimum learning cycles observed before a device's baseline is trusted
+# enough to flag anomalies (avoids false positives from a single data point).
+BASELINE_MIN_SAMPLES = 3
+# A metric must deviate this many standard deviations above its baseline
+# mean to be flagged as a predictive anomaly.
+BASELINE_ANOMALY_Z_THRESHOLD = 3.0
+# Minimum standard deviation used in the z-score denominator, per metric, to
+# avoid division-by-near-zero flagging trivial deviations as huge anomalies
+# for devices with very stable/flat historical activity.
+BASELINE_MIN_STDDEV = {
+    "bytesTotal": 1024.0,  # 1KB
+    "connections": 1.0,
+    "avgRtt": 5.0,  # ms
+    "avgJitter": 2.0,  # ms
+    "retransmissionRate": 1.0,  # percentage points
+}
+# Once a device/metric pair triggers a predictive anomaly, suppress repeat
+# anomalies for the same pair for this many minutes.
+BASELINE_ANOMALY_COOLDOWN_MINUTES = 60
 
 # Allowed applications (whitelist approach)
 ALLOWED_APPLICATIONS = ["HTTP", "HTTPS", "SSH", "DNS"]

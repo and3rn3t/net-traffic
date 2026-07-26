@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from services.auth_service import AuthService
     from services.cache_service import CacheService
     from services.alerting import AlertingService
+    from services.baseline_learning import BaselineLearningService
     from utils.service_manager import ServiceManager
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ application_analytics: Optional["ApplicationAnalyticsService"] = None
 auth_service: Optional["AuthService"] = None
 cache_service: Optional["CacheService"] = None
 alerting_service: Optional["AlertingService"] = None
+baseline_learning_service: Optional["BaselineLearningService"] = None
 service_manager: Optional["ServiceManager"] = None
 
 # Active WebSocket connections

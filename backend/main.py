@@ -31,6 +31,7 @@ setup_logging(
 logger = StructuredLogger(__name__)
 
 BANDWIDTH_CHECK_INTERVAL_HOURS = 1
+BASELINE_LEARNING_INTERVAL_HOURS = 1
 
 
 async def _periodic_cleanup(interval_hours: int) -> None:
@@ -98,6 +99,21 @@ async def _periodic_bandwidth_check(interval_hours: int) -> None:
             logger.error(f"Error in periodic bandwidth check: {e}")
 
 
+async def _periodic_baseline_learning(interval_hours: int) -> None:
+    """Periodically learn per-device behavioral baselines and flag predictive anomalies."""
+    while True:
+        try:
+            await asyncio.sleep(interval_hours * SECONDS_PER_HOUR)
+            if not state.baseline_learning_service:
+                continue
+            await state.baseline_learning_service.run_cycle(window_hours=interval_hours)
+        except asyncio.CancelledError:
+            logger.info("Baseline learning task cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Error in periodic baseline learning: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
@@ -144,6 +160,8 @@ async def lifespan(app: FastAPI):
     state.packet_capture = state.service_manager.packet_capture
     state.alerting_service = state.service_manager.alerting_service
     await state.alerting_service.refresh_cache()
+    state.baseline_learning_service = state.service_manager.baseline_learning_service
+    await state.baseline_learning_service.load_baselines()
 
     # Start packet capture
     capture_source = (
@@ -167,6 +185,7 @@ async def lifespan(app: FastAPI):
 
     cleanup_task = asyncio.create_task(_periodic_cleanup(CLEANUP_INTERVAL_HOURS))
     bandwidth_task = asyncio.create_task(_periodic_bandwidth_check(BANDWIDTH_CHECK_INTERVAL_HOURS))
+    baseline_task = asyncio.create_task(_periodic_baseline_learning(BASELINE_LEARNING_INTERVAL_HOURS))
 
     yield
 
@@ -183,7 +202,8 @@ async def lifespan(app: FastAPI):
     capture_task.cancel()
     cleanup_task.cancel()
     bandwidth_task.cancel()
-    for task in (capture_task, cleanup_task, bandwidth_task):
+    baseline_task.cancel()
+    for task in (capture_task, cleanup_task, bandwidth_task, baseline_task):
         try:
             await task
         except asyncio.CancelledError:

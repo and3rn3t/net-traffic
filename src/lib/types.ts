@@ -146,6 +146,22 @@ export interface TriggeredAlert {
   acknowledged: boolean;
 }
 
+export interface DeviceBaseline {
+  deviceId: string;
+  bytesTotalMean: number;
+  bytesTotalStdDev: number;
+  connectionsMean: number;
+  connectionsStdDev: number;
+  avgRttMean: number;
+  avgRttStdDev: number;
+  avgJitterMean: number;
+  avgJitterStdDev: number;
+  retransmissionRateMean: number;
+  retransmissionRateStdDev: number;
+  sampleCount: number;
+  updatedAt: number;
+}
+
 export interface AnalyticsData {
   timestamp: number;
   totalBytes: number;

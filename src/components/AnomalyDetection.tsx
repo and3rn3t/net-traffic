@@ -8,7 +8,16 @@ import { NETWORK_THRESHOLDS, DATA_THRESHOLDS } from '@/lib/constants';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiData } from '@/hooks/useApiData';
 import { useApiConfig } from '@/hooks/useApiConfig';
+import { useBaselines } from '@/hooks/useBaselines';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// Minimum learning cycles before a device's backend-learned baseline is
+// trusted for z-score detection (mirrors BASELINE_MIN_SAMPLES in the backend).
+const BASELINE_MIN_SAMPLES = 3;
+// A device's total bytes must be this many standard deviations above its
+// learned baseline mean to be flagged as a predictive anomaly.
+const BASELINE_Z_THRESHOLD = 3;
+const MIN_BYTES_STDDEV = 1024; // 1KB floor to avoid flagging trivial deviations
 
 interface Anomaly {
   id: string;
@@ -41,6 +50,7 @@ export const AnomalyDetection = memo(function AnomalyDetection({
     pollingInterval: 0,
     useWebSocket: false,
   });
+  const { baselines } = useBaselines();
 
   // Use API threats if available
   const allThreats = useRealApi && useApi && apiThreats.length > 0 ? apiThreats : threats;
@@ -85,6 +95,28 @@ export const AnomalyDetection = memo(function AnomalyDetection({
     const threshold = avgTotalBytes * 2.5;
 
     deviceTraffic.forEach(({ device, totalBytes }) => {
+      // Prefer the backend-learned per-device baseline (adapts to each
+      // device's own normal behavior) once it has enough history; otherwise
+      // fall back to the static cross-device average heuristic.
+      const baseline =
+        useRealApi && useApi ? baselines.find(b => b.deviceId === device.id) : undefined;
+
+      if (baseline && baseline.sampleCount >= BASELINE_MIN_SAMPLES) {
+        const stddev = Math.max(baseline.bytesTotalStdDev, MIN_BYTES_STDDEV);
+        const zScore = (totalBytes - baseline.bytesTotalMean) / stddev;
+        if (zScore > BASELINE_Z_THRESHOLD) {
+          anomalies.push({
+            id: `anomaly-baseline-bandwidth-${device.id}`,
+            type: 'Predictive Bandwidth Anomaly',
+            severity: zScore > BASELINE_Z_THRESHOLD * 1.5 ? 'high' : 'medium',
+            description: `${device.name} used ${(totalBytes / 1024 / 1024).toFixed(1)}MB, ${zScore.toFixed(1)} standard deviations above its learned baseline (${(baseline.bytesTotalMean / 1024 / 1024).toFixed(1)}MB avg)`,
+            score: Math.min(100, zScore * 20),
+            affectedDevices: [device.id],
+          });
+        }
+        return;
+      }
+
       if (totalBytes > threshold) {
         anomalies.push({
           id: `anomaly-bandwidth-${device.id}`,
@@ -191,7 +223,7 @@ export const AnomalyDetection = memo(function AnomalyDetection({
     }
 
     return anomalies.sort((a, b) => b.score - a.score);
-  }, [flows, devices, useRealApi, useApi, topDevices, allThreats]);
+  }, [flows, devices, useRealApi, useApi, topDevices, allThreats, baselines]);
 
   const anomalies = detectAnomalies;
   const overallScore =

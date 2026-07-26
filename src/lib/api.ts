@@ -13,6 +13,7 @@ import type {
   AlertRule,
   AlertRuleInput,
   TriggeredAlert,
+  DeviceBaseline,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -647,6 +648,14 @@ export class ApiClient {
 
   async acknowledgeAlert(alertId: string): Promise<void> {
     await this.request(`/api/alerts/triggered/${alertId}/acknowledge`, { method: 'POST' });
+  }
+
+  async getBaselines(): Promise<DeviceBaseline[]> {
+    return this.request('/api/baselines');
+  }
+
+  async getDeviceBaseline(deviceId: string): Promise<DeviceBaseline> {
+    return this.request(`/api/baselines/${deviceId}`);
   }
 
   // Search

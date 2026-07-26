@@ -15,6 +15,7 @@ from services.application_analytics import ApplicationAnalyticsService
 from services.packet_capture import PacketCaptureService
 from services.enhanced_identification import EnhancedIdentificationService
 from services.alerting import AlertingService
+from services.baseline_learning import BaselineLearningService
 from models.types import Device, Threat
 from utils.config import config
 
@@ -35,6 +36,7 @@ class ServiceManager:
         self.application_analytics: Optional[ApplicationAnalyticsService] = None
         self.packet_capture: Optional[PacketCaptureService] = None
         self.alerting_service: Optional[AlertingService] = None
+        self.baseline_learning_service: Optional[BaselineLearningService] = None
 
     def initialize_services(
         self,
@@ -55,6 +57,9 @@ class ServiceManager:
             self.storage, on_device_update=on_device_update, on_threat_update=on_threat_update
         )
         self.threat_service = ThreatDetectionService(
+            self.storage, on_threat_update=on_threat_update
+        )
+        self.baseline_learning_service = BaselineLearningService(
             self.storage, on_threat_update=on_threat_update
         )
         self.analytics = AnalyticsService(self.storage)
