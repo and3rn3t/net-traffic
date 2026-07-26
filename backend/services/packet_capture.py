@@ -6,6 +6,7 @@ import asyncio
 import ipaddress
 import logging
 import socket
+import subprocess
 import time
 from typing import Optional, Callable, Dict, List
 from datetime import datetime
@@ -17,6 +18,7 @@ try:
     from scapy.layers.l2 import Ether
     from scapy.layers.dns import DNS
     from scapy.layers.tls.handshake import TLSClientHello
+    from scapy.utils import PcapReader
     try:
         from scapy.layers.http import HTTPRequest
     except ImportError:
@@ -27,6 +29,7 @@ except ImportError:
     HTTPRequest = None
     IPv6 = None
     TLSClientHello = None
+    PcapReader = None
     logging.warning("Scapy not available. Packet capture will be disabled.")
 
 from models.types import NetworkFlow
@@ -48,9 +51,30 @@ class PacketCaptureService:
         storage: Optional[StorageService] = None,
         geolocation_service: Optional[GeolocationService] = None,
         on_flow_update: Optional[Callable] = None,
-        enhanced_identification: Optional[EnhancedIdentificationService] = None
+        enhanced_identification: Optional[EnhancedIdentificationService] = None,
+        capture_mode: str = "local",
+        remote_host: str = "",
+        remote_user: str = "root",
+        remote_interface: str = "eth0",
+        remote_ssh_key: str = "",
     ):
-        self.interface = interface
+        # Remote capture (e.g. a router WAN interface reached over SSH,
+        # used when the source interface can't be physically mirrored to
+        # this machine). See _capture_loop_remote_ssh().
+        self.capture_mode = capture_mode if capture_mode == "remote_ssh" else "local"
+        self.remote_host = remote_host
+        self.remote_user = remote_user
+        self.remote_interface = remote_interface
+        self.remote_ssh_key = remote_ssh_key
+        # `interface` is used both for local sniff() and for display
+        # (routers/health.py, routers/capture.py read it directly) - reflect
+        # the actual remote source there so status endpoints aren't
+        # misleading in remote_ssh mode.
+        self.interface = (
+            f"{remote_user}@{remote_host}:{remote_interface} (remote_ssh)"
+            if self.capture_mode == "remote_ssh"
+            else interface
+        )
         self.device_service = device_service
         self.threat_service = threat_service
         self.storage = storage
@@ -60,6 +84,7 @@ class PacketCaptureService:
 
         self._running = False
         self._capture_task: Optional[asyncio.Task] = None
+        self._remote_capture_proc: Optional[subprocess.Popen] = None
         self.packets_captured = 0
         self.flows_detected = 0
 
@@ -153,16 +178,24 @@ class PacketCaptureService:
             logger.warning("Packet capture already running")
             return
 
-        # Verify interface exists
-        interfaces = get_if_list()
-        if self.interface not in interfaces:
-            logger.warning(
-                f"Interface {self.interface} not found. "
-                f"Available: {interfaces}"
-            )
-            if interfaces:
-                self.interface = interfaces[0]
-                logger.info(f"Using interface: {self.interface}")
+        if self.capture_mode == "remote_ssh":
+            if not self.remote_host or not self.remote_ssh_key:
+                logger.error(
+                    "capture_mode='remote_ssh' requires remote_host and "
+                    "remote_ssh_key to be set. Cannot start packet capture."
+                )
+                return
+        else:
+            # Verify local interface exists
+            interfaces = get_if_list()
+            if self.interface not in interfaces:
+                logger.warning(
+                    f"Interface {self.interface} not found. "
+                    f"Available: {interfaces}"
+                )
+                if interfaces:
+                    self.interface = interfaces[0]
+                    logger.info(f"Using interface: {self.interface}")
 
         # Set capture optimizations
         self._bpf_filter = bpf_filter or "ip or ip6"  # Default: capture IP/IPv6
@@ -173,10 +206,18 @@ class PacketCaptureService:
         self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
         self._batch_write_task = asyncio.create_task(self._batch_write_loop())
         self._packet_queue_task = asyncio.create_task(self._process_packet_queue())
-        logger.info(
-            f"Packet capture started on {self.interface} "
-            f"(filter: {self._bpf_filter}, sampling: {self._packet_sampling_rate*100:.1f}%)"
-        )
+        if self.capture_mode == "remote_ssh":
+            logger.info(
+                f"Packet capture started via remote SSH "
+                f"({self.remote_user}@{self.remote_host}, "
+                f"interface: {self.remote_interface}, "
+                f"sampling: {self._packet_sampling_rate*100:.1f}%)"
+            )
+        else:
+            logger.info(
+                f"Packet capture started on {self.interface} "
+                f"(filter: {self._bpf_filter}, sampling: {self._packet_sampling_rate*100:.1f}%)"
+            )
 
     async def stop(self):
         """Stop packet capture.
@@ -194,6 +235,12 @@ class PacketCaptureService:
 
         def _elapsed() -> float:
             return round(time.monotonic() - shutdown_start, 2)
+
+        # Terminate the remote SSH capture subprocess immediately (if any) so
+        # the blocking PcapReader read in the capture thread unblocks right
+        # away, rather than waiting for the next packet to arrive.
+        if self._remote_capture_proc is not None:
+            self._remote_capture_proc.terminate()
 
         # Flush any pending writes
         await self._flush_write_queue()
@@ -244,46 +291,64 @@ class PacketCaptureService:
 
         logger.info("Packet capture stopped")
 
+    def _handle_packet_sync(self, packet, loop: asyncio.AbstractEventLoop):
+        """Handle a captured packet with early filtering and queuing.
+
+        Shared by both capture sources (local sniff() and remote SSH pcap
+        stream) since capture happens on a worker thread in both cases.
+        """
+        try:
+            # Packet sampling for high-rate traffic (Pi optimization)
+            if self._packet_sampling_rate < 1.0:
+                self._sampling_counter += 1
+                if (self._sampling_counter % int(1.0 / self._packet_sampling_rate)) != 0:
+                    return  # Skip this packet
+
+            # Packet deduplication (skip duplicates within 1ms window)
+            # `float(packet.time)` normalizes scapy's timestamp type - a
+            # plain float when live-sniffed, but an EDecimal (unhashable in
+            # this scapy version) when read back via PcapReader from a pcap
+            # stream, as in the remote SSH capture path.
+            packet_hash = hash((float(packet.time), len(packet)))
+            current_time = datetime.now().timestamp()
+            if packet_hash in self._packet_hash_cache:
+                cache_time = self._packet_hash_cache[packet_hash]
+                if current_time - cache_time < self._packet_dedup_window:
+                    self._packets_duplicate += 1
+                    return  # Skip duplicate
+
+            # Update deduplication cache
+            if len(self._packet_hash_cache) > self._packet_hash_cache_size:
+                # Remove oldest 20%
+                keys_to_remove = list(self._packet_hash_cache.keys())[:self._packet_hash_cache_size // 5]
+                for key in keys_to_remove:
+                    del self._packet_hash_cache[key]
+            self._packet_hash_cache[packet_hash] = current_time
+
+            self.packets_captured += 1
+
+            # Queue packet for batch processing (reduces async overhead)
+            asyncio.run_coroutine_threadsafe(
+                self._queue_packet(packet),
+                loop
+            )
+        except Exception as e:
+            logger.exception(f"Error handling packet: {e}")
+            self._packets_dropped += 1
+
     async def _capture_loop(self):
-        """Main capture loop - runs packet capture in executor"""
+        """Main capture loop - dispatches to the configured capture source"""
+        if self.capture_mode == "remote_ssh":
+            await self._capture_loop_remote_ssh()
+        else:
+            await self._capture_loop_local()
+
+    async def _capture_loop_local(self):
+        """Capture loop for a local interface - runs packet capture in executor"""
         loop = asyncio.get_event_loop()
 
         def packet_handler(packet):
-            """Handle captured packet with early filtering and queuing"""
-            try:
-                # Packet sampling for high-rate traffic (Pi optimization)
-                if self._packet_sampling_rate < 1.0:
-                    self._sampling_counter += 1
-                    if (self._sampling_counter % int(1.0 / self._packet_sampling_rate)) != 0:
-                        return  # Skip this packet
-                
-                # Packet deduplication (skip duplicates within 1ms window)
-                packet_hash = hash((packet.time, len(packet)))
-                current_time = datetime.now().timestamp()
-                if packet_hash in self._packet_hash_cache:
-                    cache_time = self._packet_hash_cache[packet_hash]
-                    if current_time - cache_time < self._packet_dedup_window:
-                        self._packets_duplicate += 1
-                        return  # Skip duplicate
-                
-                # Update deduplication cache
-                if len(self._packet_hash_cache) > self._packet_hash_cache_size:
-                    # Remove oldest 20%
-                    keys_to_remove = list(self._packet_hash_cache.keys())[:self._packet_hash_cache_size // 5]
-                    for key in keys_to_remove:
-                        del self._packet_hash_cache[key]
-                self._packet_hash_cache[packet_hash] = current_time
-                
-                self.packets_captured += 1
-                
-                # Queue packet for batch processing (reduces async overhead)
-                asyncio.run_coroutine_threadsafe(
-                    self._queue_packet(packet),
-                    loop
-                )
-            except Exception as e:
-                logger.exception(f"Error handling packet: {e}")
-                self._packets_dropped += 1
+            self._handle_packet_sync(packet, loop)
 
         try:
             # Run sniff in executor with BPF filter for performance.
@@ -306,6 +371,80 @@ class PacketCaptureService:
         except Exception as e:
             logger.exception(f"Capture error: {e}")
             self._running = False
+
+    async def _capture_loop_remote_ssh(self):
+        """Capture loop that pulls a live pcap stream from a remote host
+        over SSH (e.g. a router's real WAN interface that can't be
+        physically port-mirrored to this machine - see docs/ for the
+        Realtek DSA switch limitation this works around).
+
+        The remote command is expected to be `tcpdump -i <iface> -w - -U`
+        (or enforced via a restricted `command=` SSH key, which is the
+        recommended setup - see backend/.env.example). Reconnects with
+        exponential backoff if the SSH session drops.
+        """
+        loop = asyncio.get_event_loop()
+        reconnect_delay = 2.0
+        max_reconnect_delay = 30.0
+
+        while self._running:
+            proc: Optional[subprocess.Popen] = None
+            try:
+                cmd = [
+                    "ssh",
+                    "-i", self.remote_ssh_key,
+                    "-o", "StrictHostKeyChecking=accept-new",
+                    "-o", "BatchMode=yes",
+                    "-o", "ServerAliveInterval=5",
+                    "-o", "ServerAliveCountMax=3",
+                    f"{self.remote_user}@{self.remote_host}",
+                    f"tcpdump -i {self.remote_interface} -w - -U -s0",
+                ]
+                logger.info(
+                    f"Connecting to remote capture source "
+                    f"{self.remote_user}@{self.remote_host} "
+                    f"(interface: {self.remote_interface})"
+                )
+                proc = await asyncio.to_thread(
+                    subprocess.Popen,
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    bufsize=0,
+                )
+                self._remote_capture_proc = proc
+                reconnect_delay = 2.0  # reset backoff after a successful connect
+
+                def read_packets(proc: subprocess.Popen):
+                    try:
+                        with PcapReader(proc.stdout) as reader:
+                            for packet in reader:
+                                if not self._running:
+                                    break
+                                self._handle_packet_sync(packet, loop)
+                    except Exception as e:
+                        logger.warning(f"Remote capture stream ended: {e}")
+
+                await asyncio.to_thread(read_packets, proc)
+            except Exception as e:
+                logger.exception(f"Remote SSH capture error: {e}")
+            finally:
+                if proc is not None:
+                    proc.terminate()
+                    try:
+                        await asyncio.to_thread(proc.wait, 3)
+                    except Exception:
+                        proc.kill()
+                    if self._remote_capture_proc is proc:
+                        self._remote_capture_proc = None
+
+            if self._running:
+                logger.warning(
+                    f"Remote capture disconnected; reconnecting in "
+                    f"{reconnect_delay:.0f}s"
+                )
+                await asyncio.sleep(reconnect_delay)
+                reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
 
     def _extract_tcp_flags(self, packet) -> Optional[List[str]]:
         """Extract TCP flags from packet"""

@@ -127,6 +127,11 @@ async def lifespan(app: FastAPI):
         on_threat_update=state.on_threat_update,
         on_flow_update=state.on_flow_update,
         network_interface=config.network_interface,
+        capture_mode=config.capture_mode,
+        remote_capture_host=config.remote_capture_host,
+        remote_capture_user=config.remote_capture_user,
+        remote_capture_interface=config.remote_capture_interface,
+        remote_capture_ssh_key=config.remote_capture_ssh_key,
     )
     state.device_service = state.service_manager.device_service
     state.threat_service = state.service_manager.threat_service
@@ -138,14 +143,20 @@ async def lifespan(app: FastAPI):
     state.packet_capture = state.service_manager.packet_capture
 
     # Start packet capture
+    capture_source = (
+        f"{config.remote_capture_user}@{config.remote_capture_host}:"
+        f"{config.remote_capture_interface} (remote_ssh)"
+        if config.capture_mode == "remote_ssh"
+        else config.network_interface
+    )
     try:
         capture_task = asyncio.create_task(state.packet_capture.start())
         await asyncio.sleep(0.5)
         if state.packet_capture.is_running():
-            logger.info(f"Packet capture started on interface: {config.network_interface}")
+            logger.info(f"Packet capture started on: {capture_source}")
         else:
             logger.warning(
-                f"Packet capture not running - check Scapy and interface: {config.network_interface}"
+                f"Packet capture not running - check Scapy and capture source: {capture_source}"
             )
     except Exception as e:
         logger.error(f"Failed to start packet capture: {e}. Backend continues without capture.")

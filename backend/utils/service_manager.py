@@ -40,6 +40,11 @@ class ServiceManager:
         on_threat_update: Optional[Callable[[Threat], Any]] = None,
         on_flow_update: Optional[Callable[[Any], Any]] = None,
         network_interface: str = "eth0",
+        capture_mode: str = "local",
+        remote_capture_host: str = "",
+        remote_capture_user: str = "root",
+        remote_capture_interface: str = "eth0",
+        remote_capture_ssh_key: str = "",
     ):
         """Initialize all services with callbacks"""
         # Initialize services with WebSocket callbacks
@@ -81,6 +86,11 @@ class ServiceManager:
             geolocation_service=self.geolocation_service,
             on_flow_update=on_flow_update,
             enhanced_identification=enhanced_identification,
+            capture_mode=capture_mode,
+            remote_host=remote_capture_host,
+            remote_user=remote_capture_user,
+            remote_interface=remote_capture_interface,
+            remote_ssh_key=remote_capture_ssh_key,
         )
 
         logger.info("All services initialized successfully")

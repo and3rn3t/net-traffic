@@ -23,16 +23,32 @@ class Config:
         warnings: List[str] = []
 
         # Network interface
-        interface = os.getenv("NETWORK_INTERFACE", "eth0")
-        if not interface or len(interface.strip()) == 0:
-            errors.append("NETWORK_INTERFACE cannot be empty")
-        else:
-            # Check if interface exists (platform-dependent)
-            if not self._check_interface_exists(interface):
-                warnings.append(
-                    f"Network interface '{interface}' may not exist. "
-                    "Available interfaces will be checked at startup."
+        capture_mode = os.getenv("CAPTURE_MODE", "local").lower()
+        if capture_mode == "remote_ssh":
+            if not os.getenv("REMOTE_CAPTURE_HOST"):
+                errors.append(
+                    "REMOTE_CAPTURE_HOST is required when CAPTURE_MODE=remote_ssh"
                 )
+            if not os.getenv("REMOTE_CAPTURE_SSH_KEY"):
+                errors.append(
+                    "REMOTE_CAPTURE_SSH_KEY is required when CAPTURE_MODE=remote_ssh"
+                )
+            elif not Path(os.getenv("REMOTE_CAPTURE_SSH_KEY", "")).exists():
+                errors.append(
+                    f"REMOTE_CAPTURE_SSH_KEY "
+                    f"'{os.getenv('REMOTE_CAPTURE_SSH_KEY')}' does not exist"
+                )
+        else:
+            interface = os.getenv("NETWORK_INTERFACE", "eth0")
+            if not interface or len(interface.strip()) == 0:
+                errors.append("NETWORK_INTERFACE cannot be empty")
+            else:
+                # Check if interface exists (platform-dependent)
+                if not self._check_interface_exists(interface):
+                    warnings.append(
+                        f"Network interface '{interface}' may not exist. "
+                        "Available interfaces will be checked at startup."
+                    )
 
         # Host and port
         try:
@@ -155,6 +171,34 @@ class Config:
     def network_interface(self) -> str:
         """Get network interface name"""
         return os.getenv("NETWORK_INTERFACE", "eth0")
+
+    @property
+    def capture_mode(self) -> str:
+        """Packet capture source: 'local' (sniff NETWORK_INTERFACE directly)
+        or 'remote_ssh' (pull a live tcpdump stream from a remote host over
+        SSH, e.g. a router interface that can't be physically mirrored)."""
+        mode = os.getenv("CAPTURE_MODE", "local").lower()
+        return mode if mode in ("local", "remote_ssh") else "local"
+
+    @property
+    def remote_capture_host(self) -> str:
+        """Hostname/IP of the remote capture source (remote_ssh mode)"""
+        return os.getenv("REMOTE_CAPTURE_HOST", "")
+
+    @property
+    def remote_capture_user(self) -> str:
+        """SSH user for the remote capture source (remote_ssh mode)"""
+        return os.getenv("REMOTE_CAPTURE_USER", "root")
+
+    @property
+    def remote_capture_interface(self) -> str:
+        """Interface name to capture on the remote host (remote_ssh mode)"""
+        return os.getenv("REMOTE_CAPTURE_INTERFACE", "eth0")
+
+    @property
+    def remote_capture_ssh_key(self) -> str:
+        """Path to the SSH private key used for the remote capture source"""
+        return os.getenv("REMOTE_CAPTURE_SSH_KEY", "")
 
     @property
     def host(self) -> str:
