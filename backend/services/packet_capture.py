@@ -87,6 +87,12 @@ class PacketCaptureService:
         self._remote_capture_proc: Optional[subprocess.Popen] = None
         self.packets_captured = 0
         self.flows_detected = 0
+        # Timestamp of the last packet actually seen (as opposed to
+        # `_running`, which just reflects whether the capture task was
+        # started/stopped). Used to detect a "running but not actually
+        # receiving anything" state, e.g. a stuck remote_ssh connection -
+        # see is_stale().
+        self._last_packet_at: Optional[float] = None
 
         # Active flows tracking:
         # (src_ip, src_port, dst_ip, dst_port, protocol) -> flow_data
@@ -162,6 +168,19 @@ class PacketCaptureService:
     def is_running(self) -> bool:
         """Check if capture is running"""
         return self._running
+
+    def is_stale(self, threshold_seconds: float = 30.0) -> bool:
+        """Check if capture is marked running but hasn't actually seen a
+        packet recently - e.g. a remote_ssh connection stuck reconnecting
+        (bad SSH host key, unreachable router, etc). `is_running()` alone
+        can't detect this since the capture task keeps looping through
+        reconnect attempts regardless.
+        """
+        if not self._running:
+            return False
+        if self._last_packet_at is None:
+            return True  # never received a single packet since start
+        return (datetime.now().timestamp() - self._last_packet_at) > threshold_seconds
 
     async def start(self, bpf_filter: Optional[str] = None, sampling_rate: float = 1.0):
         """Start packet capture
@@ -311,6 +330,7 @@ class PacketCaptureService:
             # stream, as in the remote SSH capture path.
             packet_hash = hash((float(packet.time), len(packet)))
             current_time = datetime.now().timestamp()
+            self._last_packet_at = current_time
             if packet_hash in self._packet_hash_cache:
                 cache_time = self._packet_hash_cache[packet_hash]
                 if current_time - cache_time < self._packet_dedup_window:

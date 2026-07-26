@@ -24,6 +24,8 @@ async def health():
         },
         "capture": {
             "running": state.packet_capture.is_running() if state.packet_capture else False,
+            "stale": state.packet_capture.is_stale() if state.packet_capture else False,
+            "mode": getattr(state.packet_capture, "capture_mode", "local") if state.packet_capture else None,
             "interface": state.packet_capture.interface if state.packet_capture else None,
             "packets_captured": state.packet_capture.packets_captured if state.packet_capture else 0,
             "performance_stats": {
@@ -46,6 +48,12 @@ async def health():
         health_status["status"] = "degraded"
     if not state.packet_capture or not state.packet_capture.is_running():
         health_status["status"] = "unhealthy"
+    elif state.packet_capture.is_stale():
+        # Capture task is alive but isn't actually receiving packets, e.g. a
+        # remote_ssh connection stuck reconnecting (bad host key, router
+        # unreachable, etc). Distinguish from a healthy "running" state so
+        # this doesn't get missed in monitoring.
+        health_status["status"] = "degraded"
 
     return health_status
 
