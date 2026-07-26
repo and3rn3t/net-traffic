@@ -38,6 +38,7 @@ from services.threat_detection import ThreatDetectionService
 from services.storage import StorageService
 from services.geolocation import GeolocationService
 from services.enhanced_identification import EnhancedIdentificationService
+from utils.constants import MAX_PLAUSIBLE_INTERVAL_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -798,8 +799,14 @@ class PacketCaptureService:
         # Simple RTT estimation: difference between consecutive packets
         if len(self._rtt_tracking[flow_key]) >= 2:
             timestamps = self._rtt_tracking[flow_key]
-            # Calculate average interval
-            intervals = [timestamps[i] - timestamps[i-1] for i in range(1, len(timestamps))]
+            # Calculate average interval, excluding idle gaps (e.g. a paused
+            # keep-alive connection) - those reflect application-level
+            # silence, not network RTT, and previously produced bogus
+            # multi-second "RTT" readings.
+            intervals = [
+                timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))
+            ]
+            intervals = [i for i in intervals if i <= MAX_PLAUSIBLE_INTERVAL_SECONDS]
             if intervals:
                 avg_interval = sum(intervals) / len(intervals)
                 # RTT is roughly 2x the interval for bidirectional traffic
@@ -818,8 +825,12 @@ class PacketCaptureService:
 
         if len(self._packet_timestamps[flow_key]) >= 2:
             timestamps = self._packet_timestamps[flow_key]
-            # Calculate inter-packet delays
-            delays = [timestamps[i] - timestamps[i-1] for i in range(1, len(timestamps))]
+            # Calculate inter-packet delays, excluding idle gaps (see
+            # _calculate_rtt for why - same reasoning applies here).
+            delays = [
+                timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))
+            ]
+            delays = [d for d in delays if d <= MAX_PLAUSIBLE_INTERVAL_SECONDS]
             if len(delays) >= 2:
                 # Jitter is the standard deviation of delays
                 mean_delay = sum(delays) / len(delays)
@@ -830,12 +841,23 @@ class PacketCaptureService:
         return None
 
     def _detect_retransmission(self, packet, flow_key: str) -> bool:
-        """Detect TCP retransmissions"""
+        """Detect TCP retransmissions.
+
+        Only segments carrying actual payload are counted. Pure ACKs
+        legitimately reuse the same sequence number as the last data
+        segment they acknowledge, and were previously misidentified as
+        retransmits here - since ACK-only packets make up a large chunk of
+        any real TCP flow, this inflated retransmission rates (and
+        downstream threat scores) on essentially all normal traffic.
+        """
         if not packet.haslayer(TCP):
             return False
 
         try:
             tcp = packet[TCP]
+            if not tcp.payload or len(tcp.payload) == 0:
+                return False  # Pure ACK/control packet, not a retransmission
+
             seq_key = f"{flow_key}:{tcp.seq}"
 
             if seq_key in self._retransmissions:

@@ -34,6 +34,15 @@ HIGH_PACKET_COUNT = 1000
 LOW_DATA_TRANSFER = 1000  # bytes
 HIGH_JITTER_MS = 100
 HIGH_RTT_MS = 1000  # milliseconds
+# A RESET is only scored as suspicious below this packet count (abrupt/early
+# reset, e.g. a rejected or scanned connection) - above it, RST is a normal
+# way real connections end (HTTPS keep-alive, CDN behavior, etc).
+EARLY_RESET_PACKET_THRESHOLD = 10
+# RTT/jitter are estimated from inter-packet arrival gaps (no real
+# handshake/ACK pairing). A gap larger than this is almost always
+# application-level idle time (e.g. a paused keep-alive connection), not
+# network delay - including it produces bogus multi-second "RTT" readings.
+MAX_PLAUSIBLE_INTERVAL_SECONDS = 2.0
 
 # Threat detection thresholds
 THREAT_SCORE_CRITICAL = 70

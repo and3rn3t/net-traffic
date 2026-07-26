@@ -38,6 +38,7 @@ from utils.constants import (
     THREAT_SCORE_DNS_ANOMALY,
     DDoS_RETRANSMISSION_THRESHOLD,
     DDoS_JITTER_THRESHOLD,
+    EARLY_RESET_PACKET_THRESHOLD,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,8 +80,13 @@ class ThreatDetectionService:
             if threat_level == "safe":
                 threat_level = "low"
 
+        # Only treat a RESET as suspicious if it happened abruptly (few
+        # packets exchanged) - most real connections (HTTPS keep-alive,
+        # CDN behavior, etc) end via RST after a normal data transfer, and
+        # scoring every RST-closed flow the same as a rejected/scanned one
+        # made this fire on nearly all real traffic.
         connection_state = flow_data.get("connection_state", "")
-        if connection_state == "RESET":
+        if connection_state == "RESET" and total_packets < EARLY_RESET_PACKET_THRESHOLD:
             threat_score += THREAT_SCORE_CONNECTION_RESET
 
         # 5. High retransmission rate (NEW) - indicates network attack
