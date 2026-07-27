@@ -346,6 +346,9 @@ export const FlowDetailView = memo(function FlowDetailView({
             currentFlow.domain ||
             currentFlow.httpMethod ||
             currentFlow.url ||
+            currentFlow.httpHost ||
+            currentFlow.httpStatusCode ||
+            currentFlow.tlsVersion ||
             currentFlow.userAgent) && (
             <Card>
               <CardHeader>
@@ -363,6 +366,12 @@ export const FlowDetailView = memo(function FlowDetailView({
                     <p className="text-sm font-mono break-all">{currentFlow.sni}</p>
                   </div>
                 )}
+                {currentFlow.tlsVersion && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">TLS Version</p>
+                    <Badge variant="outline">{currentFlow.tlsVersion}</Badge>
+                  </div>
+                )}
                 {currentFlow.domain && (
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Domain</p>
@@ -373,6 +382,27 @@ export const FlowDetailView = memo(function FlowDetailView({
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">HTTP Method</p>
                     <Badge variant="outline">{currentFlow.httpMethod}</Badge>
+                  </div>
+                )}
+                {currentFlow.httpStatusCode && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">HTTP Status Code</p>
+                    <Badge
+                      variant="outline"
+                      className={
+                        currentFlow.httpStatusCode < 400
+                          ? 'border-success text-success'
+                          : 'border-warning text-warning'
+                      }
+                    >
+                      {currentFlow.httpStatusCode}
+                    </Badge>
+                  </div>
+                )}
+                {currentFlow.httpHost && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">HTTP Host</p>
+                    <p className="text-sm font-mono break-all">{currentFlow.httpHost}</p>
                   </div>
                 )}
                 {currentFlow.url && (
@@ -431,7 +461,10 @@ export const FlowDetailView = memo(function FlowDetailView({
           )}
 
           {/* DNS Details */}
-          {(currentFlow.dnsQueryType || currentFlow.dnsResponseCode) && (
+          {(currentFlow.dnsQueryType ||
+            currentFlow.dnsResponseCode ||
+            currentFlow.dnsQueryName ||
+            currentFlow.dnsAnswers) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -439,7 +472,7 @@ export const FlowDetailView = memo(function FlowDetailView({
                   DNS Details
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <div className="grid grid-cols-2 gap-4">
                   {currentFlow.dnsQueryType && (
                     <div>
@@ -463,6 +496,24 @@ export const FlowDetailView = memo(function FlowDetailView({
                     </div>
                   )}
                 </div>
+                {currentFlow.dnsQueryName && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Query Name</p>
+                    <p className="text-sm font-mono break-all">{currentFlow.dnsQueryName}</p>
+                  </div>
+                )}
+                {currentFlow.dnsAnswers && currentFlow.dnsAnswers.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Answers</p>
+                    <div className="flex flex-wrap gap-1">
+                      {currentFlow.dnsAnswers.map(answer => (
+                        <Badge key={answer} variant="outline" className="font-mono">
+                          {answer}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

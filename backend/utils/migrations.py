@@ -10,7 +10,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 
 # Migration history
 MIGRATIONS = {
@@ -94,6 +94,16 @@ MIGRATIONS = {
                 sample_count INTEGER NOT NULL DEFAULT 0,
                 updated_at INTEGER NOT NULL DEFAULT 0
             );
+        """,
+    },
+    7: {
+        "description": "Add deep protocol decoding columns to flows table",
+        "up": """
+            ALTER TABLE flows ADD COLUMN http_host TEXT;
+            ALTER TABLE flows ADD COLUMN http_status_code INTEGER;
+            ALTER TABLE flows ADD COLUMN dns_query_name TEXT;
+            ALTER TABLE flows ADD COLUMN dns_answers TEXT;
+            ALTER TABLE flows ADD COLUMN tls_version TEXT;
         """,
     },
 }

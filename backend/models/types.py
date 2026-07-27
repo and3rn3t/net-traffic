@@ -39,9 +39,15 @@ class NetworkFlow(BaseModel):
     userAgent: Optional[str] = None  # From HTTP headers
     httpMethod: Optional[str] = None  # GET, POST, PUT, DELETE, etc.
     url: Optional[str] = None  # From HTTP requests
+    httpHost: Optional[str] = None  # Host header from HTTP requests
+    httpStatusCode: Optional[int] = None  # Status code from HTTP responses
     # DNS details
     dnsQueryType: Optional[str] = None  # A, AAAA, MX, TXT, etc.
     dnsResponseCode: Optional[str] = None  # NOERROR, NXDOMAIN, etc.
+    dnsQueryName: Optional[str] = None  # The domain name being queried
+    dnsAnswers: Optional[List[str]] = None  # Resolved IPs/CNAMEs from a DNS response
+    # TLS details
+    tlsVersion: Optional[str] = None  # e.g. "TLS 1.2", "TLS 1.3", from ClientHello
 
 
 class Device(BaseModel):

@@ -628,25 +628,93 @@ class PacketCaptureService:
 
         return None
 
-    def _extract_http_info(self, packet) -> Dict[str, Optional[str]]:
-        """Extract HTTP information from packet (optimized)"""
-        result = {
+    _TLS_VERSION_MAP = {
+        (3, 1): "TLS 1.0",
+        (3, 2): "TLS 1.1",
+        (3, 3): "TLS 1.2",
+        (3, 4): "TLS 1.3",
+    }
+
+    def _extract_tls_version(self, packet) -> Optional[str]:
+        """Extract the negotiated/offered TLS version from a ClientHello.
+
+        For TLS 1.3, the legacy record/handshake version stays 0x0303 (TLS
+        1.2) for backwards compatibility - the real version is signalled via
+        the 'supported_versions' extension (type 0x002b), so that extension
+        is checked first when present.
+        """
+        # Method 1: Scapy TLS layer (most reliable when available)
+        try:
+            if TLSClientHello and self._has_layer_cached(packet, TLSClientHello):
+                tls_hello = packet.getlayer(TLSClientHello)
+                if tls_hello and hasattr(tls_hello, 'version'):
+                    version = tls_hello.version
+                    if isinstance(version, int):
+                        major, minor = (version >> 8) & 0xFF, version & 0xFF
+                        mapped = self._TLS_VERSION_MAP.get((major, minor))
+                        if mapped:
+                            return mapped
+        except Exception:
+            pass
+
+        # Method 2: Raw packet inspection (fallback)
+        try:
+            if not self._has_layer_cached(packet, TCP):
+                return None
+            tcp = packet.getlayer(TCP)
+            if not tcp or tcp.dport not in (443, 8443, 993, 995):
+                return None
+
+            try:
+                raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
+            except Exception:
+                raw = bytes(packet)
+
+            handshake_start = raw.find(b'\x16\x03')
+            if handshake_start == -1 or handshake_start + 2 >= len(raw):
+                return None
+
+            # supported_versions extension (0x002b): if present, its first
+            # listed version reflects the real (possibly TLS 1.3) version.
+            ext_start = raw.find(b'\x00\x2b', handshake_start)
+            if ext_start != -1 and ext_start + 6 < len(raw):
+                major, minor = raw[ext_start + 5], raw[ext_start + 6]
+                mapped = self._TLS_VERSION_MAP.get((major, minor))
+                if mapped:
+                    return mapped
+
+            # Otherwise fall back to the legacy record version bytes.
+            major, minor = raw[handshake_start + 1], raw[handshake_start + 2]
+            return self._TLS_VERSION_MAP.get((major, minor))
+        except Exception:
+            pass
+
+        return None
+
+    def _extract_http_info(self, packet) -> Dict[str, Optional[object]]:
+        """Extract HTTP information from packet (optimized), covering both
+        the request direction (method/url/host/user-agent) and the response
+        direction (status code)."""
+        result: Dict[str, Optional[object]] = {
             "method": None,
             "url": None,
             "user_agent": None,
-            "application": None
+            "application": None,
+            "host": None,
+            "status_code": None,
         }
 
-        # Early exit: Only check TCP packets on HTTP ports
+        # Early exit: Only check TCP packets on HTTP ports (either direction)
         if not self._has_layer_cached(packet, TCP):
             return result
-        
+
         tcp = packet.getlayer(TCP)
-        if not tcp or tcp.dport not in [80, 8080, 8000, 8888]:  # Common HTTP ports
+        http_ports = (80, 8080, 8000, 8888)
+        if not tcp or (tcp.dport not in http_ports and tcp.sport not in http_ports):
             return result
 
         try:
-            # Try Scapy HTTP layer first (most reliable)
+            # Try Scapy HTTP layer first (most reliable, request direction only)
             if HTTPRequest and self._has_layer_cached(packet, HTTPRequest):
                 http = packet.getlayer(HTTPRequest)
                 if http:
@@ -665,6 +733,11 @@ class PacketCaptureService:
                         if isinstance(ua, bytes):
                             ua = ua.decode('utf-8', errors='ignore')
                         result["user_agent"] = ua
+                    if hasattr(http, 'Host'):
+                        host = http.Host
+                        if isinstance(host, bytes):
+                            host = host.decode('utf-8', errors='ignore')
+                        result["host"] = host
                     result["application"] = "HTTP"
                     return result  # Early return if found
 
@@ -674,6 +747,19 @@ class PacketCaptureService:
                 raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
             except Exception:
                 raw = bytes(packet)
+
+            # Response direction: status line looks like "HTTP/1.1 200 OK"
+            if raw.startswith(b'HTTP/'):
+                result["application"] = "HTTP"
+                try:
+                    first_line = raw.split(b'\r\n', 1)[0].decode('utf-8', errors='ignore')
+                    parts = first_line.split(' ')
+                    if len(parts) > 1 and parts[1].isdigit():
+                        result["status_code"] = int(parts[1])
+                except Exception:
+                    pass
+                return result
+
             if b'HTTP/' in raw or b'GET ' in raw or b'POST ' in raw:
                 result["application"] = "HTTP"
                 # Extract method
@@ -697,12 +783,14 @@ class PacketCaptureService:
                 except Exception:
                     pass
 
-                # Extract User-Agent
+                # Extract Host and User-Agent headers
                 for line in raw.split(b'\r\n'):
-                    if line.startswith(b'User-Agent:'):
+                    if line.startswith(b'Host:'):
+                        host = line.split(b':', 1)[1].strip().decode('utf-8', errors='ignore')
+                        result["host"] = host
+                    elif line.startswith(b'User-Agent:'):
                         ua = line.split(b':', 1)[1].strip().decode('utf-8', errors='ignore')
                         result["user_agent"] = ua
-                        break
         except Exception as e:
             logger.debug(f"Error extracting HTTP info: {e}")
 
@@ -749,11 +837,13 @@ class PacketCaptureService:
 
         return None
 
-    def _extract_dns_details(self, packet) -> Dict[str, Optional[str]]:
-        """Extract detailed DNS information"""
-        result = {
+    def _extract_dns_details(self, packet) -> Dict[str, Optional[object]]:
+        """Extract detailed DNS information: query type/name, response code, and answers"""
+        result: Dict[str, Optional[object]] = {
             "query_type": None,
-            "response_code": None
+            "response_code": None,
+            "query_name": None,
+            "answers": None,
         }
 
         if not packet.haslayer(DNS):
@@ -762,7 +852,7 @@ class PacketCaptureService:
         try:
             dns = packet[DNS]
 
-            # Extract query type
+            # Extract query type and name
             if dns.qd:
                 query = dns.qd
                 query_types = {
@@ -774,8 +864,12 @@ class PacketCaptureService:
                     28: "AAAA",
                 }
                 result["query_type"] = query_types.get(query.qtype, f"TYPE{query.qtype}")
+                try:
+                    result["query_name"] = query.qname.decode("utf-8", errors="ignore").rstrip(".")
+                except Exception:
+                    pass
 
-            # Extract response code
+            # Extract response code and answers
             if dns.qr == 1:  # Response
                 response_codes = {
                     0: "NOERROR",
@@ -786,6 +880,24 @@ class PacketCaptureService:
                     5: "REFUSED",
                 }
                 result["response_code"] = response_codes.get(dns.rcode, f"RCODE{dns.rcode}")
+
+                if dns.an:
+                    answers: List[str] = []
+                    for i in range(dns.ancount):
+                        record = dns.an[i]
+                        try:
+                            if record.type in (1, 28):  # A / AAAA
+                                answers.append(str(record.rdata))
+                            elif record.type == 5:  # CNAME
+                                cname = record.rdata
+                                if isinstance(cname, bytes):
+                                    cname = cname.decode("utf-8", errors="ignore")
+                                answers.append(str(cname).rstrip("."))
+                        except Exception:
+                            continue
+                    if answers:
+                        # Cap to avoid unbounded growth from a malformed/huge response
+                        result["answers"] = answers[:10]
         except Exception as e:
             logger.debug(f"Error extracting DNS details: {e}")
 
@@ -1024,8 +1136,9 @@ class PacketCaptureService:
             # Extract domain from DNS (if available) - do this outside lock
             domain = await self._extract_domain_from_packet(packet, dst_ip)
 
-            # Extract TLS SNI
+            # Extract TLS SNI and negotiated version
             sni = self._extract_tls_sni(packet)
+            tls_version = self._extract_tls_version(packet)
 
             # Extract HTTP information
             http_info = self._extract_http_info(packet)
@@ -1072,6 +1185,8 @@ class PacketCaptureService:
                         flow_data["domain"] = domain
                     if sni:
                         flow_data["sni"] = sni
+                    if tls_version:
+                        flow_data["tls_version"] = tls_version
 
                     # Update application if detected
                     if application:
@@ -1084,12 +1199,20 @@ class PacketCaptureService:
                         flow_data["url"] = http_info["url"]
                     if http_info.get("user_agent"):
                         flow_data["user_agent"] = http_info["user_agent"]
+                    if http_info.get("host"):
+                        flow_data["http_host"] = http_info["host"]
+                    if http_info.get("status_code"):
+                        flow_data["http_status_code"] = http_info["status_code"]
 
                     # Update DNS details
                     if dns_details.get("query_type"):
                         flow_data["dns_query_type"] = dns_details["query_type"]
                     if dns_details.get("response_code"):
                         flow_data["dns_response_code"] = dns_details["response_code"]
+                    if dns_details.get("query_name"):
+                        flow_data["dns_query_name"] = dns_details["query_name"]
+                    if dns_details.get("answers"):
+                        flow_data["dns_answers"] = dns_details["answers"]
 
                     # Update TCP flags and state
                     if tcp_flags:
@@ -1144,6 +1267,8 @@ class PacketCaptureService:
                         flow_data["domain"] = domain
                     if sni:
                         flow_data["sni"] = sni
+                    if tls_version:
+                        flow_data["tls_version"] = tls_version
                     if application:
                         flow_data["application"] = application
                     if tcp_flags:
@@ -1156,10 +1281,18 @@ class PacketCaptureService:
                         flow_data["url"] = http_info["url"]
                     if http_info.get("user_agent"):
                         flow_data["user_agent"] = http_info["user_agent"]
+                    if http_info.get("host"):
+                        flow_data["http_host"] = http_info["host"]
+                    if http_info.get("status_code"):
+                        flow_data["http_status_code"] = http_info["status_code"]
                     if dns_details.get("query_type"):
                         flow_data["dns_query_type"] = dns_details["query_type"]
                     if dns_details.get("response_code"):
                         flow_data["dns_response_code"] = dns_details["response_code"]
+                    if dns_details.get("query_name"):
+                        flow_data["dns_query_name"] = dns_details["query_name"]
+                    if dns_details.get("answers"):
+                        flow_data["dns_answers"] = dns_details["answers"]
                     if rtt:
                         flow_data["rtt"] = [rtt]
                     if jitter is not None:
@@ -1527,10 +1660,17 @@ class PacketCaptureService:
             user_agent = flow_data.get("user_agent")
             http_method = flow_data.get("http_method")
             url = flow_data.get("url")
+            http_host = flow_data.get("http_host")
+            http_status_code = flow_data.get("http_status_code")
 
             # Get DNS details
             dns_query_type = flow_data.get("dns_query_type")
             dns_response_code = flow_data.get("dns_response_code")
+            dns_query_name = flow_data.get("dns_query_name")
+            dns_answers = flow_data.get("dns_answers")
+
+            # Get TLS version
+            tls_version = flow_data.get("tls_version")
 
             # Create NetworkFlow object
             flow = NetworkFlow(
@@ -1565,7 +1705,12 @@ class PacketCaptureService:
                 httpMethod=http_method,
                 url=url,
                 dnsQueryType=dns_query_type,
-                dnsResponseCode=dns_response_code
+                dnsResponseCode=dns_response_code,
+                httpHost=http_host,
+                httpStatusCode=http_status_code,
+                dnsQueryName=dns_query_name,
+                dnsAnswers=dns_answers,
+                tlsVersion=tls_version
             )
 
             # Evaluate configurable alert rules against the finalized flow.

@@ -221,6 +221,11 @@ class StorageService:
                 url TEXT,
                 dns_query_type TEXT,
                 dns_response_code TEXT,
+                http_host TEXT,
+                http_status_code INTEGER,
+                dns_query_name TEXT,
+                dns_answers TEXT,
+                tls_version TEXT,
                 FOREIGN KEY (device_id) REFERENCES devices(id)
             )
         """)
@@ -574,16 +579,19 @@ class StorageService:
              bytes_in, bytes_out, packets_in, packets_out, duration, status,
              country, city, asn, domain, sni, threat_level, device_id,
              tcp_flags, ttl, connection_state, rtt, retransmissions, jitter,
-             application, user_agent, http_method, url, dns_query_type, dns_response_code)
+             application, user_agent, http_method, url, dns_query_type, dns_response_code,
+             http_host, http_status_code, dns_query_name, dns_answers, tls_version)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
             flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
             flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
             flow.country, flow.city, flow.asn, flow.domain, flow.sni, flow.threatLevel, flow.deviceId,
             tcp_flags_str, flow.ttl, flow.connectionState, flow.rtt, flow.retransmissions, flow.jitter,
-            flow.application, flow.userAgent, flow.httpMethod, flow.url, flow.dnsQueryType, flow.dnsResponseCode
+            flow.application, flow.userAgent, flow.httpMethod, flow.url, flow.dnsQueryType, flow.dnsResponseCode,
+            flow.httpHost, flow.httpStatusCode, flow.dnsQueryName,
+            ",".join(flow.dnsAnswers) if flow.dnsAnswers else None, flow.tlsVersion
         ))
         await self._ensure_connection()
         await self.db.commit()
@@ -599,9 +607,10 @@ class StorageService:
              bytes_in, bytes_out, packets_in, packets_out, duration, status,
              country, city, asn, domain, sni, threat_level, device_id,
              tcp_flags, ttl, connection_state, rtt, retransmissions, jitter,
-             application, user_agent, http_method, url, dns_query_type, dns_response_code)
+             application, user_agent, http_method, url, dns_query_type, dns_response_code,
+             http_host, http_status_code, dns_query_name, dns_answers, tls_version)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         params = [
             (
@@ -612,7 +621,9 @@ class StorageService:
                 ",".join(flow.tcpFlags) if flow.tcpFlags else None, flow.ttl, flow.connectionState,
                 flow.rtt, flow.retransmissions, flow.jitter,
                 flow.application, flow.userAgent, flow.httpMethod, flow.url,
-                flow.dnsQueryType, flow.dnsResponseCode
+                flow.dnsQueryType, flow.dnsResponseCode,
+                flow.httpHost, flow.httpStatusCode, flow.dnsQueryName,
+                ",".join(flow.dnsAnswers) if flow.dnsAnswers else None, flow.tlsVersion
             )
             for flow in flows
         ]
@@ -1308,7 +1319,15 @@ class StorageService:
             httpMethod=row["http_method"],
             url=row["url"],
             dnsQueryType=row["dns_query_type"],
-            dnsResponseCode=row["dns_response_code"]
+            dnsResponseCode=row["dns_response_code"],
+            httpHost=row["http_host"],
+            httpStatusCode=row["http_status_code"],
+            dnsQueryName=row["dns_query_name"],
+            dnsAnswers=(
+                [a.strip() for a in row["dns_answers"].split(",") if a.strip()]
+                if row["dns_answers"] else None
+            ),
+            tlsVersion=row["tls_version"]
         )
 
     def _row_to_threat(self, row) -> Threat:

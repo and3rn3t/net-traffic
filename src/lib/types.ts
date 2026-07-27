@@ -32,9 +32,15 @@ export interface NetworkFlow {
   userAgent?: string;
   httpMethod?: string;
   url?: string;
+  httpHost?: string;
+  httpStatusCode?: number;
   // DNS details
   dnsQueryType?: string;
   dnsResponseCode?: string;
+  dnsQueryName?: string;
+  dnsAnswers?: string[];
+  // TLS details
+  tlsVersion?: string;
 }
 
 export interface Device {
