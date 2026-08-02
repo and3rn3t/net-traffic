@@ -1,4 +1,5 @@
 """Health check endpoints."""
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
@@ -12,6 +13,13 @@ router = APIRouter(prefix="/api/health", tags=["health"])
 @router.get("")
 async def health():
     """Health check endpoint with detailed status."""
+    db_stats = await state.storage.get_database_stats() if state.storage else {}
+    wal_size_bytes = 0
+    if state.storage:
+        wal_path = f"{state.storage.db_path}-wal"
+        if os.path.exists(wal_path):
+            wal_size_bytes = os.path.getsize(wal_path)
+
     health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -30,6 +38,7 @@ async def health():
             "packets_captured": state.packet_capture.packets_captured if state.packet_capture else 0,
             "performance_stats": {
                 "packets_dropped": getattr(state.packet_capture, "_packets_dropped", 0),
+                "packets_dropped_backpressure": getattr(state.packet_capture, "_packets_dropped_backpressure", 0),
                 "packets_duplicate": getattr(state.packet_capture, "_packets_duplicate", 0),
                 "active_flows_count": len(getattr(state.packet_capture, "_active_flows", {})),
             } if state.packet_capture else {},
@@ -38,7 +47,13 @@ async def health():
         "database": {
             "active_flows": await state.storage.count_flows() if state.storage else 0,
             "active_devices": await state.storage.count_devices() if state.storage else 0,
+            "size_bytes": db_stats.get("database_size_bytes", 0),
+            "wal_size_bytes": wal_size_bytes,
         },
+        "geolocation": {
+            "enabled": bool(state.geolocation_service and state.geolocation_service._initialized),
+            "db_path": state.geolocation_service.loaded_db_path if state.geolocation_service else None,
+        } if state.geolocation_service else {"enabled": False, "db_path": None},
         "websocket": {
             "active_connections": len(state.active_connections),
         },

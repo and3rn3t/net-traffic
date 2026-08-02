@@ -149,6 +149,12 @@ class PacketCaptureService:
         self._packet_batch_size = 100  # Process packets in batches
         self._packet_queue_task: Optional[asyncio.Task] = None
         self._pending_batch_tasks: set = set()  # Untracked fire-and-forget batch tasks, so stop() can cancel them
+        # Backpressure limits: if packet processing can't keep up, drop new
+        # packets instead of letting the queue / concurrent batch tasks grow
+        # unbounded (previously undocumented latent risk).
+        self._max_packet_queue_size = 5000
+        self._max_pending_batch_tasks = 20
+        self._packets_dropped_backpressure = 0
 
         # Device lookup cache (reduce async database calls)
         self._device_cache: Dict[str, str] = {}  # IP -> device_id
@@ -999,10 +1005,23 @@ class PacketCaptureService:
     async def _queue_packet(self, packet):
         """Queue packet for batch processing (reduces async overhead)"""
         async with self._packet_queue_lock:
+            if len(self._packet_queue) >= self._max_packet_queue_size:
+                self._packets_dropped_backpressure += 1
+                if self._packets_dropped_backpressure % 500 == 1:
+                    logger.warning(
+                        "Packet queue backpressure: dropped "
+                        f"{self._packets_dropped_backpressure} packets so far "
+                        "(processing can't keep up with capture rate)"
+                    )
+                return
             self._packet_queue.append(packet)
-            # Process immediately if batch size reached
-            if len(self._packet_queue) >= self._packet_batch_size:
-                # Trigger processing (non-blocking), tracked so stop() can cancel it
+            # Process immediately if batch size reached, but cap concurrent
+            # batch tasks - the periodic _process_packet_queue loop will
+            # drain any backlog within its 10ms window regardless.
+            if (
+                len(self._packet_queue) >= self._packet_batch_size
+                and len(self._pending_batch_tasks) < self._max_pending_batch_tasks
+            ):
                 task = asyncio.create_task(self._process_packet_batch())
                 self._pending_batch_tasks.add(task)
                 task.add_done_callback(self._pending_batch_tasks.discard)
