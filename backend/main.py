@@ -35,10 +35,18 @@ BASELINE_LEARNING_INTERVAL_HOURS = 1
 
 
 async def _periodic_cleanup(interval_hours: int) -> None:
-    """Periodic cleanup task for old data."""
+    """Periodic cleanup task for old data.
+
+    Runs shortly after startup (so it still fires on frequently-restarted
+    hosts, where a 24h-first-sleep would mean it never runs) and then on the
+    configured interval.
+    """
+    delay = 300  # first cleanup 5 min after startup
+    interval_seconds = interval_hours * SECONDS_PER_HOUR
     while True:
         try:
-            await asyncio.sleep(interval_hours * SECONDS_PER_HOUR)
+            await asyncio.sleep(delay)
+            delay = interval_seconds
             retention_days = config.data_retention_days
             logger.info(f"Running periodic cleanup (retention: {retention_days} days)")
             await state.storage.cleanup_old_data(days=retention_days)

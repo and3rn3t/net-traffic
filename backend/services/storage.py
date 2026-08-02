@@ -425,6 +425,15 @@ class StorageService:
         await self._ensure_connection()
         await self.db.commit()
 
+        # Fold the WAL back into the main DB and truncate it. Repeated deletes
+        # (and normal capture writes) can otherwise let the -wal file grow
+        # unbounded; a multi-GB WAL starves the connection pool and spikes
+        # CPU/memory until requests time out.
+        try:
+            await self._execute_with_retry("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception as e:
+            logger.warning(f"WAL checkpoint after cleanup failed: {e}")
+
         logger.info(
             f"Cleanup completed: {flows_deleted} flows, "
             f"{threats_deleted} dismissed threats deleted"
@@ -743,6 +752,205 @@ class StorageService:
             async with self.db.execute(query, params) as cursor:
                 rows = await cursor.fetchall()
                 return [self._row_to_flow(row) for row in rows]
+
+    async def _aggregate_fetchall(self, query: str, params=None):
+        """Run a read-only aggregation query and return all rows.
+
+        Fully consumes the cursor inside the pool context so the connection
+        can be safely returned to the pool.
+        """
+        params = params or []
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, params) as cursor:
+                    return await cursor.fetchall()
+        await self._ensure_connection()
+        async with self.db.execute(query, params) as cursor:
+            return await cursor.fetchall()
+
+    async def aggregate_geographic(self, start_time: int) -> List[dict]:
+        """Aggregate connections by country in SQL (avoids loading flows)."""
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT country,
+                   COUNT(*) AS connections,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes,
+                   SUM(CASE WHEN threat_level IN ('medium','high','critical')
+                            THEN 1 ELSE 0 END) AS threats
+            FROM flows
+            WHERE timestamp >= ? AND country IS NOT NULL AND country <> ''
+            GROUP BY country
+            ORDER BY connections DESC
+            """,
+            (start_time,),
+        )
+        return [
+            {
+                "country": r["country"],
+                "connections": r["connections"],
+                "bytes": r["bytes"],
+                "threats": r["threats"],
+            }
+            for r in rows
+        ]
+
+    async def aggregate_top_domains(
+        self, start_time: int, limit: int = 20
+    ) -> List[dict]:
+        """Aggregate top domains by traffic in SQL."""
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT domain,
+                   COUNT(*) AS connections,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes,
+                   COUNT(DISTINCT device_id) AS unique_devices
+            FROM flows
+            WHERE timestamp >= ? AND domain IS NOT NULL AND domain <> ''
+            GROUP BY domain
+            ORDER BY bytes DESC
+            LIMIT ?
+            """,
+            (start_time, limit),
+        )
+        return [
+            {
+                "domain": r["domain"],
+                "connections": r["connections"],
+                "bytes": r["bytes"],
+                "unique_devices": r["unique_devices"],
+            }
+            for r in rows
+        ]
+
+    async def aggregate_top_devices(self, start_time: int) -> List[dict]:
+        """Aggregate per-device traffic in SQL. Enrichment done by caller."""
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT device_id,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes,
+                   COUNT(*) AS connections,
+                   SUM(CASE WHEN threat_level IN ('medium','high','critical')
+                            THEN 1 ELSE 0 END) AS threats
+            FROM flows
+            WHERE timestamp >= ?
+            GROUP BY device_id
+            """,
+            (start_time,),
+        )
+        return [
+            {
+                "device_id": r["device_id"],
+                "bytes": r["bytes"],
+                "connections": r["connections"],
+                "threats": r["threats"],
+            }
+            for r in rows
+        ]
+
+    async def aggregate_bandwidth_timeline(
+        self, start_time: int, interval_ms: int
+    ) -> List[dict]:
+        """Aggregate bandwidth into fixed time buckets in SQL."""
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT (timestamp / ?) * ? AS bucket,
+                   COALESCE(SUM(bytes_in), 0) AS bytes_in,
+                   COALESCE(SUM(bytes_out), 0) AS bytes_out,
+                   COALESCE(SUM(packets_in + packets_out), 0) AS packets,
+                   COUNT(*) AS connections
+            FROM flows
+            WHERE timestamp >= ?
+            GROUP BY bucket
+            ORDER BY bucket ASC
+            """,
+            (interval_ms, interval_ms, start_time),
+        )
+        return [
+            {
+                "timestamp": r["bucket"],
+                "bytes_in": r["bytes_in"],
+                "bytes_out": r["bytes_out"],
+                "packets": r["packets"],
+                "connections": r["connections"],
+            }
+            for r in rows
+        ]
+
+    async def aggregate_device_analytics(
+        self, device_id: str, start_time: int
+    ) -> dict:
+        """Aggregate per-device breakdowns in SQL for a single device."""
+        summary_rows = await self._aggregate_fetchall(
+            """
+            SELECT COALESCE(SUM(bytes_in), 0) AS bytes_in,
+                   COALESCE(SUM(bytes_out), 0) AS bytes_out,
+                   COUNT(*) AS connections,
+                   SUM(CASE WHEN threat_level IN ('medium','high','critical')
+                            THEN 1 ELSE 0 END) AS threats
+            FROM flows
+            WHERE device_id = ? AND timestamp >= ?
+            """,
+            (device_id, start_time),
+        )
+        protocol_rows = await self._aggregate_fetchall(
+            """
+            SELECT protocol,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes,
+                   COUNT(*) AS connections
+            FROM flows
+            WHERE device_id = ? AND timestamp >= ?
+            GROUP BY protocol
+            ORDER BY bytes DESC
+            """,
+            (device_id, start_time),
+        )
+        domain_rows = await self._aggregate_fetchall(
+            """
+            SELECT domain, COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes
+            FROM flows
+            WHERE device_id = ? AND timestamp >= ?
+                  AND domain IS NOT NULL AND domain <> ''
+            GROUP BY domain
+            ORDER BY bytes DESC
+            LIMIT 10
+            """,
+            (device_id, start_time),
+        )
+        port_rows = await self._aggregate_fetchall(
+            """
+            SELECT dest_port AS port, COUNT(*) AS connections
+            FROM flows
+            WHERE device_id = ? AND timestamp >= ?
+            GROUP BY dest_port
+            ORDER BY connections DESC
+            LIMIT 10
+            """,
+            (device_id, start_time),
+        )
+        s = summary_rows[0] if summary_rows else None
+        return {
+            "summary": {
+                "total_bytes_in": s["bytes_in"] if s else 0,
+                "total_bytes_out": s["bytes_out"] if s else 0,
+                "connections": s["connections"] if s else 0,
+                "threats": s["threats"] if s else 0,
+            },
+            "protocols": [
+                {
+                    "protocol": r["protocol"],
+                    "bytes": r["bytes"],
+                    "connections": r["connections"],
+                }
+                for r in protocol_rows
+            ],
+            "top_domains": [
+                {"domain": r["domain"], "bytes": r["bytes"]} for r in domain_rows
+            ],
+            "top_ports": [
+                {"port": r["port"], "connections": r["connections"]}
+                for r in port_rows
+            ],
+        }
 
     async def search_flows(self, query_text: str, limit: int = 50) -> List[NetworkFlow]:
         """Search flows by IP address or domain"""
