@@ -219,6 +219,40 @@ Visit http://localhost:5173 and check browser console for:
 - API requests in Network tab
 - Real-time updates
 
+## Enhanced analytics components & hook
+
+Three components consume the aggregate `/api/stats/*` endpoints directly (see [API_ENHANCEMENTS.md](./API_ENHANCEMENTS.md)) instead of computing stats client-side from raw flows, and fall back to local computation if the API is unavailable:
+
+- `TopSitesEnhanced` — uses `/api/stats/top/domains`
+- `TopUsersEnhanced` — uses `/api/stats/top/devices`
+- `GeographicDistributionEnhanced` — uses `/api/stats/geographic`
+
+```tsx
+<TopUsersEnhanced devices={devices || []} flows={flows || []} hours={24} limit={10} sortBy="bytes" />
+<TopSitesEnhanced flows={flows || []} hours={24} limit={10} />
+<GeographicDistributionEnhanced flows={flows || []} hours={24} />
+```
+
+All three accept the same required props as their non-enhanced counterparts (backward compatible — no breaking changes), plus optional `hours`/`limit`/`sortBy`.
+
+The `useEnhancedAnalytics` hook centralizes access to summary stats, top domains/devices, geographic stats, and bandwidth timeline:
+
+```typescript
+import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
+
+function SummaryDashboard() {
+  const { summaryStats, isLoading, error, fetchSummaryStats, refresh } = useEnhancedAnalytics({
+    autoFetch: true,
+    hours: 24,
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (!summaryStats) return null;
+
+  return <h2>Active Flows: {summaryStats.active_flows}</h2>;
+}
+```
+
 ## Production Deployment
 
 ### Frontend on Cloudflare Pages

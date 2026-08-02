@@ -1,5 +1,7 @@
 # Network Topology and Raspberry Pi 5 Placement for Packet Capture
 
+> **This project's actual setup**: capture runs via `remote_ssh` mode (backend SSHes into the router and streams `tcpdump` output), NOT switch port mirroring — see the warning under "Option 1" and [ARCHITECTURE.md](./ARCHITECTURE.md) / [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md#4-network-configuration) for why and how.
+
 ## Quick Answer
 
 **Physical distance doesn't matter for Ethernet** (within standard limits ~100m), but **network topology placement is critical** for effective packet capture.
@@ -47,6 +49,10 @@ Internet → Router → Managed Switch (Port Mirroring)
 
 - ⚠️ Requires managed switch with port mirroring
 - ⚠️ May not capture all traffic (depends on switch capabilities)
+
+> ⚠️ **Known broken on UniFi UDM Pro**: this was the original plan for this project (WAN port 9 mirrored to Pi port 8 in the UniFi Controller) and the UI showed it as "enabled", but it never actually worked — verified zero `tc filter` rules ever programmed at the kernel level. Manually forcing a `tc mirred` mirror also failed silently: packets showed as "sent" and were visible locally on the router's own interfaces via tcpdump, but never reached the physical copper on any DSA (Realtek RTL8370B) switch port, because DSA tagging required to route to a physical port is missing for `tc`-injected frames from a non-DSA NIC. This is a driver/hardware limitation — don't spend time retrying `tc` tuning on this hardware. If you hit this, switch to remote SSH capture (`CAPTURE_MODE=remote_ssh` in `backend/.env`) instead: the backend SSHes into the router and streams `tcpdump -i <iface> -w - -U -s0` directly, avoiding the switch entirely. See `backend/services/packet_capture.py`'s `_capture_loop_remote_ssh` and lock down the SSH key to a forced `command=` in `authorized_keys` so it can only run tcpdump.
+>
+> If you're on a router/switch where port mirroring *does* work, the setup is: connect the Pi's Ethernet to the mirror/destination port, `sudo ip link set eth0 promisc on` on the Pi, then verify with `sudo tcpdump -i eth0 -c 10 -v` — if you see packets, mirroring is working. Note the mirror/destination port may not get a DHCP-assigned IP (normal); use WiFi or another interface for Pi management/SSH.
 
 **Switch Configuration Example:**
 

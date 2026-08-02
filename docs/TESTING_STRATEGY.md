@@ -132,6 +132,25 @@ VITE_USE_REAL_API=false
 
 This ensures tests don't require a running backend.
 
+### Test file structure
+
+```
+src/
+├── test/
+│   ├── setup.ts       # Global test config: jest-dom matchers, window API mocks
+│   │                  # (matchMedia, ResizeObserver, IntersectionObserver), auto-cleanup
+│   └── README.md
+├── lib/__tests__/*.integration.test.ts     # API client (CRUD, WS, error/retry scenarios)
+├── hooks/__tests__/*.integration.test.tsx  # useApiData, useReconnection, etc.
+└── components/__tests__/*.test.tsx         # Component unit tests
+```
+
+`vitest.config.ts` sets the jsdom environment, `@/*` path aliases, and coverage reporting; `vitest.integration.config.ts` is a separate config for the `*.integration.test.*` files (`npm run test:integration`).
+
+### E2E workers & why E2E doesn't block deploy
+
+`playwright.config.ts` uses 4 workers in CI (50% of cores locally) for ~2x faster parallel execution, with 2 retries on CI. E2E failures are intentionally `continue-on-error` in both the CI/CD and nightly workflows — unit tests (fast, deterministic) gate deployment; E2E results/artifacts are still saved for review, since E2E suites are more prone to timing/environment flakiness. Adjust worker count in `playwright.config.ts`'s `workers:` option if you see resource contention or flakiness.
+
 ### Coverage
 
 Coverage reports are generated in the `coverage/` directory:
@@ -224,6 +243,4 @@ If `CODECOV_TOKEN` secret is set:
 
 ## Related Documentation
 
-- [E2E_TEST_CONFIGURATION.md](./E2E_TEST_CONFIGURATION.md) - E2E test configuration details
-- [TESTING_SETUP.md](./TESTING_SETUP.md) - Detailed test setup guide
-- [E2E Tests Guide](../tests/e2e/README.md) - E2E testing guide
+- [E2E Tests Guide](../tests/e2e/README.md) - Playwright E2E testing guide

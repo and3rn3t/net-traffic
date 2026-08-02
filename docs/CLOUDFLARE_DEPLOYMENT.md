@@ -1,25 +1,6 @@
 # Cloudflare Pages Deployment Guide
 
-This guide explains how to deploy the NetInsight frontend to Cloudflare Pages while keeping the backend on your Raspberry Pi 5.
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────┐
-│   Cloudflare Pages (Frontend)  │
-│   - React App (Static Assets)   │
-│   - Served via CDN              │
-└──────────────┬──────────────────┘
-               │ HTTPS
-               │ API Calls + WebSocket
-               ▼
-┌─────────────────────────────────┐
-│   Raspberry Pi 5 (Backend)      │
-│   - FastAPI Service             │
-│   - Packet Capture              │
-│   - SQLite Database             │
-└─────────────────────────────────┘
-```
+This guide explains how to deploy the NetInsight frontend to Cloudflare Pages while keeping the backend on your Raspberry Pi 5. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full topology and rationale.
 
 ## Prerequisites
 
@@ -122,6 +103,30 @@ wrangler login
 wrangler pages deploy dist --project-name=netinsight
 ```
 
+#### Option C: Automated via GitHub Actions (recommended for ongoing deploys)
+
+1. Add repository secrets under **Settings > Secrets and variables > Actions**:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+2. Push to `main` — the `ci-cd.yml` workflow builds and deploys automatically.
+3. Check progress in the **Actions** tab.
+
+Useful local npm scripts for this flow:
+
+```bash
+# Build + deploy in one step
+npm run deploy:cloudflare
+
+# Verify a deployment succeeded
+npm run verify:deployment
+
+# Push VITE_* env vars to Cloudflare Pages from your shell
+export CLOUDFLARE_ACCOUNT_ID=your_account_id
+export CLOUDFLARE_API_TOKEN=your_api_token
+export BACKEND_URL=https://your-backend.example.com
+npm run setup:cloudflare-env
+```
+
 ### 2.5 Set Environment Variables in Cloudflare
 
 After deployment, set environment variables in Cloudflare Dashboard:
@@ -132,6 +137,14 @@ After deployment, set environment variables in Cloudflare Dashboard:
    - `VITE_USE_REAL_API`: `true`
 
 **Note**: After adding environment variables, you need to trigger a new deployment.
+
+### Environment variable priority
+
+When the same `VITE_*` variable is set in more than one place, resolution order is:
+
+1. **Cloudflare Pages Dashboard** environment variables (runtime, can differ per production/preview) — recommended, since you can change them without rebuilding.
+2. **GitHub Actions secrets** (baked into the build at build-time).
+3. Build-script defaults (fallback only).
 
 ## Step 3: WebSocket Configuration
 

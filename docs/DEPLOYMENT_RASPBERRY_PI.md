@@ -1,340 +1,194 @@
 # Raspberry Pi 5 Deployment Guide
 
-This guide walks you through setting up the NetInsight backend on a Raspberry Pi 5 to capture and analyze network traffic.
+Complete guide for running the NetInsight backend on a Raspberry Pi 5: pre-install setup, Docker (recommended) and manual installs, systemd, network configuration, and performance tuning.
 
-> **🚀 Quick Start**: For a faster setup, see the [Raspberry Pi 5 Quick Start Guide](./RASPBERRY_PI5_QUICK_START.md)
->
-> **✅ Checklist**: Use the [Installation Checklist](./RASPBERRY_PI5_CHECKLIST.md) to verify all components are in place
+> For architecture/topology background (why the backend lives on the Pi at all), see [ARCHITECTURE.md](./ARCHITECTURE.md) and [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md).
 
-## Prerequisites
+## Hardware & software requirements
 
-### Hardware Requirements
+- **Raspberry Pi 5** (4GB RAM minimum, 8GB recommended)
+- **MicroSD Card** (32GB minimum, Class 10+; 64GB recommended)
+- **Power Supply** (official 5V 5A USB-C)
+- **Ethernet connection** to the port/interface you intend to capture from
+- Adequate cooling (heatsink/fan) for 24/7 operation
+- Raspberry Pi OS 64-bit (Bookworm or later)
+- Python 3.10+ (only needed for the non-Docker install path)
 
-- **Raspberry Pi 5** (recommended: 4GB RAM or more)
-- **MicroSD Card** (32GB minimum, Class 10 or better)
-- **Power Supply** (5V 5A USB-C)
-- **Network Connection** (Ethernet cable recommended)
-- **Optional**: USB-to-Ethernet adapter for passive monitoring
+## 1. Pre-installation setup
 
-### Software Requirements
+Run once, before installing NetInsight itself.
 
-- Raspberry Pi OS (64-bit recommended) - [Download](https://www.raspberrypi.com/software/)
-- Python 3.10 or higher
-- Network interface with promiscuous mode support
-
-## Initial Setup
-
-### 1. Install Raspberry Pi OS
-
-1. Flash Raspberry Pi OS to your microSD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
-2. Enable SSH during setup (or enable it manually later)
-3. Boot your Raspberry Pi and connect via SSH
-
-### 2. Update System
+### Automated (recommended)
 
 ```bash
-sudo apt update
-sudo apt upgrade -y
-sudo reboot
+cd /path/to/net-traffic
+bash scripts/pre-install-setup.sh
 ```
 
-### 3. Install Python and Dependencies
+This updates packages, installs dependencies, configures promiscuous mode, sets up the firewall, configures swap if needed, tests port mirroring, and prints a system summary.
+
+### Manual steps (if you don't use the script)
 
 ```bash
-# Install Python and pip
-sudo apt install -y python3 python3-pip python3-venv python3-dev
+# System update
+sudo apt update && sudo apt upgrade -y && sudo reboot
 
-# Install system dependencies for packet capture
-sudo apt install -y libpcap-dev tcpdump wireshark-common
+# Timezone + NTP
+sudo timedatectl set-timezone America/New_York   # adjust to your timezone
+sudo timedatectl set-ntp true
 
-# Install build dependencies
-sudo apt install -y build-essential libssl-dev libffi-dev
-```
-
-### 4. Configure Network Interface for Packet Capture
-
-To capture network traffic, your Raspberry Pi needs to either:
-
-- **Option A**: Monitor mode (for wireless) - complex, requires specific wireless adapters
-- **Option B**: Port mirroring/SPAN port on a managed switch (recommended)
-- **Option C**: Run on a gateway/router device
-- **Option D**: Use a USB-to-Ethernet adapter for passive monitoring
-
-For most home networks, **Option B or C** is recommended.
-
-#### Enable Promiscuous Mode
-
-```bash
-# Check available network interfaces
+# Identify your capture interface
 ip link show
+```
 
-# Enable promiscuous mode on your interface (replace eth0 with your interface)
+**Promiscuous mode** (needed for packet capture on the chosen interface — replace `eth0`):
+
+```bash
 sudo ip link set eth0 promisc on
-
-# Make it permanent by adding to /etc/network/interfaces.d/
-echo "auto eth0
-iface eth0 inet dhcp
-    up ip link set eth0 promisc on" | sudo tee /etc/network/interfaces.d/eth0-promisc
 ```
 
-### 5. Set Up Application Directory
+Make it permanent with a systemd unit:
 
 ```bash
-# Create application directory
-mkdir -p ~/netinsight-backend
-cd ~/netinsight-backend
+sudo tee /etc/systemd/system/promiscuous-mode.service <<'EOF'
+[Unit]
+Description=Enable Promiscuous Mode on eth0
+After=network-online.target
+Wants=network-online.target
 
-# Clone or copy the backend code
-# If using git:
-git clone <your-repo-url> .
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ip link set eth0 promisc on
+RemainAfterExit=yes
 
-# Or copy files manually via SCP/SFTP
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl enable --now promiscuous-mode.service
 ```
 
-### 6. Create Virtual Environment
+**Firewall** (UFW):
 
 ```bash
-cd ~/netinsight-backend/backend
-
-# Create virtual environment
-python3 -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Upgrade pip
-pip install --upgrade pip
-
-# Install dependencies
-pip install -r requirements.txt
+sudo apt install -y ufw
+sudo ufw allow 22/tcp       # SSH — do this first!
+sudo ufw allow 80/tcp       # Frontend (if serving locally)
+sudo ufw allow 8000/tcp     # Backend API
+sudo ufw enable
 ```
 
-**Note**: Scapy installation may take a few minutes as it compiles some extensions.
-
-### 7. Configure Environment
+**Swap** (recommended if RAM ≤ 4GB):
 
 ```bash
-# Copy example environment file
-cp .env.example .env
-
-# Edit configuration
-nano .env
+free -h   # check current swap
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-Update the following values:
-
-```env
-# Network Interface (check with: ip link show)
-NETWORK_INTERFACE=eth0
-
-# Server Configuration
-HOST=0.0.0.0
-PORT=8000
-DEBUG=false
-
-# CORS Configuration - Update with your frontend URL
-ALLOWED_ORIGINS=http://localhost:5173,http://your-frontend-domain.com
-
-# Database
-DATABASE_PATH=~/netinsight-backend/backend/netinsight.db
-```
-
-### 8. Set Permissions for Packet Capture
-
-Packet capture requires elevated privileges. You have two options:
-
-#### Option A: Run as Root (Not Recommended for Production)
+**Verify port mirroring/capture is actually receiving traffic:**
 
 ```bash
-# Only for testing
-sudo ./venv/bin/python main.py
+sudo apt install -y tcpdump
+sudo tcpdump -i eth0 -c 10 -v
 ```
 
-#### Option B: Grant Capabilities (Recommended)
+> ⚠️ **Known issue on UniFi UDM Pro**: switch-based port mirroring does not work on this router (DSA tagging isn't applied to `tc`-injected frames from a non-DSA NIC — a driver/hardware limitation, not a config issue). If you're on the same hardware, skip local port-mirror capture entirely and use the `remote_ssh` capture mode instead — see [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md).
+
+## 2. Install NetInsight — Docker (recommended)
 
 ```bash
-# Install libcap2-bin
-sudo apt install -y libcap2-bin
-
-# Grant packet capture capability to Python
-sudo setcap cap_net_raw,cap_net_admin=eip $(readlink -f venv/bin/python3)
-
-# Verify
-getcap venv/bin/python3
-```
-
-### 9. Test the Backend
-
-```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Start the backend
-python main.py
-```
-
-You should see:
-
-```
-INFO:     Started server process
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000
-```
-
-Test the API:
-
-```bash
-curl http://localhost:8000/api/health
-```
-
-## Docker Deployment (Recommended)
-
-### Prerequisites
-
-```bash
-# Install Docker and Docker Compose
+# Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
-sudo usermod -aG docker pi
+sudo usermod -aG docker "$USER"
 newgrp docker
 
-# Install Docker Compose (if not included)
-sudo apt install -y docker-compose-plugin
-```
+# Get the code
+cd ~ && git clone <your-repo-url> net-traffic && cd net-traffic
 
-### Setup Docker Deployment
+# Make scripts executable
+chmod +x scripts/raspberry-pi-start.sh scripts/raspberry-pi-update.sh
 
-1. **Clone or copy the project to your Raspberry Pi:**
+# Optional: custom config
+cp .env.example .env && nano .env
 
-```bash
-cd ~
-git clone <your-repo-url> net-traffic
-cd net-traffic
-```
-
-2. **Make startup scripts executable:**
-
-```bash
-chmod +x scripts/raspberry-pi-start.sh
-chmod +x scripts/raspberry-pi-update.sh
-```
-
-3. **Configure environment variables (optional):**
-
-Create a `.env` file in the project root:
-
-```bash
-nano .env
-```
-
-Add any custom configuration:
-
-```env
-NETWORK_INTERFACE=eth0
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-4. **Start the containers:**
-
-```bash
+# Start (builds ARM64 images, pulls latest bases, starts containers)
 ./scripts/raspberry-pi-start.sh
 ```
 
-This script will:
+First build takes 5-10 minutes; subsequent starts take ~30 seconds. Once running:
 
-- Build optimized ARM64 images
-- Pull latest base images
-- Start all containers
-- Configure automatic restarts
+- Frontend: `http://<pi-ip>` (port 80)
+- Backend API: `http://<pi-ip>:8000`
+- API docs (Swagger UI): `http://<pi-ip>:8000/docs`
 
-### Automatic Startup on Boot
+Find the Pi's IP with `hostname -I`.
 
-To automatically start NetInsight on boot and pull latest images:
-
-1. **Copy the systemd service file:**
+### Container management
 
 ```bash
-sudo cp scripts/netinsight.service /etc/systemd/system/
-```
-
-2. **Update the service file with your actual paths:**
-
-```bash
-sudo nano /etc/systemd/system/netinsight.service
-```
-
-Update the `WorkingDirectory` and paths to match your installation location.
-
-3. **Enable and start the service:**
-
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Enable service to start on boot
-sudo systemctl enable netinsight
-
-# Start the service
-sudo systemctl start netinsight
-
-# Check status
-sudo systemctl status netinsight
-
-# View logs
-sudo journalctl -u netinsight -f
-```
-
-### Updating to Latest Images
-
-The containers are configured to always pull the latest images. To manually update:
-
-```bash
-./scripts/raspberry-pi-update.sh
-```
-
-This will:
-
-- Pull latest code (if using git)
-- Rebuild images with latest base images
-- Restart containers
-
-### Container Management
-
-```bash
-# View running containers
 docker compose ps
-
-# View logs
-docker compose logs -f
-
-# View logs for specific service
-docker compose logs -f backend
-docker compose logs -f frontend
-
-# Stop containers
+docker compose logs -f [backend|frontend]
 docker compose down
-
-# Restart containers
 docker compose restart
-
-# Rebuild and restart
 docker compose up -d --build
 ```
 
-## Running as a Service (Non-Docker)
-
-### Create Systemd Service
-
-Create a service file for automatic startup:
+### Updating
 
 ```bash
-sudo nano /etc/systemd/system/netinsight-backend.service
+./scripts/raspberry-pi-update.sh   # pulls latest code + rebuilds + restarts
 ```
 
-Add the following content (update paths as needed):
+For pulling pre-built images from a registry instead of building on the Pi, see [REGISTRY_DEPLOYMENT_GUIDE.md](./REGISTRY_DEPLOYMENT_GUIDE.md).
 
-```ini
+## 3. Install NetInsight — manual (non-Docker)
+
+```bash
+# System deps
+sudo apt install -y python3 python3-pip python3-venv python3-dev
+sudo apt install -y libpcap-dev tcpdump wireshark-common
+sudo apt install -y build-essential libssl-dev libffi-dev
+
+# App directory + code
+mkdir -p ~/netinsight-backend && cd ~/netinsight-backend
+git clone <your-repo-url> .
+
+# Virtual env
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt   # scapy compiles extensions — may take a few minutes
+
+# Configure
+cp .env.example .env
+nano .env   # set NETWORK_INTERFACE, HOST, PORT, ALLOWED_ORIGINS, DB_PATH, etc.
+```
+
+**Grant packet-capture permissions** (don't run as root in production):
+
+```bash
+sudo apt install -y libcap2-bin
+sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f venv/bin/python3)"
+getcap venv/bin/python3
+```
+
+**Test it:**
+
+```bash
+source venv/bin/activate
+python main.py
+curl http://localhost:8000/api/health
+```
+
+### Run as a systemd service (non-Docker)
+
+```bash
+sudo tee /etc/systemd/system/netinsight-backend.service <<'EOF'
 [Unit]
 Description=NetInsight Backend API
 After=network.target
@@ -350,184 +204,85 @@ RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
-```
+EOF
 
-Enable and start the service:
-
-```bash
-# Reload systemd
 sudo systemctl daemon-reload
-
-# Enable service to start on boot
-sudo systemctl enable netinsight-backend
-
-# Start the service
-sudo systemctl start netinsight-backend
-
-# Check status
-sudo systemctl status netinsight-backend
-
-# View logs
+sudo systemctl enable --now netinsight-backend
 sudo journalctl -u netinsight-backend -f
 ```
 
-## Network Configuration
-
-### Finding Your Network Interface
+### Automatic startup on boot (Docker path)
 
 ```bash
-# List all network interfaces
+sudo cp scripts/netinsight.service /etc/systemd/system/
+sudo nano /etc/systemd/system/netinsight.service   # fix WorkingDirectory/paths
+sudo systemctl daemon-reload
+sudo systemctl enable --now netinsight
+sudo journalctl -u netinsight -f
+```
+
+## 4. Network configuration
+
+```bash
 ip link show
-
-# Common interfaces:
-# - eth0: Primary Ethernet
-# - wlan0: WiFi
-# - eth1: Secondary Ethernet (if using USB adapter)
+# eth0: primary Ethernet, wlan0: WiFi, eth1: secondary/USB adapter
 ```
 
-### Port Mirroring Setup (Recommended)
+Capture options, in order of preference for a home setup:
+1. **Port mirroring/SPAN** on a managed switch (doesn't work on UniFi UDM Pro — see warning above)
+2. **Remote SSH capture** (`capture_mode=remote_ssh`) — pulls a tcpdump stream from the router over SSH; see [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md)
+3. **Gateway mode** — run the Pi inline with two NICs
+4. **USB-to-Ethernet adapter** for passive monitoring
 
-If you have a managed switch, configure port mirroring:
+## 5. Performance tuning
 
-1. Connect your Raspberry Pi to a switch port
-2. Configure the switch to mirror traffic from other ports to the Pi's port
-3. The Pi will see all network traffic in promiscuous mode
-
-### Gateway Mode Setup
-
-If running the Pi as a gateway:
-
-1. Configure the Pi with two network interfaces (e.g., eth0 and eth1)
-2. eth0 connects to your router/ISP
-3. eth1 connects to your internal network
-4. Enable IP forwarding: `sudo sysctl -w net.ipv4.ip_forward=1`
-5. Configure routing and iptables for NAT
-
-## Frontend Integration
-
-### Update Frontend Configuration
-
-In your frontend project, create or update `.env.local`:
-
-```env
-VITE_USE_REAL_API=true
-VITE_API_BASE_URL=http://your-raspberry-pi-ip:8000
-```
-
-Replace `your-raspberry-pi-ip` with your Pi's IP address (find it with `hostname -I`).
-
-### Update App.tsx to Use API
-
-Replace mock data usage in `src/App.tsx`:
-
-```typescript
-// Replace the existing hooks with:
-import { useApiData } from '@/hooks/useApiData';
-
-function App() {
-  const {
-    devices,
-    flows,
-    threats,
-    analyticsData,
-    protocolStats,
-    isCapturing,
-    isLoading,
-    isConnected,
-    startCapture,
-    stopCapture,
-    dismissThreat,
-  } = useApiData({
-    pollingInterval: 5000, // Poll every 5 seconds
-    useWebSocket: true, // Use WebSocket for real-time updates
-  });
-
-  // ... rest of your component
-}
-```
-
-## Firewall Configuration
-
-If you have a firewall enabled, allow the API port:
+### System-level (one-time, requires root)
 
 ```bash
-# UFW (Ubuntu Firewall)
-sudo ufw allow 8000/tcp
-
-# Or for specific IP
-sudo ufw allow from YOUR_FRONTEND_IP to any port 8000
+sudo bash scripts/optimize-pi5.sh
 ```
+
+Applies: 16MB GPU memory split (headless), `mq-deadline` I/O scheduler, `performance` CPU governor, larger network buffers for high packet rates, file descriptor limit raised to 65536, and Docker daemon concurrency tuning.
+
+### Docker build/runtime
+
+- **BuildKit cache mounts** for pip/npm/Vite cache cut rebuild time ~70-80% when only code changes (already wired into `Dockerfile`/`backend/Dockerfile`; enabled automatically by the startup scripts, or manually via `export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1`).
+- **Resource limits** in `docker-compose.yml` (`deploy.resources`) — defaults assume a 4GB Pi 5 (backend 2.4GB/3 CPU, frontend 128MB/0.5 CPU); on an 8GB Pi you can raise backend to ~4.8GB/3.5 CPU.
+- **tmpfs** for the backend's `/tmp` (256MB) reduces SD card wear and speeds up temp I/O.
+- All images/builds target `linux/arm64` explicitly (both `Dockerfile`s and `docker-compose.yml`) to avoid cross-arch mismatches.
+
+Approximate impact (Pi 5, 8GB, your mileage will vary):
+
+| Scenario | Before | After |
+|---|---|---|
+| First build | 10-12 min | 8-10 min |
+| Rebuild (code only) | 8-10 min | 2-3 min |
+| Rebuild (deps changed) | 8-10 min | 4-5 min |
+| Container startup | 40-50s | 30-40s |
+| Idle memory | ~1.2GB | ~900MB |
+
+### Database (SQLite)
+
+WAL mode + tuned pragmas are already the baseline in `backend/services/storage.py` (`synchronous=NORMAL`, ~32MB cache, `temp_store=MEMORY`, 256MB mmap). See [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) for schema/migration details and the storage-tables gotcha. Flow inserts are batched (50 rows or 5s, whichever first) rather than written one at a time — reduces SD card writes substantially under sustained capture.
+
+## 6. Installation checklist
+
+- [ ] Docker installed & user in `docker` group (`docker --version`, `groups`)
+- [ ] `.env` created from `.env.example` (values reviewed, not just copied)
+- [ ] Scripts executable (`chmod +x scripts/*.sh`)
+- [ ] `./scripts/raspberry-pi-start.sh` completes, `docker compose ps` shows both containers `Up`
+- [ ] `curl http://localhost:8000/api/health` returns healthy
+- [ ] Frontend loads at `http://<pi-ip>` with no console errors
+- [ ] Systemd service enabled for boot persistence (`sudo systemctl status netinsight`)
+- [ ] Firewall allows only the ports/IPs you intend (22, 80, 8000)
+- [ ] Default Pi password changed / SSH key auth configured
+- [ ] `DATA_RETENTION_DAYS` and resource limits reviewed for your Pi's RAM (see [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md))
 
 ## Troubleshooting
 
-### Backend Won't Start
-
-```bash
-# Check if port is in use
-sudo lsof -i :8000
-
-# Check Python version
-python3 --version  # Should be 3.10+
-
-# Check virtual environment
-source venv/bin/activate
-which python  # Should point to venv/bin/python
-```
-
-### No Packets Captured
-
-```bash
-# Check interface status
-ip link show eth0
-
-# Verify promiscuous mode
-ip link show eth0 | grep PROMISC
-
-# Test with tcpdump
-sudo tcpdump -i eth0 -c 10
-
-# Check permissions
-getcap venv/bin/python3
-```
-
-### Database Errors
-
-```bash
-# Check database file permissions
-ls -la netinsight.db
-
-# Remove and recreate database
-rm netinsight.db
-python main.py  # Will recreate tables
-```
-
-### Performance Issues
-
-- Monitor CPU usage: `htop`
-- Monitor memory: `free -h`
-- Reduce packet capture buffer if needed
-- Limit historical data retention in the database
-
-## Security Considerations
-
-1. **Change Default Password**: Always change the default Pi user password
-2. **Use SSH Keys**: Disable password authentication, use SSH keys only
-3. **Firewall**: Configure firewall to restrict API access
-4. **HTTPS**: For production, use a reverse proxy (nginx) with SSL/TLS
-5. **VPN**: Consider accessing the Pi through a VPN for remote access
-
-## Next Steps
-
-1. Set up reverse proxy with nginx for HTTPS
-2. Configure automatic backups of the database
-3. Set up monitoring and alerting
-4. Optimize packet capture performance
-5. Add more sophisticated threat detection rules
-
-## Support
-
-For issues or questions:
-
-- Check logs: `sudo journalctl -u netinsight-backend -n 100`
-- Review backend logs in application directory
-- Ensure all dependencies are installed correctly
+- **Containers won't start**: `sudo systemctl status docker`, `df -h`, `docker compose logs`.
+- **Can't reach frontend/backend**: confirm containers are `Up`, check `sudo netstat -tulpn | grep -E ':(80|8000)'`, check `sudo ufw status`.
+- **Images not updating**: `docker compose build --pull --no-cache && docker compose up -d`.
+- **Permission denied on docker commands**: `sudo usermod -aG docker $USER && newgrp docker`.
+- **OOM on a 4GB Pi**: lower `memory:` limits in `docker-compose.yml` and/or the tmpfs `size:`, and confirm swap is configured (`swapon --show`).
+- For backend-specific issues (service crashes, CORS, etc.) see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).

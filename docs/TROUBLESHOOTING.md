@@ -1,6 +1,8 @@
-# Troubleshooting Deployment Issues
+# Troubleshooting
 
-## Error: "Project not found" (404)
+Covers Cloudflare Pages deployment issues (frontend) and backend systemd service issues (Raspberry Pi). For Cloudflare Tunnel-specific issues, see [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md#troubleshooting).
+
+## Cloudflare Pages: "Project not found" (404)
 
 If you're seeing this error, it means the Cloudflare Pages project doesn't exist yet. The workflow should create it automatically, but if it's not working:
 
@@ -53,7 +55,7 @@ Double-check that your `CLOUDFLARE_ACCOUNT_ID` secret matches your actual Cloudf
      -H "Content-Type: application/json"
    ```
 
-## Error: "wrangler: not found" in Cloudflare Pages
+## Cloudflare Pages: "wrangler: not found" in build logs
 
 If you see this error in Cloudflare Pages build logs, it means Cloudflare Pages is trying to run a deploy command in its build environment.
 
@@ -69,6 +71,72 @@ If you see this error in Cloudflare Pages build logs, it means Cloudflare Pages 
 - Use **Direct Upload** mode in Cloudflare Pages (recommended)
 - Or disable automatic builds/deployments if connected to Git
 
+## Backend service (systemd, Raspberry Pi)
+
+Setup: `sudo ./scripts/setup-backend-service.sh` from the repo root on the Pi. All commands below assume a deployment at `/home/pi/net-traffic` — adjust the path if yours differs.
+
+### Service won't start
+
+1. `sudo systemctl status netinsight-backend` and `sudo journalctl -u netinsight-backend -n 50 --no-pager`
+2. Confirm the venv exists: `ls -la backend/venv` — if missing, recreate it (`python3 -m venv venv && source venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt`).
+3. `sudo systemctl cat netinsight-backend` — verify `ExecStart` points at `backend/venv/bin/python`.
+4. Try running manually to surface the real error: `cd backend && source venv/bin/activate && python main.py`. If this works but the service doesn't, it's a path/permission mismatch in the unit file.
+
+### Permission denied errors
+
+- Check ownership: `ls -la /home/pi/net-traffic/backend/` (should be owned by `pi`); fix with `sudo chown -R pi:pi /home/pi/net-traffic`.
+- Database files must be writable by the service user: `ls -la backend/*.db`.
+
+### Port already in use
+
+```bash
+sudo lsof -i :8000   # or: sudo netstat -tulpn | grep 8000
+sudo systemctl stop netinsight-backend   # if it's a stale instance
+```
+
+Or change the port: edit `PORT=8000` in `backend/.env`, then `sudo systemctl restart netinsight-backend`.
+
+### Import errors
+
+- Confirm the service's `ExecStart` uses `backend/venv/bin/python` (`sudo systemctl cat netinsight-backend | grep ExecStart`).
+- Reinstall deps: `pip install --upgrade pip && pip install -r requirements.txt`.
+- Check Python version is 3.10+: `backend/venv/bin/python --version`.
+
+### Service keeps restarting
+
+`sudo journalctl -u netinsight-backend -n 100 --no-pager` for tracebacks; run manually (`python main.py`) to see the error directly; verify `backend/.env` has all required variables set.
+
+### Database locked errors
+
+```bash
+sudo systemctl stop netinsight-backend
+lsof backend/*.db                       # check for stale connections
+rm -f backend/*.db-journal backend/*.db-wal
+sudo systemctl start netinsight-backend
+```
+
+### Network interface / packet capture issues
+
+```bash
+grep NETWORK_INTERFACE backend/.env
+ip link show                            # list available interfaces
+# fix NETWORK_INTERFACE in backend/.env, then:
+sudo systemctl restart netinsight-backend
+
+# verify capture capability is set:
+getcap backend/venv/bin/python3         # expect: cap_net_raw,cap_net_admin=eip
+sudo setcap cap_net_raw,cap_net_admin=eip backend/venv/bin/python3   # if missing
+```
+
+### Manual service management
+
+```bash
+sudo systemctl {start,stop,restart,enable,disable} netinsight-backend
+sudo journalctl -u netinsight-backend -f       # follow logs
+sudo journalctl -u netinsight-backend -n 100   # last 100 lines
+sudo journalctl -u netinsight-backend -b       # since boot
+```
+
 ## Still Having Issues?
 
-If the automatic project creation isn't working, the quickest solution is to **manually create the project in the Cloudflare Dashboard** (Solution 2 above). Once the project exists, all future deployments will work automatically.
+If the automatic Cloudflare Pages project creation isn't working, the quickest solution is to **manually create the project in the Cloudflare Dashboard** (see above). Once the project exists, all future deployments will work automatically.

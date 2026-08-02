@@ -514,5 +514,4 @@ The entire process is optimized for Raspberry Pi 5 with:
 **For more details**, see:
 
 - `backend/services/packet_capture.py` - Implementation
-- `docs/SCAPY_ENHANCEMENTS_COMPLETE.md` - Optimizations
-- `docs/PACKET_CAPTURE_OPTIMIZATIONS_COMPLETE.md` - Advanced optimizations
+- [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md#5-performance-tuning) - Performance tuning, including packet-capture optimizations

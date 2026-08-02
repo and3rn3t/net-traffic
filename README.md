@@ -137,12 +137,9 @@ This architecture simplifies deployment and improves performance by serving the 
 - **Packet Capture**: Requires direct network interface access (cannot run on Cloudflare)
 - **Database**: Privacy (data stays local), performance (<1ms vs 100-500ms), cost ($0 vs egress fees)
 - **Real-time Processing**: Needs low latency for immediate packet analysis
-- See [docs/ARCHITECTURE_DECISION_DATABASE.md](docs/ARCHITECTURE_DECISION_DATABASE.md) for detailed analysis
+- See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed analysis
 
-> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions.  
-> 📖 **Enhanced Deployment**: See [docs/ENHANCED_DEPLOYMENT.md](docs/ENHANCED_DEPLOYMENT.md) for automated CI/CD setup.  
-> 📖 **Custom Domain**: See [docs/CUSTOM_DOMAIN_SETUP.md](docs/CUSTOM_DOMAIN_SETUP.md) to set up `net.andernet.dev`.  
-> 📖 **Migration Guide**: See [docs/MIGRATION_TO_CLOUDFLARE.md](docs/MIGRATION_TO_CLOUDFLARE.md) if migrating from Docker deployment.
+> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions (includes automated CI/CD and custom domain setup).
 
 ### Cloudflare Pages Deployment
 
@@ -218,7 +215,7 @@ Comprehensive documentation is available in the project:
 
 ### For Users
 
-- **[Raspberry Pi 5 Quick Start](./docs/RASPBERRY_PI5_QUICK_START.md)** - ⚡ Get started in 15 minutes!
+- **[Raspberry Pi 5 Deployment Guide](./docs/DEPLOYMENT_RASPBERRY_PI.md)** - ⚡ Pre-install, Docker/manual setup, systemd, network config
 - **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - Complete user guide with getting started, features, and troubleshooting
 
 ### For Developers
@@ -226,15 +223,12 @@ Comprehensive documentation is available in the project:
 - **[AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md)** - Instructions for AI agents and developers
 - **[INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)** - Frontend-backend integration guide
 - **[PERFORMANCE_OPTIMIZATIONS.md](./docs/PERFORMANCE_OPTIMIZATIONS.md)** - Performance optimization guide
-- **[TESTING_STRATEGY.md](./docs/TESTING_STRATEGY.md)** - Complete testing strategy and workflows
-- **[TESTING_SETUP.md](./docs/TESTING_SETUP.md)** - Vitest and integration testing setup
-- **[UNIT_TESTING_SUMMARY.md](./docs/UNIT_TESTING_SUMMARY.md)** - Summary of unit tests and coverage
+- **[TESTING_STRATEGY.md](./docs/TESTING_STRATEGY.md)** - Complete testing strategy, workflows, and setup
 - **[E2E Tests Guide](./tests/e2e/README.md)** - Playwright E2E testing guide
 
 ### Project Management
 
-- **[ROADMAP.md](./docs/ROADMAP.md)** - Development roadmap and phases
-- **[REMAINING_TASKS.md](./docs/REMAINING_TASKS.md)** - Current task list with priorities
+- **[ROADMAP.md](./docs/ROADMAP.md)** - Shipped features and backlog, by priority
 - **[DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md)** - Complete documentation index
 
 See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of all documentation files.
@@ -261,7 +255,7 @@ See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of a
 - `eslint.config.js`: ESLint configuration
 - `.prettierrc.json`: Prettier formatting rules
 - `.github/workflows/`: CI/CD pipelines
-- See [WORKSPACE_CONFIG.md](./WORKSPACE_CONFIG.md) for detailed configuration guide
+- See [WORKSPACE_CONFIG.md](./docs/WORKSPACE_CONFIG.md) for detailed configuration guide
 
 ## 📄 License
 

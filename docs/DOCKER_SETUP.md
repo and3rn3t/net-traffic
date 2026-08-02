@@ -174,6 +174,31 @@ ENV VITE_USE_REAL_API=$VITE_USE_REAL_API
 
 Use a config file or API endpoint to configure the frontend at runtime. This requires additional setup.
 
+## Build optimizations
+
+Both `Dockerfile`s already use these techniques (Pi 5-focused, but they help on any host):
+
+- **BuildKit cache mounts** for pip/npm/Vite caches (`--mount=type=cache,target=/root/.cache/pip`, etc.) — cuts rebuilds ~70-80% when only application code changes. Enable with `export DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1` if it's ever not automatic.
+- **Multi-stage builds** — build tools and `node_modules` never reach the final image (backend ~200MB smaller, frontend ~500MB+ smaller since Node.js itself is excluded from the nginx-based runtime stage).
+- **Layer ordering**: dependency manifests (`requirements.txt`/`package.json`) are copied and installed before application source, so code-only changes don't invalidate the dependency-install layer.
+- **Trimmed installs**: `pip install --no-cache-dir`, `npm ci --prefer-offline --no-audit --no-fund --no-optional`.
+- **`.dockerignore`** excludes `node_modules/`, `venv/`, `dist/`, tests, and docs from the build context.
+- **`FROM --platform=linux/arm64`** pinned explicitly in both Dockerfiles and in `docker-compose.yml` (`platform:`/`platforms:`) to avoid cross-architecture builds/emulation on a Pi.
+
+Approximate build time / image size impact (Pi 5, 8GB):
+
+| Scenario | Before | After |
+|---|---|---|
+| First build | 10-12 min | 8-10 min |
+| Rebuild (code only) | 8-10 min | 2-3 min |
+| Rebuild (deps changed) | 8-10 min | 4-5 min |
+| Backend image size | ~800MB | ~600MB |
+| Frontend image size | ~1.2GB | ~50MB |
+
+### Build mode: local build vs. registry pull
+
+By default, `docker-compose.yml` **builds images locally** from source (base images like `python:3.11-slim`/`node:20-alpine`/`nginx:alpine` are still pulled fresh via `--pull` on every build). `scripts/raspberry-pi-start.sh`/`raspberry-pi-update.sh` auto-detect the mode: if the compose file has `image:` with no `build:`, they pull instead of building — no script changes needed to switch. For faster boot/deploy (pull pre-built images instead of building on-device, ~30s vs 5-10 min), see [REGISTRY_DEPLOYMENT_GUIDE.md](./REGISTRY_DEPLOYMENT_GUIDE.md).
+
 ## Building Individual Services
 
 ### Build Backend Only

@@ -310,28 +310,29 @@ GET /api/export/flows?format=csv&start_time=1699123456000
 GET /api/devices/device-123/analytics?hours=48
 ```
 
-## Frontend Integration
-
-These endpoints are designed to work seamlessly with the existing frontend. Update the API client (`src/lib/api.ts`) to add methods for these new endpoints.
-
-Example additions:
+## Frontend usage (`src/lib/api.ts`'s `apiClient`)
 
 ```typescript
-async getSummaryStats(): Promise<any> {
-  return this.request('/api/stats/summary');
-}
+// Advanced flow filtering
+const flows = await apiClient.getFlows(
+  100, 0, 'device-123', 'active', 'TCP',
+  startTimestamp, endTimestamp, undefined, undefined, 'high', 1000
+);
 
-async getTopDomains(limit: number = 20, hours: number = 24): Promise<any[]> {
-  return this.request(`/api/stats/top/domains?limit=${limit}&hours=${hours}`);
-}
+// Summary stats
+const stats = await apiClient.getSummaryStats();
 
-async updateDevice(deviceId: string, update: any): Promise<any> {
-  return this.request(`/api/devices/${deviceId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(update),
-  });
-}
+// Top domains
+const topDomains = await apiClient.getTopDomains(20, 24);
+
+// Export as CSV (triggers an automatic browser download)
+await apiClient.exportFlows('csv', startTime, endTime);
+
+// Search across devices/flows/threats
+const results = await apiClient.search('192.168.1', 'all', 50);
 ```
+
+See `useEnhancedAnalytics` (in [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md#enhanced-analytics-components--hook)) for the hook that wraps these calls for components.
 
 ## Performance Considerations
 

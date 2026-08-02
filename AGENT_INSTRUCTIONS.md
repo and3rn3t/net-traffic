@@ -32,12 +32,14 @@ net-traffic/
 ### Documentation
 
 - `README.md` - Main project documentation
-- `PRD.md` - Product Requirements Document
-- `ROADMAP.md` - Development roadmap and phases
-- `REMAINING_TASKS.md` - Current task list with priorities
-- `PERFORMANCE_OPTIMIZATIONS.md` - Performance optimization guide
-- `API_ENHANCEMENTS.md` - Backend API documentation
-- `INTEGRATION_GUIDE.md` - Frontend-backend integration guide
+- `docs/PRD.md` - Product Requirements Document
+- `docs/ROADMAP.md` - Shipped features + backlog, by priority
+- `docs/ARCHITECTURE.md` - Deployment topology and rationale
+- `docs/DATABASE_SCHEMA.md` - SQLite schema, migrations, the "tables in 3 places" gotcha
+- `docs/PERFORMANCE_OPTIMIZATIONS.md` - Performance optimization guide
+- `docs/API_ENHANCEMENTS.md` - Backend API documentation
+- `docs/INTEGRATION_GUIDE.md` - Frontend-backend integration guide
+- `docs/DOCUMENTATION_INDEX.md` - Full index of all docs
 
 ### Configuration
 
@@ -59,9 +61,7 @@ net-traffic/
 ### 1. Before Starting Work
 
 1. **Check Current Status**:
-   - Read `REMAINING_TASKS.md` for current priorities
-   - Check `ROADMAP.md` for phase status
-   - Review `CRITICAL_TASKS_COMPLETED.md` for completed work
+   - Read `docs/ROADMAP.md` for what's shipped and current priorities
 
 2. **Understand the Task**:
    - Identify which phase the task belongs to
@@ -212,8 +212,7 @@ async def get_device(device_id: str) -> Device:
 
 #### Frontend Tests
 
-- **Unit tests**: Hooks, utilities, and core components (see `UNIT_TESTING_SUMMARY.md`)
-- **Integration tests**: API client and hook integration (see `TESTING_SETUP.md`)
+- **Unit/integration tests**: Hooks, utilities, core components, API client (see `docs/TESTING_STRATEGY.md`)
 - **E2E tests**: Full user flows with Playwright (`tests/e2e/README.md`)
 
 **Run tests locally**:
@@ -250,8 +249,7 @@ pytest tests/
 #### When Adding Features
 
 1. **Update relevant docs**:
-   - `REMAINING_TASKS.md` - Mark task as completed
-   - `ROADMAP.md` - Update phase status
+   - `docs/ROADMAP.md` - Move the item from Backlog to Shipped, same commit as the work
    - Component/function docstrings
 
 2. **Add examples**:
@@ -415,16 +413,17 @@ npm run lint:fix
 
 #### Project-Specific
 
-- `INTEGRATION_GUIDE.md` - Frontend-backend integration
-- `PERFORMANCE_OPTIMIZATIONS.md` - Performance best practices
-- `API_ENHANCEMENTS.md` - Backend API reference
-- `TROUBLESHOOTING.md` - Common issues and solutions
+- `docs/INTEGRATION_GUIDE.md` - Frontend-backend integration
+- `docs/PERFORMANCE_OPTIMIZATIONS.md` - Performance best practices
+- `docs/API_ENHANCEMENTS.md` - Backend API reference
+- `docs/TROUBLESHOOTING.md` - Common issues and solutions
+- `docs/DOCUMENTATION_INDEX.md` - Full index of all docs
 
 ### 13. Agent-Specific Guidelines
 
 #### When Working on Tasks
 
-1. **Read the task description carefully** in `REMAINING_TASKS.md`
+1. **Read the task description carefully** and check `docs/ROADMAP.md` for context
 2. **Check dependencies** - Ensure prerequisites are met
 3. **Review similar implementations** - Look at existing code for patterns
 4. **Test thoroughly** - Test with both API enabled and disabled

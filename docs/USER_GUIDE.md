@@ -413,7 +413,7 @@ To connect to a Raspberry Pi 5 backend:
 
 ### Documentation
 
-- [README.md](./README.md) - Project overview
+- [README.md](../README.md) - Project overview
 - [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md) - Integration guide
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Detailed troubleshooting
 - [API_ENHANCEMENTS.md](./API_ENHANCEMENTS.md) - API reference

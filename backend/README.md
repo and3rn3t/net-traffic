@@ -195,9 +195,25 @@ If you see database locked errors:
 
 For production deployment on Raspberry Pi 5:
 
-1. See [DEPLOYMENT_RASPBERRY_PI.md](../DEPLOYMENT_RASPBERRY_PI.md) for detailed instructions
+1. See [DEPLOYMENT_RASPBERRY_PI.md](../docs/DEPLOYMENT_RASPBERRY_PI.md) for detailed instructions
 2. Set up as a systemd service
 3. Configure reverse proxy (nginx) with SSL
+
+## Hardening & optimization history
+
+Notable backend hardening work, for context when touching related code:
+
+- **Packet capture concurrency**: `asyncio.Lock`-based locking around `_active_flows` and the DNS cache in `packet_capture.py`, since flow tracking is touched from multiple async contexts (packet processing, periodic cleanup, flow finalization) concurrently.
+- **WebSocket & DB resilience**: `notify_clients()` classifies/retries errors; `storage.py` has connection health checks and reconnection with backoff.
+- **Centralized error handling**: `backend/utils/error_handler.py`'s `handle_endpoint_error()` wraps endpoints for consistent HTTP errors, structured logging, and safe WebSocket notification on failure.
+- **Input validation**: `backend/utils/validators.py` plus FastAPI `Query`/`Path` constraints (limits, offsets, IPs, enums, time ranges) across endpoints.
+- **Request logging**: `RequestLoggingMiddleware` — structured logs, request IDs, duration metrics, per-status log levels; see also the observability pass below.
+- **Search & indexing**: threat search moved to DB-level `search_threats()` queries with indexes, instead of loading everything into Python.
+- **Packet processing performance**: BPF kernel-level filtering (default `"ip or ip6"`, configurable via `start(bpf_filter=...)`), optional packet sampling (`sampling_rate`), batched packet processing (100/batch, 10ms window), zero-copy packet handling where possible (`packet.raw`).
+- **DB/dataflow observability pass**: slow/large-query logging on hot storage paths (`log_slow_query`, thresholds via `config.slow_query_ms`), global exception handler + `X-Request-ID`, `create_logged_task()` for fire-and-forget asyncio tasks, periodic health heartbeat log, unbounded-materialization queries (`get_flows`/`get_threats` without limits) replaced with SQL `aggregate_*` methods. See [DATABASE_SCHEMA.md](../docs/DATABASE_SCHEMA.md) for schema/migration details and known gotchas (e.g. tables must be updated in two places).
+
+For forward-looking plans see [ROADMAP.md](../docs/ROADMAP.md), not this section.
+
 4. Set up monitoring and logging
 5. Configure automatic backups
 
