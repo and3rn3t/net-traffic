@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 import state
 from models.types import Threat
@@ -130,16 +131,16 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting NetInsight Backend...")
 
-    # Storage
+    # Storage + cache are independent (no shared connection) - initialize concurrently
     state.storage = StorageService(db_path=config.db_path)
-    await state.storage.initialize()
-
-    # Cache (Redis - optional, degrades gracefully)
     state.cache_service = CacheService(host=config.redis_host, port=config.redis_port, default_ttl=300)
-    await state.cache_service.initialize()
+    await asyncio.gather(state.storage.initialize(), state.cache_service.initialize())
     logger.info("Cache service initialized", redis_host=config.redis_host, redis_port=config.redis_port)
 
-    # Auth
+    # Auth connects to the same db file with its own connection - run after
+    # storage.initialize() so WAL mode is already set (avoids "database is
+    # locked" from a second connection racing table creation under the
+    # default rollback journal mode).
     state.auth_service = AuthService(db_path=config.db_path)
     await state.auth_service.initialize()
     set_auth_service(state.auth_service)
@@ -234,9 +235,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Middleware (order matters: logging -> rate limit -> CORS)
+# Middleware (order matters: logging -> rate limit -> CORS -> gzip)
 app.add_middleware(RequestLoggingMiddleware, log_excluded_paths=False)
 app.add_middleware(RateLimitMiddleware, requests_per_minute=config.rate_limit_per_minute)
+# Compresses JSON responses over the cloudflared tunnel; skips small payloads.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 # Auth uses a Bearer token in the Authorization header, not cookies, so the
 # frontend never needs `credentials: 'include'`. Wildcard origin + credentials
 # is also an invalid/dangerous combination per the CORS spec (it would let
