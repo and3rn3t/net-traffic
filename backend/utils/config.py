@@ -346,6 +346,12 @@ class Config:
             return 6379
 
     @property
+    def geoip_db_path(self) -> Optional[str]:
+        """Path to the GeoIP2/DB-IP mmdb file; falls back to system paths if unset"""
+        path = os.getenv("GEOIP_DB_PATH", "").strip()
+        return path or None
+
+    @property
     def webhook_url(self) -> Optional[str]:
         """Get webhook URL for outbound threat notifications (Slack/Discord/generic HTTP POST)"""
         url = os.getenv("WEBHOOK_URL", "").strip()

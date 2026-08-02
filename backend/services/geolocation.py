@@ -15,6 +15,10 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Bounded cache for repeated IP lookups - the same destination IPs recur
+# constantly on the capture hot path, and GeoIP2 reads are relatively slow.
+GEOIP_CACHE_MAX_ENTRIES = 2000
+
 
 class GeolocationService:
     """Service for IP geolocation using MaxMind GeoIP2 database"""
@@ -24,12 +28,14 @@ class GeolocationService:
         Initialize geolocation service
 
         Args:
-            db_path: Path to GeoLite2 database file. If None, will try to use
-                     system-installed database or download one.
+            db_path: Path to GeoLite2/DB-IP mmdb file. If None, will try
+                     well-known system-installed database locations.
         """
         self.db_path = db_path
+        self.loaded_db_path: Optional[str] = None
         self.reader: Optional[geoip2.database.Reader] = None
         self._initialized = False
+        self._cache: Dict[str, Dict[str, Optional[str]]] = {}
 
         if GEOIP_AVAILABLE:
             self._initialize()
@@ -51,6 +57,7 @@ class GeolocationService:
         for db_path in possible_paths:
             if db_path and self._try_open_db(db_path):
                 logger.info(f"GeoIP2 database loaded: {db_path}")
+                self.loaded_db_path = db_path
                 self._initialized = True
                 return
 
@@ -82,6 +89,10 @@ class GeolocationService:
         if self._is_local_ip(ip):
             return {"country": None, "city": None, "asn": None}
 
+        cached = self._cache.get(ip)
+        if cached is not None:
+            return cached
+
         try:
             response = self.reader.city(ip)
 
@@ -92,16 +103,21 @@ class GeolocationService:
             # This would require a separate ASN database - not implemented yet
             asn = None
 
-            return {
+            result = {
                 "country": country,
                 "city": city,
                 "asn": asn
             }
         except geoip2.errors.AddressNotFoundError:
-            return {"country": None, "city": None, "asn": None}
+            result = {"country": None, "city": None, "asn": None}
         except Exception as e:
             logger.debug(f"Error getting location for {ip}: {e}")
             return {"country": None, "city": None, "asn": None}
+
+        if len(self._cache) >= GEOIP_CACHE_MAX_ENTRIES:
+            self._cache.clear()
+        self._cache[ip] = result
+        return result
 
     def _is_local_ip(self, ip: str) -> bool:
         """Check if IP is local/private (IPv4 and IPv6)"""

@@ -66,7 +66,7 @@ class ServiceManager:
         self.advanced_analytics = AdvancedAnalyticsService(self.storage)
 
         # Initialize geolocation service
-        self.geolocation_service = GeolocationService()
+        self.geolocation_service = GeolocationService(db_path=config.geoip_db_path)
 
         # Initialize new analytics services
         self.network_quality_analytics = NetworkQualityAnalyticsService(self.storage)
