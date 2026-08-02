@@ -48,13 +48,11 @@ class AnalyticsService:
             if flow.threatLevel in ["medium", "high", "critical"]:
                 hourly_data[hour_timestamp]["threatCount"] += 1
 
-        # Get threats for the time range (unbounded - counting, not returning to a client)
-        threats = await self.storage.get_threats(active_only=False, limit=100000)
-        for threat in threats:
-            if threat.timestamp >= start_time:
-                hour_timestamp = (threat.timestamp // (60 * 60 * 1000)) * (60 * 60 * 1000)
-                if hour_timestamp in hourly_data:
-                    hourly_data[hour_timestamp]["threatCount"] += 1
+        # Get per-hour threat counts aggregated in SQL (avoids loading every threat row)
+        threat_counts_by_hour = await self.storage.aggregate_threat_counts_by_hour(start_time)
+        for hour_timestamp, count in threat_counts_by_hour.items():
+            if hour_timestamp in hourly_data:
+                hourly_data[hour_timestamp]["threatCount"] += count
 
         # Convert to list and fill gaps
         result = []

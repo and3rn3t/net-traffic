@@ -9,7 +9,8 @@ import { useApiData } from '../useApiData';
 import { apiClient } from '@/lib/api';
 
 // Mock the API client
-vi.mock('@/lib/api', () => {
+vi.mock('@/lib/api', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
   const mockApiClient = {
     healthCheck: vi.fn(),
     getDevices: vi.fn(),
@@ -46,6 +47,7 @@ vi.mock('@/lib/api', () => {
     off: vi.fn(),
   };
   return {
+    ApiError: actual.ApiError,
     apiClient: mockApiClient,
   };
 });

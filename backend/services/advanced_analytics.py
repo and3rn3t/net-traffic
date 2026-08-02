@@ -19,11 +19,10 @@ class AdvancedAnalyticsService:
         devices = await self.storage.get_devices()
         # Use reasonable limit for summary stats (Pi optimization)
         flows = await self.storage.get_flows(limit=25000)  # Reduced for Pi (was 50000)
-        threats = await self.storage.get_threats(active_only=False, limit=100000)
+        threat_stats = await self.storage.aggregate_threat_stats()
 
         total_bytes = sum(f.bytesIn + f.bytesOut for f in flows)
         active_flows = [f for f in flows if f.status == "active"]
-        active_threats = [t for t in threats if not t.dismissed]
 
         # Calculate time range
         if flows:
@@ -40,9 +39,9 @@ class AdvancedAnalyticsService:
             "total_flows": len(flows),
             "active_flows": len(active_flows),
             "total_bytes": total_bytes,
-            "total_threats": len(threats),
-            "active_threats": len(active_threats),
-            "critical_threats": len([t for t in active_threats if t.severity == "critical"]),
+            "total_threats": threat_stats["total"],
+            "active_threats": threat_stats["active"],
+            "critical_threats": threat_stats["critical_active"],
             "oldest_flow_timestamp": oldest_flow,
             "newest_flow_timestamp": newest_flow,
             "capture_duration_hours": (newest_flow - oldest_flow) / (1000 * 60 * 60) if newest_flow > oldest_flow else 0

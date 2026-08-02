@@ -5,16 +5,41 @@ from datetime import datetime
 from io import StringIO
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 
 import state
+from models.auth import User
+from utils.auth_dependencies import get_current_active_user
 from utils.constants import ErrorMessages
 from utils.error_handler import handle_endpoint_error_call
 from utils.validators import LimitQuery, validate_string_param, validate_time_range
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["maintenance"])
+
+VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+
+@router.post("/maintenance/log-level")
+async def set_log_level(
+    level: str = Query(..., pattern="^(?i)(debug|info|warning|error|critical)$"),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Change the root log level at runtime, without a service restart.
+
+    Useful for turning on DEBUG mid-incident and reverting once done.
+    """
+    level = level.upper()
+    if level not in VALID_LOG_LEVELS:
+        raise HTTPException(status_code=400, detail=f"level must be one of {sorted(VALID_LOG_LEVELS)}")
+    previous_level = logging.getLevelName(logging.getLogger().getEffectiveLevel())
+    logging.getLogger().setLevel(level)
+    # WARNING (not DEBUG/INFO) so the change is visible regardless of the new level.
+    logging.getLogger(__name__).warning(
+        f"Log level changed: {previous_level} -> {level} (by {current_user.username})"
+    )
+    return {"previous_level": previous_level, "level": level}
 
 
 @router.post("/maintenance/cleanup")

@@ -8,9 +8,10 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 
 import state
 from models.types import Threat
@@ -33,6 +34,83 @@ logger = StructuredLogger(__name__)
 
 BANDWIDTH_CHECK_INTERVAL_HOURS = 1
 BASELINE_LEARNING_INTERVAL_HOURS = 1
+
+
+async def _periodic_health_heartbeat(interval_minutes: int) -> None:
+    """Periodic structured summary of DB/dataflow health for log-only troubleshooting.
+
+    Runs shortly after startup (so it's useful even on frequently-restarted
+    hosts) and then on the configured interval. Also opportunistically
+    checkpoints the WAL and warns on threshold breaches (WAL size, stale
+    capture, growing packet-drop counters) so incidents are visible via
+    `journalctl` alone, without needing to query the API mid-incident.
+    """
+    delay = 60  # first heartbeat 1 min after startup
+    interval_seconds = interval_minutes * 60
+    last_packets_captured = 0
+    last_dropped = 0
+    last_dropped_backpressure = 0
+    while True:
+        try:
+            await asyncio.sleep(delay)
+            delay = interval_seconds
+
+            db_stats = await state.storage.get_database_stats() if state.storage else {}
+            pool_stats = state.storage.get_pool_stats() if state.storage else {}
+            cache_stats = await state.cache_service.get_stats() if state.cache_service else {}
+
+            capture = state.packet_capture
+            packets_captured = capture.packets_captured if capture else 0
+            dropped = getattr(capture, "_packets_dropped", 0) if capture else 0
+            dropped_backpressure = getattr(capture, "_packets_dropped_backpressure", 0) if capture else 0
+            capture_stale = capture.is_stale() if capture else None
+
+            logger.info(
+                "Health heartbeat",
+                packets_captured_total=packets_captured,
+                packets_captured_delta=packets_captured - last_packets_captured,
+                packets_dropped_delta=dropped - last_dropped,
+                packets_dropped_backpressure_delta=dropped_backpressure - last_dropped_backpressure,
+                active_flows=len(getattr(capture, "_active_flows", {})) if capture else 0,
+                capture_stale=capture_stale,
+                db_size_bytes=db_stats.get("database_size_bytes", 0),
+                wal_size_bytes=db_stats.get("wal_size_bytes", 0),
+                total_flows=db_stats.get("total_flows", 0),
+                total_threats=db_stats.get("total_threats", 0),
+                cache_backend=cache_stats.get("backend", "disabled"),
+                cache_hit_rate=cache_stats.get("hit_rate"),
+                slow_query_count=pool_stats.get("query_stats", {}).get("slow_query_count", 0),
+                ws_connections=len(state.active_connections),
+                http_5xx_total=state.request_5xx_count,
+            )
+
+            if capture_stale:
+                logger.warning("Health heartbeat: packet capture is stale (not receiving packets)")
+            if dropped_backpressure > last_dropped_backpressure:
+                logger.warning(
+                    f"Health heartbeat: packet backpressure drops increased by "
+                    f"{dropped_backpressure - last_dropped_backpressure} since last heartbeat"
+                )
+
+            wal_bytes = db_stats.get("wal_size_bytes", 0)
+            if wal_bytes > config.wal_warn_bytes and state.storage:
+                logger.warning(f"WAL size {wal_bytes} bytes exceeds threshold, running proactive checkpoint")
+                result = await state.storage.checkpoint_wal_if_needed(config.wal_warn_bytes)
+                if result:
+                    logger.info(
+                        "Proactive WAL checkpoint",
+                        before_bytes=result["before_bytes"],
+                        after_bytes=result["after_bytes"],
+                    )
+
+            last_packets_captured = packets_captured
+            last_dropped = dropped
+            last_dropped_backpressure = dropped_backpressure
+        except asyncio.CancelledError:
+            logger.info("Health heartbeat task cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Error in health heartbeat: {e}")
 
 
 async def _periodic_cleanup(interval_hours: int) -> None:
@@ -130,6 +208,26 @@ async def lifespan(app: FastAPI):
     from utils.auth_dependencies import set_auth_service
 
     logger.info("Starting NetInsight Backend...")
+    # Log the effective config once at startup - the fastest way to rule out
+    # .env drift (e.g. a stale deployed value) when troubleshooting. No secrets
+    # (webhook URL, SSH key path) are included.
+    logger.info(
+        "Effective configuration",
+        capture_mode=config.capture_mode,
+        network_interface=config.network_interface if config.capture_mode == "local" else None,
+        remote_capture_host=config.remote_capture_host if config.capture_mode == "remote_ssh" else None,
+        db_path=config.db_path,
+        data_retention_days=config.data_retention_days,
+        redis_host=config.redis_host,
+        redis_port=config.redis_port,
+        rate_limit_per_minute=config.rate_limit_per_minute,
+        allowed_origins_count=len(config.allowed_origins),
+        slow_query_ms=config.slow_query_ms,
+        slow_request_ms=config.slow_request_ms,
+        wal_warn_bytes=config.wal_warn_bytes,
+        heartbeat_interval_minutes=config.heartbeat_interval_minutes,
+        debug=config.debug,
+    )
 
     # Storage + cache are independent (no shared connection) - initialize concurrently
     state.storage = StorageService(db_path=config.db_path)
@@ -195,6 +293,7 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(_periodic_cleanup(CLEANUP_INTERVAL_HOURS))
     bandwidth_task = asyncio.create_task(_periodic_bandwidth_check(BANDWIDTH_CHECK_INTERVAL_HOURS))
     baseline_task = asyncio.create_task(_periodic_baseline_learning(BASELINE_LEARNING_INTERVAL_HOURS))
+    heartbeat_task = asyncio.create_task(_periodic_health_heartbeat(config.heartbeat_interval_minutes))
 
     yield
 
@@ -212,7 +311,8 @@ async def lifespan(app: FastAPI):
     cleanup_task.cancel()
     bandwidth_task.cancel()
     baseline_task.cancel()
-    for task in (capture_task, cleanup_task, bandwidth_task, baseline_task):
+    heartbeat_task.cancel()
+    for task in (capture_task, cleanup_task, bandwidth_task, baseline_task, heartbeat_task):
         try:
             await task
         except asyncio.CancelledError:
@@ -251,7 +351,25 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Without this, browsers can't read X-Request-ID on cross-origin responses
+    # (prod frontend and backend are on different domains).
+    expose_headers=["X-Request-ID"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Ensure any unhandled error is logged with a traceback + request_id for correlation."""
+    request_id = getattr(request.state, "request_id", None)
+    logging.getLogger(__name__).error(
+        f"Unhandled exception: {request.method} {request.url.path}",
+        exc_info=exc,
+        extra={"request_id": request_id},
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "request_id": request_id},
+    )
 
 
 @app.get("/")

@@ -366,6 +366,46 @@ class Config:
         except ValueError:
             return None
 
+    @property
+    def slow_query_ms(self) -> float:
+        """Storage queries taking longer than this (ms) are logged as WARN."""
+        try:
+            return float(os.getenv("SLOW_QUERY_MS", "500"))
+        except ValueError:
+            return 500.0
+
+    @property
+    def large_result_warn_rows(self) -> int:
+        """Storage queries returning more rows than this are logged as WARN."""
+        try:
+            return int(os.getenv("LARGE_RESULT_WARN_ROWS", "10000"))
+        except ValueError:
+            return 10000
+
+    @property
+    def slow_request_ms(self) -> float:
+        """HTTP requests taking longer than this (ms) are logged as WARN."""
+        try:
+            return float(os.getenv("SLOW_REQUEST_MS", "2000"))
+        except ValueError:
+            return 2000.0
+
+    @property
+    def heartbeat_interval_minutes(self) -> int:
+        """Interval between periodic health/dataflow heartbeat log lines."""
+        try:
+            return int(os.getenv("HEARTBEAT_INTERVAL_MINUTES", "5"))
+        except ValueError:
+            return 5
+
+    @property
+    def wal_warn_bytes(self) -> int:
+        """SQLite -wal file size (bytes) that triggers a WARN + proactive checkpoint."""
+        try:
+            return int(os.getenv("WAL_WARN_BYTES", str(256 * 1024 * 1024)))
+        except ValueError:
+            return 256 * 1024 * 1024
+
 
 # Global config instance
 config = Config()

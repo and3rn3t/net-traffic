@@ -12,6 +12,7 @@ import requests
 from fastapi import WebSocket
 
 from utils.config import config
+from utils.tasks import create_logged_task
 
 if TYPE_CHECKING:
     from services.packet_capture import PacketCaptureService
@@ -56,6 +57,10 @@ connection_topics: Dict[WebSocket, Optional[Set[str]]] = {}
 
 # Fire-and-forget webhook delivery tasks, tracked so they can be drained on shutdown.
 pending_webhook_tasks: Set[asyncio.Task] = set()
+
+# Running count of 5xx HTTP responses, incremented by RequestLoggingMiddleware
+# and surfaced in the periodic health heartbeat for troubleshooting.
+request_5xx_count: int = 0
 
 
 async def notify_clients(data: dict) -> None:
@@ -193,7 +198,7 @@ def _dispatch_webhook(threat) -> None:
     if not config.webhook_url:
         return
 
-    task = asyncio.create_task(asyncio.to_thread(_deliver_webhook_sync, threat))
+    task = create_logged_task(asyncio.to_thread(_deliver_webhook_sync, threat), "webhook_delivery")
     pending_webhook_tasks.add(task)
     task.add_done_callback(pending_webhook_tasks.discard)
 

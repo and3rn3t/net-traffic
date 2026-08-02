@@ -3,7 +3,7 @@
  * Provides a clean interface to switch between mock and real backend data
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { apiClient } from '@/lib/api';
+import { apiClient, ApiError } from '@/lib/api';
 import { NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats } from '@/lib/types';
 import { toast } from 'sonner';
 import { API_CONFIG } from '@/hooks/useApiConfig';
@@ -95,7 +95,10 @@ export function useApiData(options: UseApiDataOptions = {}) {
       console.error('API fetch error:', err);
 
       toast.error('Backend unavailable', {
-        description: 'Cannot connect to backend. Check that the service is running.',
+        description:
+          err instanceof ApiError && err.requestId
+            ? `Cannot connect to backend. Check that the service is running. (Request ID: ${err.requestId})`
+            : 'Cannot connect to backend. Check that the service is running.',
         action: {
           label: 'Retry',
           onClick: () => fetchAll(),

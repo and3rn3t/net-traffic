@@ -40,6 +40,7 @@ from services.geolocation import GeolocationService
 from services.enhanced_identification import EnhancedIdentificationService
 from services.alerting import AlertingService
 from utils.constants import MAX_PLAUSIBLE_INTERVAL_SECONDS
+from utils.tasks import create_logged_task
 
 logger = logging.getLogger(__name__)
 
@@ -1022,7 +1023,7 @@ class PacketCaptureService:
                 len(self._packet_queue) >= self._packet_batch_size
                 and len(self._pending_batch_tasks) < self._max_pending_batch_tasks
             ):
-                task = asyncio.create_task(self._process_packet_batch())
+                task = create_logged_task(self._process_packet_batch(), "process_packet_batch")
                 self._pending_batch_tasks.add(task)
                 task.add_done_callback(self._pending_batch_tasks.discard)
 

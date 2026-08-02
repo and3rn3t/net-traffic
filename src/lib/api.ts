@@ -19,6 +19,24 @@ import type {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const AUTH_TOKEN_STORAGE_KEY = 'netinsight_auth_token';
 
+/** API error carrying the HTTP status and backend request ID for log correlation. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly requestId: string | null;
+
+  constructor(
+    message: string,
+    status: number,
+    requestId: string | null = null,
+    options?: ErrorOptions
+  ) {
+    super(message, options);
+    this.name = 'ApiError';
+    this.status = status;
+    this.requestId = requestId;
+  }
+}
+
 export interface ApiConfig {
   baseURL: string;
   timeout?: number;
@@ -100,6 +118,7 @@ export class ApiClient {
             response.status >= 400 && response.status < 500
               ? `HTTP ${response.status}${error.message ? `: ${error.message}` : ''}`
               : error.message || `HTTP ${response.status}`;
+          const requestId = response.headers?.get?.('X-Request-ID') ?? null;
 
           if (response.status === 401) {
             this.onUnauthorized?.();
@@ -108,7 +127,7 @@ export class ApiClient {
           // Don't retry on client errors (4xx) - including 429 rate limit
           // Throw immediately without retrying
           if (response.status >= 400 && response.status < 500) {
-            throw new Error(errorMessage);
+            throw new ApiError(errorMessage, response.status, requestId);
           }
 
           // Retry on server errors (5xx)
@@ -118,7 +137,7 @@ export class ApiClient {
             continue;
           }
 
-          throw new Error(errorMessage);
+          throw new ApiError(errorMessage, response.status, requestId);
         }
 
         if (response.status === 204) {
@@ -127,11 +146,9 @@ export class ApiClient {
 
         return await response.json();
       } catch (error) {
-        // Check if this is a 4xx error that was thrown (should not retry)
-        // 4xx errors are thrown immediately and should not be retried
-        // Check error message for HTTP 4xx pattern
-        if (error instanceof Error && /HTTP 4\d{2}/.test(error.message)) {
-          throw error; // Don't retry 4xx errors - exit function immediately
+        // 4xx errors are thrown immediately above and should not be retried
+        if (error instanceof ApiError && error.status < 500) {
+          throw error;
         }
 
         // If fetch rejects (network error), response will be undefined

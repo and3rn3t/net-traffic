@@ -9,6 +9,9 @@ from typing import Optional
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
+import state
+from utils.config import config
+
 logger = logging.getLogger(__name__)
 
 # Try to import structured logging helpers
@@ -47,6 +50,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         """Process request and log details"""
         # Generate unique request ID
         request_id = str(uuid.uuid4())[:8]
+        request.state.request_id = request_id
 
         # Get client info
         client_ip = request.client.host if request.client else "unknown"
@@ -86,6 +90,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             # Add request ID to response headers
             response.headers["X-Request-ID"] = request_id
 
+            if status_code >= 500:
+                state.request_5xx_count += 1
+            if duration_ms > config.slow_request_ms:
+                logger.warning(
+                    f"[{request_id}] SLOW REQUEST {request.method} {request.url.path} "
+                    f"took {duration_ms:.2f}ms (threshold {config.slow_request_ms:.0f}ms)"
+                )
+
             # Log response
             if should_log:
                 self._log_response(
@@ -117,6 +129,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             error_message = str(e)
             duration_ms = (time.time() - start_time) * 1000
             status_code = 500
+            state.request_5xx_count += 1
 
             # Log error
             logger.error(

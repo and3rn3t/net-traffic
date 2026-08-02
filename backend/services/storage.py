@@ -5,12 +5,16 @@ import aiosqlite
 import json
 import logging
 import asyncio
+import os
+import time
+from functools import wraps
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from models.types import NetworkFlow, Device, Threat, FilterPreset
 from models.alerts import AlertRule, TriggeredAlert
 from models.baseline import DeviceBaseline
+from utils.config import config
 from utils.migrations import run_migrations
 from utils.constants import THREAT_DEDUP_WINDOW_MINUTES
 from services.db_pool import DatabasePool
@@ -18,10 +22,33 @@ from services.db_pool import DatabasePool
 logger = logging.getLogger(__name__)
 
 
+def log_slow_query(label: str):
+    """Decorator for StorageService async methods: logs a WARN (with duration
+    and row count) when a query is slow or returns an unexpectedly large
+    result set - the two symptoms behind past DB performance incidents."""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            start = time.monotonic()
+            result = await func(self, *args, **kwargs)
+            duration_ms = (time.monotonic() - start) * 1000
+            row_count = len(result) if isinstance(result, (list, tuple)) else None
+            self._record_query_timing(label, duration_ms, row_count)
+            return result
+        return wrapper
+    return decorator
+
+
 class StorageService:
     def __init__(self, db_path: str = "netinsight.db", use_pool: bool = True):
         self.db_path = db_path
         self.use_pool = use_pool
+
+        # Slow/large-query counters surfaced via get_pool_stats() -> /api/health/db-pool
+        self._query_stats: dict = {
+            "slow_query_count": 0,
+            "last_slow_query": None,
+        }
 
         # Legacy single connection (for backward compatibility)
         self.db: Optional[aiosqlite.Connection] = None
@@ -437,6 +464,7 @@ class StorageService:
                 break
         return total_deleted
 
+    @log_slow_query("cleanup_old_data")
     async def cleanup_old_data(self, days: int = 30):
         """Clean up old flows, threats, and triggered alerts older than specified days"""
         cutoff_time = int(
@@ -476,43 +504,83 @@ class StorageService:
             "cutoff_timestamp": cutoff_time
         }
 
+    @log_slow_query("get_database_stats")
     async def get_database_stats(self) -> dict:
         """Get database statistics"""
-        await self._ensure_connection()
-        stats = {}
+        stats: dict = {}
 
-        # Count flows
-        async with self.db.execute("SELECT COUNT(*) FROM flows") as cursor:
-            row = await cursor.fetchone()
-            stats["total_flows"] = row[0] if row else 0
+        async def _fetchone(query: str):
+            if self.pool:
+                async with self.pool.acquire() as conn:
+                    async with conn.execute(query) as cursor:
+                        return await cursor.fetchone()
+            await self._ensure_connection()
+            async with self.db.execute(query) as cursor:
+                return await cursor.fetchone()
 
-        # Count devices
-        async with self.db.execute("SELECT COUNT(*) FROM devices") as cursor:
-            row = await cursor.fetchone()
-            stats["total_devices"] = row[0] if row else 0
+        row = await _fetchone("SELECT COUNT(*) FROM flows")
+        stats["total_flows"] = row[0] if row else 0
 
-        # Count threats
-        async with self.db.execute("SELECT COUNT(*) FROM threats") as cursor:
-            row = await cursor.fetchone()
-            stats["total_threats"] = row[0] if row else 0
+        row = await _fetchone("SELECT COUNT(*) FROM devices")
+        stats["total_devices"] = row[0] if row else 0
 
-        # Get oldest and newest flow timestamps
-        async with self.db.execute(
-            "SELECT MIN(timestamp), MAX(timestamp) FROM flows"
-        ) as cursor:
-            row = await cursor.fetchone()
-            stats["oldest_flow"] = row[0] if row and row[0] else None
-            stats["newest_flow"] = row[1] if row and row[1] else None
+        row = await _fetchone("SELECT COUNT(*) FROM threats")
+        stats["total_threats"] = row[0] if row else 0
 
-        # Get database size (approximate)
-        async with self.db.execute(
+        row = await _fetchone("SELECT MIN(timestamp), MAX(timestamp) FROM flows")
+        stats["oldest_flow"] = row[0] if row and row[0] else None
+        stats["newest_flow"] = row[1] if row and row[1] else None
+
+        row = await _fetchone(
             "SELECT page_count * page_size as size FROM pragma_page_count(), "
             "pragma_page_size()"
-        ) as cursor:
-            row = await cursor.fetchone()
-            stats["database_size_bytes"] = row[0] if row else 0
+        )
+        stats["database_size_bytes"] = row[0] if row else 0
+        stats["wal_size_bytes"] = self.get_wal_size_bytes()
 
         return stats
+
+    def get_wal_size_bytes(self) -> int:
+        """Size of the -wal file; a large value means checkpointing isn't keeping up."""
+        wal_path = f"{self.db_path}-wal"
+        return os.path.getsize(wal_path) if os.path.exists(wal_path) else 0
+
+    async def checkpoint_wal_if_needed(self, threshold_bytes: int) -> Optional[dict]:
+        """Run a non-blocking PASSIVE WAL checkpoint if the -wal file exceeds threshold_bytes.
+
+        PASSIVE (unlike the TRUNCATE checkpoint cleanup_old_data uses) never blocks
+        writers, making it safe to call from a periodic background task.
+        """
+        before = self.get_wal_size_bytes()
+        if before <= threshold_bytes:
+            return None
+        try:
+            await self._execute_with_retry("PRAGMA wal_checkpoint(PASSIVE)")
+        except Exception as e:
+            logger.warning(f"Proactive WAL checkpoint failed: {e}")
+            return None
+        after = self.get_wal_size_bytes()
+        return {"before_bytes": before, "after_bytes": after}
+
+    def _record_query_timing(self, label: str, duration_ms: float, row_count: Optional[int] = None) -> None:
+        """Track slow/large query occurrences and log a WARN for either."""
+        is_slow = duration_ms > config.slow_query_ms
+        is_large = row_count is not None and row_count > config.large_result_warn_rows
+        if not (is_slow or is_large):
+            return
+
+        self._query_stats["slow_query_count"] += 1
+        self._query_stats["last_slow_query"] = {
+            "label": label,
+            "duration_ms": round(duration_ms, 1),
+            "row_count": row_count,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        logger.warning(
+            f"Slow/large query '{label}': {duration_ms:.1f}ms"
+            + (f", {row_count} rows" if row_count is not None else ""),
+            extra={"query_label": label, "duration_ms": round(duration_ms, 1), "row_count": row_count},
+        )
 
     async def close(self):
         """Close database connection"""
@@ -524,14 +592,16 @@ class StorageService:
             logger.info("Database connection closed")
 
     def get_pool_stats(self) -> dict:
-        """Get connection pool statistics"""
+        """Get connection pool + slow-query statistics"""
         if self.pool:
-            return self.pool.get_stats()
+            stats = self.pool.get_stats()
         else:
-            return {
+            stats = {
                 "pool_enabled": False,
                 "message": "Connection pooling not enabled"
             }
+        stats["query_stats"] = self._query_stats
+        return stats
 
     # Device methods
     async def get_devices(self) -> List[Device]:
@@ -677,6 +747,7 @@ class StorageService:
             await self.db.executemany(query, params)
             await self.db.commit()
 
+    @log_slow_query("get_flows")
     async def get_flows(self, limit: int = 100, device_id: Optional[str] = None,
                        status: Optional[str] = None, protocol: Optional[str] = None,
                        start_time: Optional[int] = None, end_time: Optional[int] = None,
@@ -799,6 +870,7 @@ class StorageService:
         async with self.db.execute(query, params) as cursor:
             return await cursor.fetchall()
 
+    @log_slow_query("aggregate_geographic")
     async def aggregate_geographic(self, start_time: int) -> List[dict]:
         """Aggregate connections by country in SQL (avoids loading flows)."""
         rows = await self._aggregate_fetchall(
@@ -825,6 +897,7 @@ class StorageService:
             for r in rows
         ]
 
+    @log_slow_query("aggregate_top_domains")
     async def aggregate_top_domains(
         self, start_time: int, limit: int = 20
     ) -> List[dict]:
@@ -853,6 +926,7 @@ class StorageService:
             for r in rows
         ]
 
+    @log_slow_query("aggregate_top_devices")
     async def aggregate_top_devices(self, start_time: int) -> List[dict]:
         """Aggregate per-device traffic in SQL. Enrichment done by caller."""
         rows = await self._aggregate_fetchall(
@@ -878,6 +952,7 @@ class StorageService:
             for r in rows
         ]
 
+    @log_slow_query("aggregate_bandwidth_timeline")
     async def aggregate_bandwidth_timeline(
         self, start_time: int, interval_ms: int
     ) -> List[dict]:
@@ -907,6 +982,7 @@ class StorageService:
             for r in rows
         ]
 
+    @log_slow_query("aggregate_device_analytics")
     async def aggregate_device_analytics(
         self, device_id: str, start_time: int
     ) -> dict:
@@ -1085,6 +1161,7 @@ class StorageService:
         await self._ensure_connection()
         await self.db.commit()
 
+    @log_slow_query("get_threats")
     async def get_threats(self, active_only: bool = True, limit: int = 200) -> List[Threat]:
         """Get threats, most recent first"""
         query = "SELECT * FROM threats"
@@ -1103,6 +1180,40 @@ class StorageService:
             async with self.db.execute(query, params) as cursor:
                 rows = await cursor.fetchall()
                 return [self._row_to_threat(row) for row in rows]
+
+    @log_slow_query("aggregate_threat_stats")
+    async def aggregate_threat_stats(self) -> dict:
+        """Aggregate threat totals in SQL (avoids loading every threat row into memory)."""
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN dismissed = 0 THEN 1 ELSE 0 END) AS active,
+                SUM(CASE WHEN dismissed = 0 AND severity = 'critical' THEN 1 ELSE 0 END) AS critical_active
+            FROM threats
+            """
+        )
+        r = rows[0] if rows else None
+        return {
+            "total": (r["total"] or 0) if r else 0,
+            "active": (r["active"] or 0) if r else 0,
+            "critical_active": (r["critical_active"] or 0) if r else 0,
+        }
+
+    @log_slow_query("aggregate_threat_counts_by_hour")
+    async def aggregate_threat_counts_by_hour(self, start_time: int) -> dict[int, int]:
+        """Aggregate threat counts bucketed by hour in SQL (avoids loading every threat row)."""
+        hour_ms = 60 * 60 * 1000
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT (timestamp / ?) * ? AS bucket, COUNT(*) AS count
+            FROM threats
+            WHERE timestamp >= ?
+            GROUP BY bucket
+            """,
+            (hour_ms, hour_ms, start_time),
+        )
+        return {r["bucket"]: r["count"] for r in rows}
 
     async def search_threats(
         self, query_text: str, limit: int = 50, active_only: bool = False
@@ -1407,6 +1518,7 @@ class StorageService:
         )
 
     # Device baseline methods (predictive anomaly detection)
+    @log_slow_query("get_device_flow_aggregates")
     async def get_device_flow_aggregates(self, start_time: int, end_time: int) -> List[dict]:
         """Aggregate flow activity per device over [start_time, end_time) for baseline learning.
 
