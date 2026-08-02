@@ -17,11 +17,11 @@ router = APIRouter(prefix="/api", tags=["threats"])
 
 
 @router.get("/threats", response_model=List[Threat])
-async def get_threats(active_only: bool = True):
+async def get_threats(active_only: bool = True, limit: int = 200):
     """Get threat alerts."""
     if not state.storage:
         raise HTTPException(status_code=503, detail=ErrorMessages.STORAGE_NOT_INIT)
-    return await state.storage.get_threats(active_only=active_only)
+    return await state.storage.get_threats(active_only=active_only, limit=limit)
 
 
 @router.post("/threats/{threat_id}/dismiss")

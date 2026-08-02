@@ -10,7 +10,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 # Migration history
 MIGRATIONS = {
@@ -104,6 +104,12 @@ MIGRATIONS = {
             ALTER TABLE flows ADD COLUMN dns_query_name TEXT;
             ALTER TABLE flows ADD COLUMN dns_answers TEXT;
             ALTER TABLE flows ADD COLUMN tls_version TEXT;
+        """,
+    },
+    8: {
+        "description": "Add occurrence_count column to threats table for dedup",
+        "up": """
+            ALTER TABLE threats ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1;
         """,
     },
 }

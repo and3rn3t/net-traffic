@@ -19,7 +19,7 @@ class AdvancedAnalyticsService:
         devices = await self.storage.get_devices()
         # Use reasonable limit for summary stats (Pi optimization)
         flows = await self.storage.get_flows(limit=25000)  # Reduced for Pi (was 50000)
-        threats = await self.storage.get_threats(active_only=False)
+        threats = await self.storage.get_threats(active_only=False, limit=100000)
 
         total_bytes = sum(f.bytesIn + f.bytesOut for f in flows)
         active_flows = [f for f in flows if f.status == "active"]

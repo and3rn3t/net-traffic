@@ -12,6 +12,7 @@ from models.types import NetworkFlow, Device, Threat, FilterPreset
 from models.alerts import AlertRule, TriggeredAlert
 from models.baseline import DeviceBaseline
 from utils.migrations import run_migrations
+from utils.constants import THREAT_DEDUP_WINDOW_MINUTES
 from services.db_pool import DatabasePool
 
 logger = logging.getLogger(__name__)
@@ -321,6 +322,7 @@ class StorageService:
                 description TEXT NOT NULL,
                 recommendation TEXT NOT NULL,
                 dismissed INTEGER NOT NULL DEFAULT 0,
+                occurrence_count INTEGER NOT NULL DEFAULT 1,
                 FOREIGN KEY (device_id) REFERENCES devices(id),
                 FOREIGN KEY (flow_id) REFERENCES flows(id)
             )
@@ -351,6 +353,11 @@ class StorageService:
         await self.db.execute("""
             CREATE INDEX IF NOT EXISTS idx_flows_domain
             ON flows(domain)
+        """)
+        # Composite index for aggregate_device_analytics/get_flows device+time-range queries
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_flows_device_timestamp
+            ON flows(device_id, timestamp DESC)
         """)
 
         # Device indexes for search
@@ -384,6 +391,16 @@ class StorageService:
             CREATE INDEX IF NOT EXISTS idx_threats_severity
             ON threats(severity)
         """)
+        # Composite index covering get_threats' "WHERE dismissed = 0 ORDER BY timestamp DESC"
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threats_dismissed_timestamp
+            ON threats(dismissed, timestamp DESC)
+        """)
+        # Covers the add_threat() dedup lookup, which runs on every threat creation
+        await self.db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threats_dedup
+            ON threats(type, device_id, dismissed, timestamp DESC)
+        """)
 
         await self.db.commit()
 
@@ -403,27 +420,35 @@ class StorageService:
         await self.db.commit()
         logger.debug("SQLite optimized for Raspberry Pi 5")
 
+    async def _batched_delete(self, table: str, where_clause: str, params: tuple, batch_size: int = 50000) -> int:
+        """Delete matching rows in bounded batches to avoid one long write transaction."""
+        total_deleted = 0
+        while True:
+            cursor = await self._execute_with_retry(
+                f"DELETE FROM {table} WHERE rowid IN "
+                f"(SELECT rowid FROM {table} WHERE {where_clause} LIMIT ?)",
+                params + (batch_size,)
+            )
+            deleted = cursor.rowcount
+            total_deleted += deleted
+            if not self.pool:
+                await self.db.commit()
+            if deleted < batch_size:
+                break
+        return total_deleted
+
     async def cleanup_old_data(self, days: int = 30):
-        """Clean up old flows and threats older than specified days"""
+        """Clean up old flows, threats, and triggered alerts older than specified days"""
         cutoff_time = int(
             (datetime.now() - timedelta(days=days)).timestamp() * 1000
         )
 
-        # Delete old flows
-        cursor = await self._execute_with_retry(
-            "DELETE FROM flows WHERE timestamp < ?", (cutoff_time,)
-        )
-        flows_deleted = cursor.rowcount
-
-        # Delete old threats
-        cursor = await self._execute_with_retry(
-            "DELETE FROM threats WHERE timestamp < ? AND dismissed = 1",
-            (cutoff_time,)
-        )
-        threats_deleted = cursor.rowcount
-
-        await self._ensure_connection()
-        await self.db.commit()
+        flows_deleted = await self._batched_delete("flows", "timestamp < ?", (cutoff_time,))
+        # Threats are purged at the retention cutoff regardless of dismissed
+        # state - undismissed threats past the window are stale noise, not
+        # actionable, and were otherwise growing unbounded.
+        threats_deleted = await self._batched_delete("threats", "timestamp < ?", (cutoff_time,))
+        alerts_deleted = await self._batched_delete("triggered_alerts", "timestamp < ?", (cutoff_time,))
 
         # Fold the WAL back into the main DB and truncate it. Repeated deletes
         # (and normal capture writes) can otherwise let the -wal file grow
@@ -434,14 +459,20 @@ class StorageService:
         except Exception as e:
             logger.warning(f"WAL checkpoint after cleanup failed: {e}")
 
+        try:
+            await self._execute_with_retry("PRAGMA optimize")
+        except Exception as e:
+            logger.warning(f"PRAGMA optimize after cleanup failed: {e}")
+
         logger.info(
-            f"Cleanup completed: {flows_deleted} flows, "
-            f"{threats_deleted} dismissed threats deleted"
+            f"Cleanup completed: {flows_deleted} flows, {threats_deleted} threats, "
+            f"{alerts_deleted} triggered alerts deleted"
         )
 
         return {
             "flows_deleted": flows_deleted,
             "threats_deleted": threats_deleted,
+            "triggered_alerts_deleted": alerts_deleted,
             "cutoff_timestamp": cutoff_time
         }
 
@@ -1014,34 +1045,62 @@ class StorageService:
 
     # Threat methods
     async def add_threat(self, threat: Threat):
-        """Add threat"""
-        await self._execute_with_retry("""
-            INSERT OR REPLACE INTO threats
-            (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            threat.id, threat.timestamp, threat.type, threat.severity,
-            threat.deviceId, threat.flowId, threat.description,
-            threat.recommendation, 1 if threat.dismissed else 0
-        ))
-        await self._ensure_connection()
-        await self.db.commit()
-
-    async def get_threats(self, active_only: bool = True) -> List[Threat]:
-        """Get threats"""
-        query = "SELECT * FROM threats"
-        if active_only:
-            query += " WHERE dismissed = 0"
-        query += " ORDER BY timestamp DESC"
+        """Add threat, or bump occurrence_count if the same type+device threat
+        fired again recently (avoids tens of thousands of near-duplicate rows
+        per day for repeat offenders like a chatty device tripping the same rule)."""
+        dedup_window_ms = THREAT_DEDUP_WINDOW_MINUTES * 60 * 1000
+        window_start = threat.timestamp - dedup_window_ms
+        dedup_query = (
+            "SELECT id FROM threats WHERE type = ? AND device_id = ? AND dismissed = 0 "
+            "AND timestamp >= ? ORDER BY timestamp DESC LIMIT 1"
+        )
+        dedup_params = (threat.type, threat.deviceId, window_start)
 
         if self.pool:
             async with self.pool.acquire() as conn:
-                async with conn.execute(query) as cursor:
+                async with conn.execute(dedup_query, dedup_params) as cursor:
+                    row = await cursor.fetchone()
+        else:
+            await self._ensure_connection()
+            async with self.db.execute(dedup_query, dedup_params) as cursor:
+                row = await cursor.fetchone()
+        existing_id = row["id"] if row else None
+
+        if existing_id:
+            await self._execute_with_retry(
+                "UPDATE threats SET timestamp = ?, description = ?, occurrence_count = occurrence_count + 1 "
+                "WHERE id = ?",
+                (threat.timestamp, threat.description, existing_id)
+            )
+        else:
+            await self._execute_with_retry("""
+                INSERT OR REPLACE INTO threats
+                (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed, occurrence_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                threat.id, threat.timestamp, threat.type, threat.severity,
+                threat.deviceId, threat.flowId, threat.description,
+                threat.recommendation, 1 if threat.dismissed else 0, threat.occurrenceCount
+            ))
+        await self._ensure_connection()
+        await self.db.commit()
+
+    async def get_threats(self, active_only: bool = True, limit: int = 200) -> List[Threat]:
+        """Get threats, most recent first"""
+        query = "SELECT * FROM threats"
+        if active_only:
+            query += " WHERE dismissed = 0"
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params = (limit,)
+
+        if self.pool:
+            async with self.pool.acquire() as conn:
+                async with conn.execute(query, params) as cursor:
                     rows = await cursor.fetchall()
                     return [self._row_to_threat(row) for row in rows]
         else:
             await self._ensure_connection()
-            async with self.db.execute(query) as cursor:
+            async with self.db.execute(query, params) as cursor:
                 rows = await cursor.fetchall()
                 return [self._row_to_threat(row) for row in rows]
 
@@ -1549,6 +1608,7 @@ class StorageService:
             flowId=row["flow_id"],
             description=row["description"],
             recommendation=row["recommendation"],
-            dismissed=bool(row["dismissed"])
+            dismissed=bool(row["dismissed"]),
+            occurrenceCount=row["occurrence_count"] if "occurrence_count" in row.keys() else 1
         )
 

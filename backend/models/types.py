@@ -91,6 +91,7 @@ class Threat(BaseModel):
     description: str
     recommendation: str
     dismissed: bool = False
+    occurrenceCount: int = 1  # Repeated same type+device threats increment this instead of duplicating rows
 
 
 class AnalyticsData(BaseModel):

@@ -33,7 +33,7 @@ async def websocket_endpoint(
         if state.storage:
             devices = await state.storage.get_devices()
             flows = await state.storage.get_flows(limit=50)
-            threats = await state.storage.get_threats(active_only=True)
+            threats = await state.storage.get_threats(active_only=True, limit=50)
             await websocket.send_json({
                 "type": "initial_state",
                 "devices": [device.dict() for device in devices],

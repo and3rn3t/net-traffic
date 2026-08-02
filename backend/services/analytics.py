@@ -48,8 +48,8 @@ class AnalyticsService:
             if flow.threatLevel in ["medium", "high", "critical"]:
                 hourly_data[hour_timestamp]["threatCount"] += 1
 
-        # Get threats for the time range
-        threats = await self.storage.get_threats(active_only=False)
+        # Get threats for the time range (unbounded - counting, not returning to a client)
+        threats = await self.storage.get_threats(active_only=False, limit=100000)
         for threat in threats:
             if threat.timestamp >= start_time:
                 hour_timestamp = (threat.timestamp // (60 * 60 * 1000)) * (60 * 60 * 1000)

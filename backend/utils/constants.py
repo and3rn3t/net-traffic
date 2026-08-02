@@ -5,7 +5,11 @@ Consolidates magic numbers and thresholds used across the backend
 
 # Time constants
 SECONDS_PER_HOUR = 3600
-CLEANUP_INTERVAL_HOURS = 24
+CLEANUP_INTERVAL_HOURS = 6
+
+# Repeated threats of the same type+device within this window bump
+# occurrence_count instead of inserting a new row
+THREAT_DEDUP_WINDOW_MINUTES = 60
 
 # Error messages class for consistent error handling
 class ErrorMessages:
