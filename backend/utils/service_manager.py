@@ -6,6 +6,7 @@ import logging
 from typing import Optional, Callable, Any
 from services.storage import StorageService
 from services.device_fingerprinting import DeviceFingerprintingService
+from services.oui_lookup import OuiLookup
 from services.threat_detection import ThreatDetectionService
 from services.analytics import AnalyticsService
 from services.advanced_analytics import AdvancedAnalyticsService
@@ -54,7 +55,10 @@ class ServiceManager:
         """Initialize all services with callbacks"""
         # Initialize services with WebSocket callbacks
         self.device_service = DeviceFingerprintingService(
-            self.storage, on_device_update=on_device_update, on_threat_update=on_threat_update
+            self.storage,
+            on_device_update=on_device_update,
+            on_threat_update=on_threat_update,
+            oui_lookup=OuiLookup(db_path=config.oui_db_path),
         )
         self.threat_service = ThreatDetectionService(
             self.storage, on_threat_update=on_threat_update

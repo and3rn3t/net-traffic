@@ -1087,6 +1087,13 @@ class PacketCaptureService:
             if self._skip_local_traffic and (src_ip.startswith("127.") or dst_ip.startswith("127.")):
                 return
 
+            # Skip unspecified (0.0.0.0/::) and link-local source addresses -
+            # these don't represent a stable device identity (DHCP-in-progress,
+            # IPv6 privacy-randomized neighbor discovery, etc.) and were
+            # polluting the device list with junk "Device 0"/"Device fe80::..." rows.
+            if self._is_ephemeral_source_ip(src_ip):
+                return
+
             # Determine protocol and ports (optimized layer checks)
             protocol = "OTHER"
             src_port = 0
@@ -1590,6 +1597,16 @@ class PacketCaptureService:
     async def _get_or_create_device(self, ip: str, packet) -> str:
         """Get or create device from IP address (legacy method, use cached version)"""
         return await self._get_or_create_device_cached(ip, packet)
+
+    def _is_ephemeral_source_ip(self, ip: str) -> bool:
+        """True for unspecified (0.0.0.0/::) or link-local addresses, which
+        don't identify a stable device (DHCP-in-progress or IPv6
+        privacy-randomized neighbor discovery)."""
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return True
+        return addr.is_unspecified or addr.is_link_local
 
     def _is_local_ip(self, ip: str) -> bool:
         """Check if IP is local/private (IPv4 and IPv6).

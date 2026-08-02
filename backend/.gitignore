@@ -16,6 +16,10 @@ ENV/
 *.sqlite
 *.sqlite3
 
+# Downloaded reference databases (GeoIP mmdb, OUI vendor file) - fetched via
+# scripts/update-geoip-db.sh / scripts/update-oui-db.sh, not tracked in git
+data/
+
 # Environment
 .env
 .env.local

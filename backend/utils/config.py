@@ -352,6 +352,12 @@ class Config:
         return path or None
 
     @property
+    def oui_db_path(self) -> Optional[str]:
+        """Path to the Wireshark/IEEE manuf OUI vendor file; falls back to system paths if unset"""
+        path = os.getenv("OUI_DB_PATH", "").strip()
+        return path or None
+
+    @property
     def webhook_url(self) -> Optional[str]:
         """Get webhook URL for outbound threat notifications (Slack/Discord/generic HTTP POST)"""
         url = os.getenv("WEBHOOK_URL", "").strip()

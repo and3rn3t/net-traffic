@@ -258,6 +258,10 @@ async def lifespan(app: FastAPI):
         remote_capture_ssh_key=config.remote_capture_ssh_key,
     )
     state.device_service = state.service_manager.device_service
+    # Recompute vendor/type for existing devices using the current OUI database -
+    # cheap and idempotent, so it also picks up a newly-downloaded OUI file on
+    # every restart without a separate one-off migration step.
+    await state.device_service.backfill_vendor_and_type()
     state.threat_service = state.service_manager.threat_service
     state.analytics = state.service_manager.analytics
     state.advanced_analytics = state.service_manager.advanced_analytics

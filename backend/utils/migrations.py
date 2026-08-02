@@ -10,7 +10,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 
 # Migration history
 MIGRATIONS = {
@@ -110,6 +110,20 @@ MIGRATIONS = {
         "description": "Add occurrence_count column to threats table for dedup",
         "up": """
             ALTER TABLE threats ADD COLUMN occurrence_count INTEGER NOT NULL DEFAULT 1;
+        """,
+    },
+    9: {
+        "description": "Remove junk devices with unspecified/link-local IPs (pre-dates the "
+        "packet_capture ephemeral-source-IP filter) and their orphaned new_device threats",
+        "up": """
+            DELETE FROM threats WHERE type = 'new_device' AND device_id IN (
+                SELECT id FROM devices
+                WHERE ip = '0.0.0.0' OR ip = '::'
+                   OR ip LIKE 'fe80:%' OR ip LIKE '169.254.%'
+            );
+            DELETE FROM devices
+            WHERE ip = '0.0.0.0' OR ip = '::'
+               OR ip LIKE 'fe80:%' OR ip LIKE '169.254.%';
         """,
     },
 }
