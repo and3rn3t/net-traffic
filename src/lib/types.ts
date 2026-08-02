@@ -90,6 +90,8 @@ export interface Threat {
   description: string;
   recommendation: string;
   dismissed: boolean;
+  /** Repeated same type+device threats bump this instead of duplicating rows */
+  occurrenceCount?: number;
 }
 
 export interface FilterPreset {

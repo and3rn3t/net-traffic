@@ -44,6 +44,11 @@ export function ThreatAlert({ threat, onDismiss }: ThreatAlertProps) {
                 {threat.severity.toUpperCase()}
               </Badge>
               <span className="text-sm font-medium">{typeLabels[threat.type]}</span>
+              {threat.occurrenceCount != null && threat.occurrenceCount > 1 && (
+                <Badge variant="outline" className="text-xs">
+                  ×{threat.occurrenceCount}
+                </Badge>
+              )}
               <span className="text-xs text-muted-foreground font-mono">
                 {formatTimestamp(threat.timestamp)}
               </span>
