@@ -6,25 +6,14 @@ echo ""
 
 # Test local backend
 echo "1. Testing local backend..."
-echo "   Checking if backend container is running..."
-if docker ps | grep -q netinsight-backend; then
-    echo "   ✓ Backend container is running"
-else
-    echo "   ✗ Backend container is NOT running"
-    echo "   Start it with: docker compose -f docker-compose.backend-only.yml up -d backend"
-fi
-
-echo ""
-echo "   Testing backend API..."
 if curl -s -f http://localhost:8000/api/health > /dev/null 2>&1; then
     echo "   ✓ Backend is responding locally"
     curl -s http://localhost:8000/api/health | jq '.' 2>/dev/null || curl -s http://localhost:8000/api/health
 else
     echo "   ✗ Backend is NOT responding locally"
     echo "   Troubleshooting:"
-    echo "     - Is container running? docker ps | grep backend"
-    echo "     - Is port 8000 exposed? docker port netinsight-backend"
-    echo "     - Check logs: docker logs netinsight-backend"
+    echo "     - Is the service running? sudo systemctl status netinsight-backend"
+    echo "     - Check logs: sudo journalctl -u netinsight-backend --tail 50"
 fi
 
 echo ""

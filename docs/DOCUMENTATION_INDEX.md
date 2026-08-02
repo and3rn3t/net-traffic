@@ -42,12 +42,9 @@ Index of all documentation in this project. All 27 docs below are living referen
 ## Deployment
 
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** — General deployment overview
-- **[DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md)** — Backend on Raspberry Pi 5: pre-install, Docker/manual install, systemd, network config, performance tuning
+- **[DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md)** — Backend on Raspberry Pi 5: pre-install, install, systemd, network config, performance tuning
 - **[CLOUDFLARE_DEPLOYMENT.md](./CLOUDFLARE_DEPLOYMENT.md)** — Frontend on Cloudflare Pages
-- **[CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md)** — Exposing the backend via Cloudflare Tunnel (systemd + Docker variants, troubleshooting)
-- **[DOCKER_SETUP.md](./DOCKER_SETUP.md)** — Running everything in Docker, build optimizations
-- **[REGISTRY_DEPLOYMENT_GUIDE.md](./REGISTRY_DEPLOYMENT_GUIDE.md)** — Pulling pre-built images from a container registry instead of building on-device
-- **[WINDOWS_BUILD_GUIDE.md](./WINDOWS_BUILD_GUIDE.md)** — Building images from Windows
+- **[CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md)** — Exposing the backend via Cloudflare Tunnel (systemd), troubleshooting
 
 ## Configuration
 

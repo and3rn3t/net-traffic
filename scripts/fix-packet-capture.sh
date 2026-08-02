@@ -16,21 +16,9 @@ else
     echo "   ✗ No process found on port 8000"
 fi
 
-# 2. Check Docker containers
+# 2. Check packet capture status via API
 echo ""
-echo "2. Checking Docker containers..."
-if docker ps | grep -q netinsight-backend; then
-    echo "   ✓ Backend container is running"
-    docker ps | grep netinsight-backend
-else
-    echo "   ⚠️  Backend container not found by name"
-    echo "   Checking all containers..."
-    docker ps
-fi
-
-# 3. Check packet capture status via API
-echo ""
-echo "3. Checking packet capture status..."
+echo "2. Checking packet capture status..."
 CAPTURE_STATUS=$(curl -s http://localhost:8000/api/capture/status 2>/dev/null)
 if [ -n "$CAPTURE_STATUS" ]; then
     echo "$CAPTURE_STATUS" | jq '.' 2>/dev/null || echo "$CAPTURE_STATUS"
@@ -54,34 +42,16 @@ if [ -n "$CAPTURE_STATUS" ]; then
             echo "   ✗ Failed to start packet capture"
             echo ""
             echo "   Checking backend logs for errors..."
-            if docker ps | grep -q netinsight-backend; then
-                echo "   Last 20 lines of backend logs:"
-                docker logs netinsight-backend --tail 20 2>&1 | grep -i "scapy\|capture\|error" || docker logs netinsight-backend --tail 20
-            fi
+            echo "   sudo journalctl -u netinsight-backend --tail 20 | grep -i 'scapy\|capture\|error'"
         fi
     fi
 else
     echo "   ✗ Cannot connect to backend API"
 fi
 
-# 4. Check SCAPY installation
+# 3. Check network interface
 echo ""
-echo "4. Checking SCAPY availability..."
-if docker ps | grep -q netinsight-backend; then
-    SCAPY_CHECK=$(docker exec netinsight-backend python3 -c "import scapy; print('SCAPY_OK')" 2>&1)
-    if echo "$SCAPY_CHECK" | grep -q "SCAPY_OK"; then
-        echo "   ✓ SCAPY is installed in container"
-    else
-        echo "   ✗ SCAPY is NOT available in container"
-        echo "   Error: $SCAPY_CHECK"
-    fi
-else
-    echo "   ⚠️  Cannot check SCAPY (container not running or not found)"
-fi
-
-# 5. Check network interface
-echo ""
-echo "5. Checking network interface..."
+echo "3. Checking network interface..."
 HEALTH=$(curl -s http://localhost:8000/api/health 2>/dev/null)
 if [ -n "$HEALTH" ]; then
     INTERFACE=$(echo "$HEALTH" | grep -o '"interface":"[^"]*' | cut -d'"' -f4)
@@ -97,9 +67,9 @@ if [ -n "$HEALTH" ]; then
     fi
 fi
 
-# 6. Final health check
+# 4. Final health check
 echo ""
-echo "6. Final health check..."
+echo "4. Final health check..."
 HEALTH=$(curl -s http://localhost:8000/api/health 2>/dev/null)
 if [ -n "$HEALTH" ]; then
     STATUS=$(echo "$HEALTH" | grep -o '"status":"[^"]*' | cut -d'"' -f4)
@@ -125,11 +95,11 @@ if [ -n "$HEALTH" ]; then
         echo "  1. Try starting capture manually:"
         echo "     curl -X POST http://localhost:8000/api/capture/start"
         echo ""
-        echo "  2. If that fails, restart the backend container:"
-        echo "     docker compose -f docker-compose.backend-only.yml restart backend"
+        echo "  2. If that fails, restart the backend service:"
+        echo "     sudo systemctl restart netinsight-backend"
         echo ""
         echo "  3. Check backend logs for SCAPY errors:"
-        echo "     docker logs netinsight-backend | grep -i scapy"
+        echo "     sudo journalctl -u netinsight-backend | grep -i scapy"
     fi
 else
     echo "   ✗ Cannot get health status"

@@ -26,33 +26,29 @@ function Get-JsonFromUrl {
     }
 }
 
-# 1. Check Docker containers
-Write-Host "1. Checking Docker Containers..." -ForegroundColor Yellow
+# 1. Check systemd services
+Write-Host "1. Checking systemd Services..." -ForegroundColor Yellow
 Write-Host ""
 
 $backendRunning = $false
 $tunnelRunning = $false
 
-$backendContainer = docker ps --filter "name=netinsight-backend" --format "{{.Names}}" 2>$null
-if ($backendContainer -match "netinsight-backend") {
-    Write-Host "✓ Backend container is running" -ForegroundColor Green
+$backendState = (systemctl is-active netinsight-backend 2>$null)
+if ($backendState -eq "active") {
+    Write-Host "✓ Backend service is running" -ForegroundColor Green
     $backendRunning = $true
-    $backendStatus = docker ps --filter "name=netinsight-backend" --format "{{.Status}}" 2>$null
-    Write-Host "  Status: $backendStatus" -ForegroundColor Gray
 } else {
-    Write-Host "✗ Backend container is NOT running" -ForegroundColor Red
-    Write-Host "  Start with: docker-compose -f docker-compose.backend-with-tunnel.yml up -d backend" -ForegroundColor Gray
+    Write-Host "✗ Backend service is NOT running" -ForegroundColor Red
+    Write-Host "  Start with: sudo systemctl start netinsight-backend" -ForegroundColor Gray
 }
 
-$tunnelContainer = docker ps --filter "name=netinsight-cloudflared" --format "{{.Names}}" 2>$null
-if ($tunnelContainer -match "netinsight-cloudflared") {
-    Write-Host "✓ Cloudflared container is running" -ForegroundColor Green
+$tunnelState = (systemctl is-active cloudflared 2>$null)
+if ($tunnelState -eq "active") {
+    Write-Host "✓ Cloudflared service is running" -ForegroundColor Green
     $tunnelRunning = $true
-    $tunnelStatus = docker ps --filter "name=netinsight-cloudflared" --format "{{.Status}}" 2>$null
-    Write-Host "  Status: $tunnelStatus" -ForegroundColor Gray
 } else {
-    Write-Host "✗ Cloudflared container is NOT running" -ForegroundColor Red
-    Write-Host "  Start with: docker-compose -f docker-compose.backend-with-tunnel.yml up -d cloudflared" -ForegroundColor Gray
+    Write-Host "✗ Cloudflared service is NOT running" -ForegroundColor Red
+    Write-Host "  Start with: sudo systemctl start cloudflared" -ForegroundColor Gray
 }
 
 Write-Host ""
@@ -78,8 +74,8 @@ if (Test-Url "http://localhost:8000/api/health") {
 } else {
     Write-Host "✗ Backend is NOT responding locally" -ForegroundColor Red
     if ($backendRunning) {
-        Write-Host "  Container is running but not responding - check logs:" -ForegroundColor Yellow
-        Write-Host "  docker logs netinsight-backend" -ForegroundColor Gray
+        Write-Host "  Service is running but not responding - check logs:" -ForegroundColor Yellow
+        Write-Host "  sudo journalctl -u netinsight-backend --tail 20" -ForegroundColor Gray
     }
 }
 
@@ -90,7 +86,7 @@ Write-Host "3. Checking Cloudflare Tunnel..." -ForegroundColor Yellow
 Write-Host ""
 
 if ($tunnelRunning) {
-    $tunnelLogs = docker logs netinsight-cloudflared --tail 20 2>&1
+    $tunnelLogs = (sudo journalctl -u cloudflared --tail 20 --no-pager 2>&1)
     if ($tunnelLogs -match "tunnel is now running|INF.*Your tunnel") {
         Write-Host "✓ Tunnel appears to be connected" -ForegroundColor Green
 
@@ -100,7 +96,7 @@ if ($tunnelRunning) {
         }
     } else {
         Write-Host "⚠ Tunnel is running but connection status unclear" -ForegroundColor Yellow
-        Write-Host "  Check logs: docker logs netinsight-cloudflared" -ForegroundColor Gray
+        Write-Host "  Check logs: sudo journalctl -u cloudflared --tail 20" -ForegroundColor Gray
     }
 
     if ($tunnelLogs -match "error|failed|fatal") {
@@ -111,7 +107,7 @@ if ($tunnelRunning) {
         }
     }
 } else {
-    Write-Host "⚠ Cannot check tunnel - container not running" -ForegroundColor Yellow
+    Write-Host "⚠ Cannot check tunnel - service not running" -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -166,18 +162,18 @@ Write-Host ""
 
 if ($backendRunning) {
     try {
-        $corsEnv = docker exec netinsight-backend env 2>$null | Select-String "ALLOWED_ORIGINS"
+        $corsEnv = Select-String -Path "backend/.env" -Pattern "ALLOWED_ORIGINS" -ErrorAction SilentlyContinue
         if ($corsEnv) {
             Write-Host "  $corsEnv" -ForegroundColor Gray
 
-            if ($corsEnv -match "net-backend.andernet.dev|net.andernet.dev") {
+            if ($corsEnv -match "net-backend.andernet.dev|net-traffic.andernet.dev") {
                 Write-Host "✓ CORS includes required domains" -ForegroundColor Green
             } else {
                 Write-Host "⚠ CORS may be missing required domains" -ForegroundColor Yellow
-                Write-Host "  Should include: net-backend.andernet.dev and net.andernet.dev" -ForegroundColor Gray
+                Write-Host "  Should include: net-backend.andernet.dev and net-traffic.andernet.dev" -ForegroundColor Gray
             }
         } else {
-            Write-Host "⚠ ALLOWED_ORIGINS not found in container" -ForegroundColor Yellow
+            Write-Host "⚠ ALLOWED_ORIGINS not found in backend/.env" -ForegroundColor Yellow
         }
     } catch {
         Write-Host "⚠ Could not check CORS configuration" -ForegroundColor Yellow
@@ -193,7 +189,7 @@ Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
 
 if ($backendRunning -and $tunnelRunning) {
-    Write-Host "ℹ Both backend and tunnel containers are running" -ForegroundColor Blue
+    Write-Host "ℹ Both backend and tunnel services are running" -ForegroundColor Blue
     Write-Host ""
     Write-Host "Next steps:" -ForegroundColor Yellow
     Write-Host "1. Verify tunnel domain: curl https://net-backend.andernet.dev/api/health" -ForegroundColor Gray
@@ -201,19 +197,19 @@ if ($backendRunning -and $tunnelRunning) {
     Write-Host "3. Test frontend connection from browser" -ForegroundColor Gray
     Write-Host ""
     Write-Host "View logs:" -ForegroundColor Yellow
-    Write-Host "  Backend:  docker logs -f netinsight-backend" -ForegroundColor Gray
-    Write-Host "  Tunnel:   docker logs -f netinsight-cloudflared" -ForegroundColor Gray
+    Write-Host "  Backend:  sudo journalctl -u netinsight-backend -f" -ForegroundColor Gray
+    Write-Host "  Tunnel:   sudo journalctl -u cloudflared -f" -ForegroundColor Gray
 } else {
     Write-Host "Issues found:" -ForegroundColor Yellow
     if (-not $backendRunning) {
-        Write-Host "  - Backend container not running" -ForegroundColor Red
+        Write-Host "  - Backend service not running" -ForegroundColor Red
     }
     if (-not $tunnelRunning) {
-        Write-Host "  - Tunnel container not running" -ForegroundColor Red
+        Write-Host "  - Tunnel service not running" -ForegroundColor Red
     }
     Write-Host ""
     Write-Host "Start services:" -ForegroundColor Yellow
-    Write-Host "  docker-compose -f docker-compose.backend-with-tunnel.yml up -d" -ForegroundColor Gray
+    Write-Host "  sudo systemctl start netinsight-backend cloudflared" -ForegroundColor Gray
 }
 
 Write-Host ""

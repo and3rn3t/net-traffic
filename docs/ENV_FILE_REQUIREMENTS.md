@@ -8,19 +8,14 @@
 
 ### ✅ Optional (Will Work with Defaults)
 
-1. **Docker Deployment**:
-   - `docker-compose.yml` has default values for all environment variables
-   - Uses syntax like `${NETWORK_INTERFACE:-eth0}` which provides defaults
-   - Will work without `.env` file
-
-2. **Backend Code**:
+1. **Backend Code**:
    - All configuration properties have defaults in `backend/utils/config.py`
    - Uses `os.getenv("KEY", "default")` pattern
    - Will start and run with defaults
 
 ### ⚠️ Recommended (Should Create)
 
-1. **Non-Docker Deployment**:
+1. **Any Deployment**:
    - Scripts check for `.env` and will create one if missing
    - Better to have explicit configuration
    - Easier to customize settings
@@ -36,8 +31,7 @@ The following scripts automatically create `.env` if it doesn't exist:
 
 1. **`scripts/ensure-env.sh`** - Standalone script to create `.env`
 2. **`scripts/backend-setup.sh`** - Creates `.env` during setup
-3. **`scripts/raspberry-pi-start.sh`** - Calls `ensure-env.sh` before starting
-4. **`backend/start.sh`** - Creates `.env` with defaults if missing
+3. **`backend/start.sh`** - Creates `.env` with defaults if missing
 
 ### Usage
 
@@ -88,23 +82,7 @@ NETWORK_INTERFACE=eth0
 
 This is the only critical setting that might need to be different from the default.
 
-## Docker vs Non-Docker
-
-### Docker Deployment
-
-**`.env` file is optional** because:
-
-- `docker-compose.yml` defines environment variables with defaults
-- Variables can be set in `docker-compose.yml` or passed via command line
-- Example: `NETWORK_INTERFACE=${NETWORK_INTERFACE:-eth0}`
-
-**To customize for Docker:**
-
-1. Create `.env` file in project root (not `backend/.env`)
-2. Docker Compose will read it automatically
-3. Or set variables in `docker-compose.yml` directly
-
-### Non-Docker Deployment
+## Configuration Location
 
 **`.env` file is recommended** because:
 
@@ -176,20 +154,11 @@ nano backend/.env
 # To: NETWORK_INTERFACE=<your-interface>
 ```
 
-### Docker not reading .env
-
-**Solution**:
-
-- For Docker, `.env` should be in project root (not `backend/.env`)
-- Or set variables directly in `docker-compose.yml`
-- Or use `docker compose --env-file` flag
-
 ## Summary
 
-| Deployment Type | .env Required? | Location       | Auto-Created?                     |
-| --------------- | -------------- | -------------- | --------------------------------- |
-| Docker          | Optional       | Project root   | No (uses docker-compose defaults) |
-| Non-Docker      | Recommended    | `backend/.env` | Yes (by scripts)                  |
-| Production      | Recommended    | `backend/.env` | Yes (by scripts)                  |
+| Deployment Type | .env Required? | Location       | Auto-Created?     |
+| --------------- | -------------- | -------------- | ------------------ |
+| Development     | Recommended    | `backend/.env` | Yes (by scripts)   |
+| Production      | Recommended    | `backend/.env` | Yes (by scripts)   |
 
 **Bottom Line**: The system will work without `.env`, but it's **recommended to create one** for explicit configuration, especially for the `NETWORK_INTERFACE` setting.

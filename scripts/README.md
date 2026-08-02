@@ -1,116 +1,65 @@
 # NetInsight Raspberry Pi Scripts
 
-This directory contains scripts for managing NetInsight on Raspberry Pi with Docker.
+This directory contains scripts for managing NetInsight on Raspberry Pi. The
+backend runs natively via a Python venv + systemd (no containers) — see
+[docs/DEPLOYMENT_RASPBERRY_PI.md](../docs/DEPLOYMENT_RASPBERRY_PI.md) for the
+full install guide.
 
 ## Scripts
 
-### `raspberry-pi-start.sh`
+### `setup-backend-service.sh`
 
-Main startup script that ensures the latest container images are built and started.
-
-**Features:**
-
-- Builds optimized ARM64 images for Raspberry Pi
-- Pulls latest base images during build (`--pull` flag)
-- Stops existing containers before starting new ones
-- Starts all services with automatic restart policy
+Installs and configures the backend as a systemd service (`netinsight-backend.service`).
 
 **Usage:**
 
 ```bash
-./scripts/raspberry-pi-start.sh
+sudo ./scripts/setup-backend-service.sh
 ```
 
-**What it does:**
+### `netinsight-backend.service`
 
-1. Checks for Docker/Docker Compose availability
-2. Builds images with `--pull` to get latest base images
-3. Stops any running containers
-4. Starts containers in detached mode
-5. Shows container status
+Systemd unit template used by `setup-backend-service.sh`. Runs
+`backend/venv/bin/python3 backend/main.py` directly — update `WorkingDirectory`
+and paths if your installation location differs.
 
-### `raspberry-pi-update.sh`
+### `setup-cloudflared-config.sh` / `setup-cloudflared-service.sh`
 
-Update script that pulls latest code and rebuilds containers.
+Configure and install the native `cloudflared` systemd service that exposes the
+backend at `net-backend.andernet.dev`. See
+[docs/CLOUDFLARE_TUNNEL_SETUP.md](../docs/CLOUDFLARE_TUNNEL_SETUP.md).
 
-**Features:**
+### `ensure-env.sh` / `backend-setup.sh`
 
-- Pulls latest code from git (if available)
-- Rebuilds images with latest base images
-- Restarts containers with new images
+Create/populate the backend `.env` file with sane defaults if missing.
 
-**Usage:**
+### `diagnose-backend.sh` / `diagnose-host-backend.sh` / `check-backend-logs.sh`
 
-```bash
-./scripts/raspberry-pi-update.sh
-```
+Diagnostic scripts for a backend running directly on the host — check the
+systemd service status, port bindings, and logs.
 
-**What it does:**
+### `verify-deployment.sh` / `.ps1`
 
-1. Pulls latest code from git repository
-2. Rebuilds images with `--pull` flag
-3. Restarts containers
-4. Shows container status
+Checks the `netinsight-backend` and `cloudflared` systemd services, backend
+health endpoint, tunnel connectivity, DNS, and CORS configuration end-to-end.
 
-### `netinsight.service`
+### `verify-api-connection.sh` / `.ps1`
 
-Systemd service file for automatic startup on boot.
+Checks connectivity between the Cloudflare Pages frontend and the backend API
+(health, capture status, CORS, WebSocket).
 
-**Setup:**
+### `test-tunnel.sh`
 
-```bash
-# Copy to systemd directory
-sudo cp scripts/netinsight.service /etc/systemd/system/
+Quick check that the local backend and the public tunnel domain are both responding.
 
-# Edit paths if needed
-sudo nano /etc/systemd/system/netinsight.service
+### `db-backup.sh`
 
-# Enable and start
-sudo systemctl daemon-reload
-sudo systemctl enable netinsight
-sudo systemctl start netinsight
-```
+Backs up the SQLite database.
 
-**Important:** Update the `WorkingDirectory` and paths in the service file to match your installation location.
+### `optimize-pi5.sh`
 
-## Container Image Optimization
-
-The Dockerfiles and docker-compose.yml are optimized for Raspberry Pi:
-
-- **Platform:** All images specify `linux/arm64` platform
-- **Base Images:** Use ARM64-compatible base images (node:20-alpine, python:3.11-slim, nginx:alpine)
-- **Multi-stage Builds:** Optimized for smaller image sizes
-- **Automatic Updates:** Startup script pulls latest base images on each run
-
-## Automatic Image Updates
-
-The containers are configured to always use the latest base images:
-
-1. **On Boot:** The systemd service runs `raspberry-pi-start.sh` which builds with `--pull`
-2. **Manual Update:** Run `raspberry-pi-update.sh` to pull code and rebuild
-3. **Base Images:** The `--pull` flag ensures base images (node, python, nginx) are always latest
-
-## Using a Container Registry (Optional)
-
-If you push images to a container registry (Docker Hub, GitHub Container Registry, etc.):
-
-1. **Build and push images:**
-
-```bash
-docker buildx build --platform linux/arm64 -t your-registry/netinsight-backend:latest ./backend --push
-docker buildx build --platform linux/arm64 -t your-registry/netinsight-frontend:latest . --push
-```
-
-2. **Update docker-compose.yml to use registry images:**
-
-```yaml
-backend:
-  image: your-registry/netinsight-backend:latest
-  # Remove build section if using pre-built images
-```
-
-3. **Uncomment pull commands in scripts:**
-   The scripts have commented sections for pulling from registry - uncomment those if using a registry.
+Applies Raspberry Pi 5 performance tuning (GPU memory split, I/O scheduler,
+CPU governor, network buffers, file descriptor limits).
 
 ## Troubleshooting
 
@@ -120,27 +69,10 @@ backend:
 chmod +x scripts/*.sh
 ```
 
-### Docker permission denied
+### Backend service won't start
 
 ```bash
-sudo usermod -aG docker $USER
-newgrp docker
+sudo systemctl status netinsight-backend
+sudo journalctl -u netinsight-backend --tail 50
 ```
 
-### Containers not starting
-
-```bash
-# Check logs
-docker compose logs
-
-# Check status
-docker compose ps
-
-# Rebuild from scratch
-docker compose build --no-cache
-docker compose up -d
-```
-
-### Images not updating
-
-The `--pull` flag in the build command ensures base images are updated. If you're using a registry, make sure to uncomment the pull commands in the scripts.

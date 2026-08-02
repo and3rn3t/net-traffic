@@ -19,15 +19,8 @@ This guide explains how to deploy the NetInsight frontend to Cloudflare Pages wh
 Update your backend's `ALLOWED_ORIGINS` environment variable to include your Cloudflare Pages domain:
 
 ```bash
-# In your backend .env or docker-compose.yml
+# In your backend .env
 ALLOWED_ORIGINS=https://your-app.pages.dev,https://your-custom-domain.com
-```
-
-Or if using docker-compose.yml:
-
-```yaml
-environment:
-  - ALLOWED_ORIGINS=https://your-app.pages.dev,https://your-custom-domain.com
 ```
 
 ### 1.2 Ensure Backend is Accessible
@@ -300,16 +293,6 @@ Set `.env.local`:
 VITE_API_BASE_URL=http://localhost:8000
 VITE_USE_REAL_API=true
 ```
-
-## Migration from Docker Deployment
-
-If you're migrating from Docker deployment:
-
-1. **Remove frontend service** from `docker-compose.yml`
-2. **Keep backend service** running on Raspberry Pi
-3. **Update CORS** in backend configuration
-4. **Deploy frontend** to Cloudflare Pages
-5. **Test** the new deployment
 
 ## Additional Resources
 

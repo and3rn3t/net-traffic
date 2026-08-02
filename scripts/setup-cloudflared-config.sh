@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup script for Cloudflare Tunnel configuration
-# Run this on your Raspberry Pi before starting Docker Compose
+# Run this on your Raspberry Pi before starting the cloudflared systemd service
 
 set -e
 
@@ -142,7 +142,7 @@ credentials-file: $CREDS_FILE
 
 ingress:
   - hostname: net-backend.andernet.dev
-    service: http://backend:8000
+    service: http://localhost:8000
   - service: http_status:404
 EOF
 
@@ -154,7 +154,7 @@ echo "  UUID: $TUNNEL_UUID"
 echo "  Credentials: $CREDS_FILE"
 echo "  Config: $CONFIG_FILE"
 echo "  Hostname: net-backend.andernet.dev"
-echo "  Service: http://backend:8000 (Docker service name)"
+echo "  Service: http://localhost:8000 (systemd service)"
 echo ""
 
 # Validate config
@@ -173,10 +173,10 @@ echo "========================================="
 echo ""
 echo "Next steps:"
 echo "1. Verify config file: cat $CONFIG_FILE"
-echo "2. Start Docker Compose:"
-echo "   docker-compose -f docker-compose.backend-with-tunnel.yml up -d"
+echo "2. Start the cloudflared service:"
+echo "   sudo systemctl restart cloudflared"
 echo "3. Check tunnel logs:"
-echo "   docker logs -f netinsight-cloudflared"
+echo "   sudo journalctl -u cloudflared -f"
 echo "4. Test tunnel:"
 echo "   curl https://net-backend.andernet.dev/api/health"
 echo ""

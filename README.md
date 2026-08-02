@@ -215,7 +215,7 @@ Comprehensive documentation is available in the project:
 
 ### For Users
 
-- **[Raspberry Pi 5 Deployment Guide](./docs/DEPLOYMENT_RASPBERRY_PI.md)** - ⚡ Pre-install, Docker/manual setup, systemd, network config
+- **[Raspberry Pi 5 Deployment Guide](./docs/DEPLOYMENT_RASPBERRY_PI.md)** - ⚡ Pre-install, setup, systemd, network config
 - **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - Complete user guide with getting started, features, and troubleshooting
 
 ### For Developers

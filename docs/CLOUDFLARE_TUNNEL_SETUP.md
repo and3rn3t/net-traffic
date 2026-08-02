@@ -2,7 +2,7 @@
 
 Securely expose the Raspberry Pi backend to the internet (so the Cloudflare Pages frontend, or you remotely, can reach it) without opening any router ports. Cloudflare Tunnel creates an outbound-only connection from the Pi to Cloudflare, with automatic HTTPS and DDoS protection, free on the Cloudflare free tier.
 
-> **Production values for this project**: tunnel name `netinsight-backend`, hostname `net-backend.andernet.dev`, backend on `http://localhost:8000` (systemd) or `http://backend:8000` (Docker).
+> **Production values for this project**: tunnel name `netinsight-backend`, hostname `net-backend.andernet.dev`, backend on `http://localhost:8000` (systemd).
 
 ## Quick start (systemd, ~5 minutes)
 
@@ -44,56 +44,7 @@ sudo ./scripts/setup-cloudflared-service.sh
 
 Then update CORS/frontend config (see [Configuration](#configuration-after-setup) below).
 
-## Docker variant
-
-Two deployment shapes:
-
-- **Backend only** (`docker-compose.backend-only.yml`) — no tunnel, run cloudflared on the host.
-- **Backend + tunnel** (`docker-compose.backend-with-tunnel.yml`) — cloudflared runs as its own container.
-
-### Option A: cloudflared in Docker (recommended for a fully-Dockerized Pi)
-
-```bash
-# On the Pi HOST (not inside a container) — auth + tunnel creation need ~/.cloudflared/cert.pem
-curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -o ~/cloudflared
-sudo mv ~/cloudflared /usr/local/bin/cloudflared && sudo chmod +x /usr/local/bin/cloudflared
-cloudflared tunnel login                      # as `pi`, not sudo
-cloudflared tunnel create netinsight-backend  # as `pi`, not sudo
-cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
-
-mkdir -p ~/.cloudflared
-nano ~/.cloudflared/config.yml
-```
-
-Config (note `backend:8000`, the Docker **service name**, not `localhost`):
-
-```yaml
-tunnel: netinsight-backend
-credentials-file: /home/pi/.cloudflared/<tunnel-uuid>.json
-
-ingress:
-  - hostname: net-backend.andernet.dev
-    service: http://backend:8000
-  - service: http_status:404
-```
-
-```bash
-docker-compose -f docker-compose.backend-with-tunnel.yml up -d
-docker-compose -f docker-compose.backend-with-tunnel.yml logs -f cloudflared
-curl https://net-backend.andernet.dev/api/health
-```
-
-Or use the helper script that automates steps above: `./scripts/setup-cloudflared-config.sh`.
-
-### Option B: cloudflared on host, backend in Docker
-
-```bash
-docker-compose -f docker-compose.backend-only.yml up -d
-```
-
-Same setup as Option A, but use `service: http://localhost:8000` in the config, then run cloudflared as a systemd service (below) instead of a container.
-
-## Run as a service (systemd, non-Docker cloudflared)
+## Run as a service (systemd)
 
 ```bash
 sudo tee /etc/systemd/system/cloudflared.service <<'EOF'
@@ -123,7 +74,7 @@ sudo journalctl -u cloudflared -f
 
 Or run the automated equivalent: `sudo ./scripts/setup-cloudflared-service.sh` (also handles the DNS route if missing).
 
-Service management: `sudo systemctl {status,start,stop,restart,disable} cloudflared`, logs via `sudo journalctl -u cloudflared -f` (or `-n 50` for recent only). If cloudflared runs in Docker instead, none of this systemd unit is needed — Compose manages its lifecycle.
+Service management: `sudo systemctl {status,start,stop,restart,disable} cloudflared`, logs via `sudo journalctl -u cloudflared -f` (or `-n 50` for recent only).
 
 ## Domain / DNS details
 
@@ -140,7 +91,7 @@ Don't manually create/edit this CNAME; to remove it: `cloudflared tunnel route d
 
 ## Configuration after setup
 
-**Backend CORS** (`.env` or `docker-compose.yml`):
+**Backend CORS** (`.env`):
 
 ```env
 ALLOWED_ORIGINS=https://net-traffic.andernet.dev,https://net-traffic.pages.dev,http://localhost,http://localhost:80,http://localhost:3000
@@ -159,16 +110,9 @@ VITE_USE_REAL_API=true
 
 Tunnel is connected but can't reach the backend:
 
-1. Confirm the backend is actually up: `docker ps | grep netinsight-backend` (or check the systemd service) and `curl http://localhost:8000/api/health`.
-2. Check the `service:` value in `~/.cloudflared/config.yml` matches how cloudflared is running:
-   - systemd (host) cloudflared → `http://localhost:8000`
-   - Docker cloudflared container → `http://backend:8000` (Docker service name; `localhost` won't resolve to another container)
-3. If backend runs in Docker, confirm port 8000 is actually published: `ports: ["8000:8000"]` in the compose file.
-4. `cloudflared tunnel validate` then `sudo systemctl restart cloudflared` (or `docker compose restart cloudflared`).
-
-### `open .../.cloudflared/config.yml: no such file or directory` (Docker)
-
-The config must exist **on the Pi host** — the container only mounts `~/.cloudflared` (host) → `/home/nonroot/.cloudflared` (container) read-only. Create it on the host (`mkdir -p ~/.cloudflared && nano ~/.cloudflared/config.yml`, see Option A above), verify both `config.yml` and `<uuid>.json` exist and are readable, then restart the `cloudflared` container. Or run `./scripts/setup-cloudflared-config.sh` to do this interactively.
+1. Confirm the backend is actually up: check the systemd service (`sudo systemctl status netinsight-backend`) and `curl http://localhost:8000/api/health`.
+2. Check the `service:` value in `~/.cloudflared/config.yml` is `http://localhost:8000`.
+3. `cloudflared tunnel validate` then `sudo systemctl restart cloudflared`.
 
 ### `Cannot determine default origin certificate path. No file cert.pem in [~/.cloudflared ...]`
 

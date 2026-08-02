@@ -150,7 +150,7 @@ if ($FrontendUrl) {
 Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Yellow
 Write-Host "1. If capture is not running, check backend logs:" -ForegroundColor Gray
-Write-Host "   docker logs netinsight-backend" -ForegroundColor DarkGray
+Write-Host "   sudo journalctl -u netinsight-backend --tail 50" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "2. If CORS errors occur, update ALLOWED_ORIGINS in backend:" -ForegroundColor Gray
 Write-Host "   ALLOWED_ORIGINS=$FrontendUrl" -ForegroundColor DarkGray

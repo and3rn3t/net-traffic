@@ -32,35 +32,29 @@ print_warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
-# 1. Check Docker containers
-echo "1. Checking Docker Containers..."
+# 1. Check systemd services
+echo "1. Checking systemd Services..."
 echo ""
 
 BACKEND_RUNNING=false
 TUNNEL_RUNNING=false
 
-if docker ps | grep -q netinsight-backend; then
-    print_status 0 "Backend container is running"
+if systemctl is-active --quiet netinsight-backend; then
+    print_status 0 "Backend service is running"
     BACKEND_RUNNING=true
-
-    # Get backend status
-    BACKEND_STATUS=$(docker ps --filter "name=netinsight-backend" --format "{{.Status}}")
-    echo "   Status: $BACKEND_STATUS"
+    echo "   Status: $(systemctl show netinsight-backend -p ActiveState --value)"
 else
-    print_status 1 "Backend container is NOT running"
-    echo "   Start with: docker-compose -f docker-compose.backend-with-tunnel.yml up -d backend"
+    print_status 1 "Backend service is NOT running"
+    echo "   Start with: sudo systemctl start netinsight-backend"
 fi
 
-if docker ps | grep -q netinsight-cloudflared; then
-    print_status 0 "Cloudflared container is running"
+if systemctl is-active --quiet cloudflared; then
+    print_status 0 "Cloudflared service is running"
     TUNNEL_RUNNING=true
-
-    # Get tunnel status
-    TUNNEL_STATUS=$(docker ps --filter "name=netinsight-cloudflared" --format "{{.Status}}")
-    echo "   Status: $TUNNEL_STATUS"
+    echo "   Status: $(systemctl show cloudflared -p ActiveState --value)"
 else
-    print_status 1 "Cloudflared container is NOT running"
-    echo "   Start with: docker-compose -f docker-compose.backend-with-tunnel.yml up -d cloudflared"
+    print_status 1 "Cloudflared service is NOT running"
+    echo "   Start with: sudo systemctl start cloudflared"
 fi
 
 echo ""
@@ -89,8 +83,8 @@ if curl -s -f -o /dev/null --max-time 5 http://localhost:8000/api/health > /dev/
 else
     print_status 1 "Backend is NOT responding locally"
     if [ "$BACKEND_RUNNING" = "true" ]; then
-        echo "   Container is running but not responding - check logs:"
-        echo "   docker logs netinsight-backend"
+        echo "   Service is running but not responding - check logs:"
+        echo "   sudo journalctl -u netinsight-backend --tail 20"
     fi
 fi
 
@@ -102,7 +96,7 @@ echo ""
 
 if [ "$TUNNEL_RUNNING" = "true" ]; then
     # Check tunnel logs for connection status
-    TUNNEL_LOGS=$(docker logs netinsight-cloudflared --tail 20 2>&1)
+    TUNNEL_LOGS=$(sudo journalctl -u cloudflared --tail 20 --no-pager 2>&1)
 
     if echo "$TUNNEL_LOGS" | grep -qi "tunnel is now running\|INF.*Your tunnel"; then
         print_status 0 "Tunnel appears to be connected"
@@ -114,7 +108,7 @@ if [ "$TUNNEL_RUNNING" = "true" ]; then
         fi
     else
         print_warning "Tunnel is running but connection status unclear"
-        echo "   Check logs: docker logs netinsight-cloudflared"
+        echo "   Check logs: sudo journalctl -u cloudflared --tail 20"
     fi
 
     # Check for errors in tunnel logs
@@ -124,7 +118,7 @@ if [ "$TUNNEL_RUNNING" = "true" ]; then
         echo "$TUNNEL_LOGS" | grep -i "error\|failed\|fatal" | tail -3 | sed 's/^/     /'
     fi
 else
-    print_warning "Cannot check tunnel - container not running"
+    print_warning "Cannot check tunnel - service not running"
 fi
 
 echo ""
@@ -176,18 +170,18 @@ echo "6. Checking CORS Configuration..."
 echo ""
 
 if [ "$BACKEND_RUNNING" = "true" ]; then
-    CORS_ENV=$(docker exec netinsight-backend env | grep ALLOWED_ORIGINS || echo "")
+    CORS_ENV=$(grep ALLOWED_ORIGINS backend/.env 2>/dev/null || echo "")
     if [ -n "$CORS_ENV" ]; then
         echo "   $CORS_ENV"
 
-        if echo "$CORS_ENV" | grep -q "net-backend.andernet.dev\|net.andernet.dev"; then
+        if echo "$CORS_ENV" | grep -q "net-backend.andernet.dev\|net-traffic.andernet.dev"; then
             print_status 0 "CORS includes required domains"
         else
             print_warning "CORS may be missing required domains"
-            echo "   Should include: net-backend.andernet.dev and net.andernet.dev"
+            echo "   Should include: net-backend.andernet.dev and net-traffic.andernet.dev"
         fi
     else
-        print_warning "ALLOWED_ORIGINS not found in container"
+        print_warning "ALLOWED_ORIGINS not found in backend/.env"
     fi
 fi
 
@@ -200,7 +194,7 @@ echo "========================================="
 echo ""
 
 if [ "$BACKEND_RUNNING" = "true" ] && [ "$TUNNEL_RUNNING" = "true" ]; then
-    print_info "Both backend and tunnel containers are running"
+    print_info "Both backend and tunnel services are running"
     echo ""
     echo "Next steps:"
     echo "1. Verify tunnel domain is accessible: curl https://net-backend.andernet.dev/api/health"
@@ -208,19 +202,19 @@ if [ "$BACKEND_RUNNING" = "true" ] && [ "$TUNNEL_RUNNING" = "true" ]; then
     echo "3. Test frontend connection from browser"
     echo ""
     echo "View logs:"
-    echo "  Backend:  docker logs -f netinsight-backend"
-    echo "  Tunnel:   docker logs -f netinsight-cloudflared"
+    echo "  Backend:  sudo journalctl -u netinsight-backend -f"
+    echo "  Tunnel:   sudo journalctl -u cloudflared -f"
 else
     echo "Issues found:"
     if [ "$BACKEND_RUNNING" = "false" ]; then
-        echo "  - Backend container not running"
+        echo "  - Backend service not running"
     fi
     if [ "$TUNNEL_RUNNING" = "false" ]; then
-        echo "  - Tunnel container not running"
+        echo "  - Tunnel service not running"
     fi
     echo ""
     echo "Start services:"
-    echo "  docker-compose -f docker-compose.backend-with-tunnel.yml up -d"
+    echo "  sudo systemctl start netinsight-backend cloudflared"
 fi
 
 echo ""

@@ -137,24 +137,6 @@ else
 fi
 
 echo ""
-echo "7. Checking SCAPY Availability..."
-# If running locally or in Docker
-if command -v docker > /dev/null 2>&1; then
-    if docker ps | grep -q netinsight-backend; then
-        SCAPY_CHECK=$(docker exec netinsight-backend python3 -c "from scapy.all import sniff; print('OK')" 2>&1)
-        if [ "$SCAPY_CHECK" = "OK" ]; then
-            print_status 0 "SCAPY is installed in backend container"
-        else
-            print_status 1 "SCAPY not available: $SCAPY_CHECK"
-        fi
-    else
-        print_warning "Backend container not found, skipping SCAPY check"
-    fi
-else
-    print_warning "Docker not available, skipping SCAPY check"
-fi
-
-echo ""
 echo "========================================="
 echo "Summary"
 echo "========================================="
@@ -174,7 +156,7 @@ fi
 echo ""
 echo "Next Steps:"
 echo "1. If capture is not running, check backend logs:"
-echo "   docker logs netinsight-backend"
+echo "   sudo journalctl -u netinsight-backend --tail 50"
 echo ""
 echo "2. If CORS errors occur, update ALLOWED_ORIGINS in backend:"
 echo "   ALLOWED_ORIGINS=$FRONTEND_URL"

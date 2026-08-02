@@ -87,8 +87,10 @@ npm run db:backup
 
 ### Raspberry Pi Scripts
 
-- `scripts/raspberry-pi-start.sh` - Start NetInsight on Raspberry Pi
-- `scripts/raspberry-pi-update.sh` - Update NetInsight on Raspberry Pi
+- `scripts/pre-install-setup.sh` - One-time Pi 5 pre-install setup (packages, promiscuous mode, firewall, swap)
+- `scripts/optimize-pi5.sh` - Pi 5 performance tuning (GPU split, I/O scheduler, CPU governor, fd limits)
+- `scripts/setup-backend-service.sh` - Install the backend as a systemd service
+- `scripts/setup-cloudflared-config.sh` / `scripts/setup-cloudflared-service.sh` - Configure and install the cloudflared systemd service
 
 ## Node.js Scripts
 

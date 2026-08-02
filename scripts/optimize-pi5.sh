@@ -149,59 +149,9 @@ root hard nofile 65536
 EOF
 echo "✅ File descriptor limits increased (takes effect on next login)"
 
-# 8. Optimize Docker daemon for Pi 5
+# 8. Disable unnecessary services (optional, conservative)
 echo ""
-echo "8️⃣  Optimizing Docker daemon configuration..."
-DOCKER_DAEMON_FILE="/etc/docker/daemon.json"
-mkdir -p /etc/docker
-
-# Read existing config or create new
-if [ -f "$DOCKER_DAEMON_FILE" ]; then
-    # Backup existing config
-    cp "$DOCKER_DAEMON_FILE" "${DOCKER_DAEMON_FILE}.bak"
-    # Merge JSON (simple approach - just append if not exists)
-    if ! grep -q "max-concurrent-downloads" "$DOCKER_DAEMON_FILE"; then
-        # Use a more robust approach with jq if available, otherwise simple append
-        if command -v jq &> /dev/null; then
-            jq '. + {"max-concurrent-downloads": 3, "max-concurrent-uploads": 2, "log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "3"}}' "$DOCKER_DAEMON_FILE" > "${DOCKER_DAEMON_FILE}.tmp" && mv "${DOCKER_DAEMON_FILE}.tmp" "$DOCKER_DAEMON_FILE"
-        else
-            cat >> "$DOCKER_DAEMON_FILE" << 'DOCKEREOF'
-,
-"max-concurrent-downloads": 3,
-"max-concurrent-uploads": 2,
-"log-driver": "json-file",
-"log-opts": {
-  "max-size": "10m",
-  "max-file": "3"
-}
-DOCKEREOF
-        fi
-    fi
-else
-    cat > "$DOCKER_DAEMON_FILE" << 'EOF'
-{
-  "max-concurrent-downloads": 3,
-  "max-concurrent-uploads": 2,
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  }
-}
-EOF
-fi
-
-# Restart Docker if running
-if systemctl is-active --quiet docker; then
-    systemctl restart docker
-    echo "✅ Docker daemon optimized and restarted"
-else
-    echo "✅ Docker daemon configuration updated (will apply on next start)"
-fi
-
-# 9. Disable unnecessary services (optional, conservative)
-echo ""
-echo "9️⃣  Checking for unnecessary services..."
+echo "8️⃣  Checking for unnecessary services..."
 # Only disable if explicitly headless
 if [ -z "$DISPLAY" ] && ! systemctl is-active --quiet graphical.target; then
     systemctl disable bluetooth 2>/dev/null || true
@@ -224,7 +174,6 @@ echo "   ✅ I/O scheduler optimized (mq-deadline for SD)"
 echo "   ✅ CPU governor set to performance"
 echo "   ✅ Network buffers increased for packet capture"
 echo "   ✅ File descriptor limits increased"
-echo "   ✅ Docker daemon optimized"
 echo ""
 echo "🔄 Some changes require a reboot to take full effect:"
 echo "   - GPU memory split"
