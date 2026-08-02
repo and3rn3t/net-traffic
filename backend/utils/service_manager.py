@@ -7,6 +7,7 @@ from typing import Optional, Callable, Any
 from services.storage import StorageService
 from services.device_fingerprinting import DeviceFingerprintingService
 from services.oui_lookup import OuiLookup
+from services.dhcp_lease_service import DhcpLeaseService
 from services.threat_detection import ThreatDetectionService
 from services.analytics import AnalyticsService
 from services.advanced_analytics import AdvancedAnalyticsService
@@ -59,6 +60,11 @@ class ServiceManager:
             on_device_update=on_device_update,
             on_threat_update=on_threat_update,
             oui_lookup=OuiLookup(db_path=config.oui_db_path),
+            dhcp_lease_service=DhcpLeaseService(
+                host=config.dhcp_lease_host,
+                user=config.dhcp_lease_user,
+                ssh_key=config.dhcp_lease_ssh_key,
+            ),
         )
         self.threat_service = ThreatDetectionService(
             self.storage, on_threat_update=on_threat_update

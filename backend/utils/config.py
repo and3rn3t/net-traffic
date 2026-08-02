@@ -201,6 +201,22 @@ class Config:
         return os.getenv("REMOTE_CAPTURE_SSH_KEY", "")
 
     @property
+    def dhcp_lease_host(self) -> str:
+        """Hostname/IP of the router to read DHCP leases from for device-name
+        enrichment (optional - unset disables this source entirely)"""
+        return os.getenv("DHCP_LEASE_HOST", "")
+
+    @property
+    def dhcp_lease_user(self) -> str:
+        """SSH user for the DHCP lease read (optional)"""
+        return os.getenv("DHCP_LEASE_USER", "root")
+
+    @property
+    def dhcp_lease_ssh_key(self) -> str:
+        """Path to the restricted SSH private key for the DHCP lease read (optional)"""
+        return os.getenv("DHCP_LEASE_SSH_KEY", "")
+
+    @property
     def host(self) -> str:
         """Get server host"""
         return os.getenv("HOST", "0.0.0.0")

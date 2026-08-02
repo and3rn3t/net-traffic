@@ -15,6 +15,7 @@ except ImportError:
 
 from models.types import Device, Threat
 from services.storage import StorageService
+from services.dhcp_lease_service import DhcpLeaseService
 from services.oui_lookup import OuiLookup, PRIVATE_RANDOMIZED_VENDOR
 from utils.constants import VENDOR_DB
 
@@ -56,11 +57,13 @@ class DeviceFingerprintingService:
         on_device_update: Optional[Callable] = None,
         on_threat_update: Optional[Callable] = None,
         oui_lookup: Optional[OuiLookup] = None,
+        dhcp_lease_service: Optional[DhcpLeaseService] = None,
     ):
         self.storage = storage
         self.on_device_update = on_device_update
         self.on_threat_update = on_threat_update
         self.oui_lookup = oui_lookup or OuiLookup()
+        self.dhcp_lease_service = dhcp_lease_service or DhcpLeaseService()
 
     async def process_arp_packet(self, packet):
         """Process ARP packet for device discovery"""
@@ -103,7 +106,7 @@ class DeviceFingerprintingService:
 
         # Create new device
         vendor = self._detect_vendor(mac) if mac else "Unknown"
-        hostname = self._resolve_hostname(ip)
+        hostname = await self._resolve_hostname(ip, mac)
         device_type = self._detect_device_type(ip, mac, vendor, hostname)
         device_name = hostname or self._fallback_device_name(ip, vendor, device_type)
 
@@ -205,8 +208,14 @@ class DeviceFingerprintingService:
 
         return "Unknown"
 
-    def _resolve_hostname(self, ip: str) -> Optional[str]:
-        """Try a reverse DNS lookup; returns the short hostname, or None if unresolved"""
+    async def _resolve_hostname(self, ip: str, mac: Optional[str] = None) -> Optional[str]:
+        """Resolve a device's display name: the router's DHCP-supplied hostname
+        first (authoritative, cached, no per-call network round trip once
+        warm), falling back to reverse DNS."""
+        if mac:
+            dhcp_name = await self.dhcp_lease_service.get_hostname(mac)
+            if dhcp_name:
+                return dhcp_name
         try:
             hostname = socket.gethostbyaddr(ip)[0]
             if hostname and hostname != ip:
@@ -225,22 +234,30 @@ class DeviceFingerprintingService:
 
     async def backfill_vendor_and_type(self) -> int:
         """Recompute vendor/type for all stored devices using the current OUI
-        database and heuristics - run once at startup so devices created
-        before an OUI database was available (or before this logic existed)
-        get upgraded automatically, without touching user-assigned names."""
+        database and heuristics, and upgrade any still-fallback-named device
+        ("Device N") to its DHCP-supplied hostname if one is now available -
+        run once at startup so devices created before this logic existed (or
+        before a name source was configured) get upgraded automatically,
+        without ever touching a name that isn't a bare fallback."""
         updated = 0
         devices = await self.storage.get_devices()
         for device in devices:
             vendor = self._detect_vendor(device.mac)
-            device_type = self._detect_device_type(device.ip, device.mac, vendor, device.name)
-            if vendor == device.vendor and device_type == device.type:
+            is_fallback_name = device.name.startswith("Device ")
+            hostname = await self.dhcp_lease_service.get_hostname(device.mac) if is_fallback_name else None
+            device_type = self._detect_device_type(device.ip, device.mac, vendor, hostname or device.name)
+            changed = vendor != device.vendor or device_type != device.type
+            if hostname and is_fallback_name:
+                device.name = hostname
+                changed = True
+            if not changed:
                 continue
             device.vendor = vendor
             device.type = device_type
             await self.storage.upsert_device(device)
             updated += 1
         if updated:
-            logger.info(f"Backfilled vendor/type for {updated} existing device(s)")
+            logger.info(f"Backfilled vendor/type/name for {updated} existing device(s)")
         return updated
 
 
