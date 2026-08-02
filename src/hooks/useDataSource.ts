@@ -91,6 +91,7 @@ export function useDataSource() {
   const isLoading = API_CONFIG.USE_REAL_API ? apiData.isLoading : false;
   const isConnected = API_CONFIG.USE_REAL_API ? apiData.isConnected : false;
   const error = API_CONFIG.USE_REAL_API ? apiData.error : null;
+  const isShowingStaleSnapshot = API_CONFIG.USE_REAL_API ? apiData.isShowingStaleSnapshot : false;
 
   const handleDismissThreat = (id: string) => {
     if (API_CONFIG.USE_REAL_API) {
@@ -130,6 +131,7 @@ export function useDataSource() {
     isLoading,
     isConnected,
     error,
+    isShowingStaleSnapshot,
     summaryStats,
     bandwidthTimeline,
     handleDismissThreat,

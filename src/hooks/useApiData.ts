@@ -2,13 +2,24 @@
  * React hook for fetching and managing API data
  * Provides a clean interface to switch between mock and real backend data
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '@/lib/api';
 import { NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats } from '@/lib/types';
 import { toast } from 'sonner';
 import { API_CONFIG } from '@/hooks/useApiConfig';
+import { loadSnapshot, saveSnapshot } from '@/lib/snapshotCache';
 
 const USE_REAL_API = API_CONFIG.USE_REAL_API;
+const SNAPSHOT_KEY = 'netinsight_snapshot_core';
+const SNAPSHOT_SAVE_DEBOUNCE_MS = 10000;
+
+interface CoreSnapshot {
+  devices: Device[];
+  flows: NetworkFlow[];
+  threats: Threat[];
+  analyticsData: AnalyticsData[];
+  protocolStats: ProtocolStats[];
+}
 
 interface UseApiDataOptions {
   pollingInterval?: number; // ms, 0 to disable
@@ -18,16 +29,30 @@ interface UseApiDataOptions {
 export function useApiData(options: UseApiDataOptions = {}) {
   const { pollingInterval = 5000, useWebSocket = true } = options;
 
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [flows, setFlows] = useState<NetworkFlow[]>([]);
-  const [threats, setThreats] = useState<Threat[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>([]);
-  const [protocolStats, setProtocolStats] = useState<ProtocolStats[]>([]);
+  const snapshot = USE_REAL_API ? loadSnapshot<CoreSnapshot>(SNAPSHOT_KEY) : null;
+
+  const [devices, setDevices] = useState<Device[]>(snapshot?.devices ?? []);
+  const [flows, setFlows] = useState<NetworkFlow[]>(snapshot?.flows ?? []);
+  const [threats, setThreats] = useState<Threat[]>(snapshot?.threats ?? []);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>(
+    snapshot?.analyticsData ?? []
+  );
+  const [protocolStats, setProtocolStats] = useState<ProtocolStats[]>(
+    snapshot?.protocolStats ?? []
+  );
 
   const [isCapturing, setIsCapturing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(USE_REAL_API && !snapshot);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // True once we've painted from a cached snapshot but haven't confirmed it
+  // with a fresh fetch yet - lets the UI show a "stale data" hint.
+  const [isShowingStaleSnapshot, setIsShowingStaleSnapshot] = useState(!!snapshot);
+
+  // Only the very first fetch should show the full-screen loading state -
+  // background polls/refreshes (WS backup poll, manual refresh) update data
+  // silently instead of flashing the "Connecting to backend..." screen.
+  const hasLoadedOnceRef = useRef(!!snapshot);
 
   // Fetch all data (ApiClient handles internal retries on 5xx errors)
   const fetchAll = useCallback(async () => {
@@ -37,7 +62,9 @@ export function useApiData(options: UseApiDataOptions = {}) {
     }
 
     try {
-      setIsLoading(true);
+      if (!hasLoadedOnceRef.current) {
+        setIsLoading(true);
+      }
       setError(null);
 
       // Check backend health
@@ -60,13 +87,11 @@ export function useApiData(options: UseApiDataOptions = {}) {
       setThreats(threatsData || []);
       setAnalyticsData(analyticsDataResult || []);
       setProtocolStats(protocolStatsData || []);
-
-      setIsLoading(false);
+      setIsShowingStaleSnapshot(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
       setError(errorMessage);
       setIsConnected(false);
-      setIsLoading(false);
       console.error('API fetch error:', err);
 
       toast.error('Backend unavailable', {
@@ -76,6 +101,9 @@ export function useApiData(options: UseApiDataOptions = {}) {
           onClick: () => fetchAll(),
         },
       });
+    } finally {
+      hasLoadedOnceRef.current = true;
+      setIsLoading(false);
     }
   }, []);
 
@@ -166,6 +194,22 @@ export function useApiData(options: UseApiDataOptions = {}) {
 
     return disconnect;
   }, [useWebSocket, isConnected]);
+
+  // Persist a trimmed snapshot to localStorage (debounced) so a reload can
+  // paint instantly from cache instead of showing a blank loading screen.
+  useEffect(() => {
+    if (!USE_REAL_API) return;
+    const timeout = setTimeout(() => {
+      saveSnapshot<CoreSnapshot>(SNAPSHOT_KEY, {
+        devices,
+        flows: flows.slice(0, 100),
+        threats: threats.slice(0, 50),
+        analyticsData,
+        protocolStats,
+      });
+    }, SNAPSHOT_SAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [devices, flows, threats, analyticsData, protocolStats]);
 
   // Polling for data updates (only as fallback when WebSocket is not available)
   useEffect(() => {
@@ -262,6 +306,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
     isLoading,
     isConnected,
     error,
+    isShowingStaleSnapshot,
 
     // Actions
     startCapture,

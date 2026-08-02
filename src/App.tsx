@@ -78,6 +78,7 @@ function App() {
     isLoading,
     isConnected,
     error,
+    isShowingStaleSnapshot,
     summaryStats,
     bandwidthTimeline,
     handleDismissThreat,
@@ -180,6 +181,17 @@ function App() {
                       Disconnected
                     </>
                   )}
+                </Badge>
+              )}
+              {/* Shown while the dashboard is painted from a cached snapshot,
+                  before the first fresh fetch on this load has landed */}
+              {USE_REAL_API && isShowingStaleSnapshot && (
+                <Badge
+                  variant="outline"
+                  className="flex items-center gap-1.5 text-muted-foreground"
+                >
+                  <Database size={12} />
+                  Cached data
                 </Badge>
               )}
               {/* Capture Control Button */}

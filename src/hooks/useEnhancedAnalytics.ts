@@ -4,8 +4,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
 import { API_CONFIG } from '@/hooks/useApiConfig';
+import { loadSnapshot, saveSnapshot } from '@/lib/snapshotCache';
 
 const USE_REAL_API = API_CONFIG.USE_REAL_API;
+const REFRESH_INTERVAL_MS = 60000;
+const SNAPSHOT_KEY = 'netinsight_snapshot_analytics';
+const SNAPSHOT_SAVE_DEBOUNCE_MS = 10000;
 
 interface SummaryStats {
   total_devices: number;
@@ -68,14 +72,25 @@ interface ConnectionQualitySummary {
   };
 }
 
+interface BandwidthTimelineSnapshot {
+  summaryStats: SummaryStats | null;
+  bandwidthTimeline: BandwidthTimeline[];
+}
+
 export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: number } = {}) {
   const { autoFetch = true, hours = 24 } = options;
 
-  const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
+  const snapshot = USE_REAL_API ? loadSnapshot<BandwidthTimelineSnapshot>(SNAPSHOT_KEY) : null;
+
+  const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(
+    snapshot?.summaryStats ?? null
+  );
   const [topDomains, setTopDomains] = useState<TopDomain[]>([]);
   const [topDevices, setTopDevices] = useState<TopDevice[]>([]);
   const [geographicStats, setGeographicStats] = useState<GeographicStat[]>([]);
-  const [bandwidthTimeline, setBandwidthTimeline] = useState<BandwidthTimeline[]>([]);
+  const [bandwidthTimeline, setBandwidthTimeline] = useState<BandwidthTimeline[]>(
+    snapshot?.bandwidthTimeline ?? []
+  );
   const [connectionQualitySummary, setConnectionQualitySummary] =
     useState<ConnectionQualitySummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -202,10 +217,23 @@ export function useEnhancedAnalytics(options: { autoFetch?: boolean; hours?: num
   ]);
 
   useEffect(() => {
-    if (autoFetch && USE_REAL_API) {
-      fetchAll();
-    }
+    if (!autoFetch || !USE_REAL_API) return;
+    fetchAll();
+    // Analytics previously only fetched once on mount and went stale forever;
+    // refresh periodically to keep cards current.
+    const interval = setInterval(fetchAll, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, [autoFetch, fetchAll]);
+
+  // Persist a snapshot (debounced) so a reload can paint these cards
+  // instantly from cache instead of showing them empty.
+  useEffect(() => {
+    if (!USE_REAL_API) return;
+    const timeout = setTimeout(() => {
+      saveSnapshot<BandwidthTimelineSnapshot>(SNAPSHOT_KEY, { summaryStats, bandwidthTimeline });
+    }, SNAPSHOT_SAVE_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [summaryStats, bandwidthTimeline]);
 
   return {
     summaryStats,
