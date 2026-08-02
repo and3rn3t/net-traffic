@@ -221,6 +221,33 @@ class NetworkQualityAnalyticsService:
             device_id=device_id
         )
 
+        # Duration/packet-size/bandwidth/protocol-efficiency are computed over
+        # ALL flows (not just the ones with rtt/jitter/retransmission data),
+        # mirroring the frontend's own fallback calculation in ConnectionQuality.tsx.
+        avg_duration = sum(f.duration for f in flows) / len(flows) if flows else 0.0
+        avg_packet_size = (
+            sum(
+                (f.bytesIn + f.bytesOut) / (f.packetsIn + f.packetsOut)
+                if (f.packetsIn + f.packetsOut) > 0 else 0.0
+                for f in flows
+            ) / len(flows)
+            if flows else 0.0
+        )
+        avg_bandwidth_utilization = (
+            sum(
+                (f.bytesIn + f.bytesOut) / (f.duration / 1000)
+                if f.duration > 0 else 0.0
+                for f in flows
+            ) / len(flows)
+            if flows else 0.0
+        )
+        protocol_efficiency: Dict[str, Dict[str, int]] = {}
+        for f in flows:
+            entry = protocol_efficiency.setdefault(f.protocol, {"total": 0, "efficient": 0})
+            entry["total"] += 1
+            if f.duration < 10000 and (f.bytesIn + f.bytesOut) > 1000:
+                entry["efficient"] += 1
+
         flows_with_metrics = [
             f for f in flows
             if f.rtt is not None or f.jitter is not None or f.retransmissions is not None
@@ -234,6 +261,10 @@ class NetworkQualityAnalyticsService:
                 "avg_rtt": 0.0,
                 "avg_jitter": 0.0,
                 "avg_retransmissions": 0.0,
+                "avg_duration": round(avg_duration, 2),
+                "avg_packet_size": round(avg_packet_size, 2),
+                "avg_bandwidth_utilization": round(avg_bandwidth_utilization, 2),
+                "protocol_efficiency": protocol_efficiency,
                 "quality_distribution": {
                     "excellent": 0,
                     "good": 0,
@@ -279,6 +310,11 @@ class NetworkQualityAnalyticsService:
             "avg_rtt": round(avg_rtt, 2),
             "avg_jitter": round(avg_jitter, 2),
             "avg_retransmissions": round(avg_retrans, 2),
+            "avg_duration": round(avg_duration, 2),
+            "avg_packet_size": round(avg_packet_size, 2),
+            "avg_bandwidth_utilization": round(avg_bandwidth_utilization, 2),
+            "protocol_efficiency": protocol_efficiency,
             "quality_distribution": quality_dist
         }
+
 

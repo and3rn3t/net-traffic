@@ -36,15 +36,15 @@ export const ConnectionQuality = memo(function ConnectionQuality({
         activeConnections: connectionQualitySummary.total_flows,
         closedConnections:
           connectionQualitySummary.total_flows - connectionQualitySummary.flows_with_metrics,
-        avgDuration: 0, // Not in API response
-        avgPacketSize: 0, // Not in API response
+        avgDuration: connectionQualitySummary.avg_duration,
+        avgPacketSize: connectionQualitySummary.avg_packet_size,
         retransmissionRate: connectionQualitySummary.avg_retransmissions.toFixed(2),
         connectionStability: (
           (connectionQualitySummary.flows_with_metrics / connectionQualitySummary.total_flows) *
           100
         ).toFixed(1),
-        avgBandwidthUtilization: 0, // Not in API response
-        protocolEfficiency: {}, // Not in API response
+        avgBandwidthUtilization: connectionQualitySummary.avg_bandwidth_utilization,
+        protocolEfficiency: connectionQualitySummary.protocol_efficiency,
         avgRtt: connectionQualitySummary.avg_rtt || 0,
         avgJitter: connectionQualitySummary.avg_jitter || 0,
         qualityDistribution: connectionQualitySummary.quality_distribution,

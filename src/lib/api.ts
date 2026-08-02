@@ -454,6 +454,10 @@ export class ApiClient {
     avg_rtt: number;
     avg_jitter: number;
     avg_retransmissions: number;
+    avg_duration: number;
+    avg_packet_size: number;
+    avg_bandwidth_utilization: number;
+    protocol_efficiency: Record<string, { total: number; efficient: number }>;
     quality_distribution: {
       excellent: number;
       good: number;
