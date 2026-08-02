@@ -1059,6 +1059,247 @@ class StorageService:
             ],
         }
 
+    @log_slow_query("aggregate_rtt_trends")
+    async def aggregate_rtt_trends(
+        self,
+        start_time: int,
+        interval_ms: int,
+        device_id: Optional[str] = None,
+        country: Optional[str] = None,
+    ) -> List[dict]:
+        """Aggregate RTT into fixed time buckets in SQL (avoids loading flows)."""
+        query = """
+            SELECT (timestamp / ?) * ? AS bucket,
+                   AVG(rtt) AS avg_rtt,
+                   MIN(rtt) AS min_rtt,
+                   MAX(rtt) AS max_rtt,
+                   COUNT(*) AS count
+            FROM flows
+            WHERE timestamp >= ? AND rtt IS NOT NULL
+        """
+        params: list = [interval_ms, interval_ms, start_time]
+        if device_id:
+            query += " AND device_id = ?"
+            params.append(device_id)
+        if country:
+            query += " AND country = ?"
+            params.append(country)
+        query += " GROUP BY bucket ORDER BY bucket ASC"
+
+        rows = await self._aggregate_fetchall(query, params)
+        return [
+            {
+                "timestamp": r["bucket"],
+                "avg_rtt": round(r["avg_rtt"], 2),
+                "min_rtt": round(r["min_rtt"], 2),
+                "max_rtt": round(r["max_rtt"], 2),
+                "count": r["count"],
+            }
+            for r in rows
+        ]
+
+    @log_slow_query("aggregate_jitter_stats")
+    async def aggregate_jitter_stats(
+        self, start_time: int, device_id: Optional[str] = None
+    ) -> dict:
+        """Aggregate jitter summary + distribution buckets in SQL."""
+        summary_query = """
+            SELECT AVG(jitter) AS avg_jitter, MIN(jitter) AS min_jitter,
+                   MAX(jitter) AS max_jitter, COUNT(*) AS count
+            FROM flows
+            WHERE timestamp >= ? AND jitter IS NOT NULL
+        """
+        bucket_query = """
+            SELECT
+                CASE
+                    WHEN jitter <= 10 THEN '0-10ms'
+                    WHEN jitter <= 20 THEN '10-20ms'
+                    WHEN jitter <= 30 THEN '20-30ms'
+                    WHEN jitter <= 50 THEN '30-50ms'
+                    WHEN jitter <= 100 THEN '50-100ms'
+                    WHEN jitter <= 200 THEN '100-200ms'
+                    ELSE '200-∞ms'
+                END AS bucket,
+                COUNT(*) AS count
+            FROM flows
+            WHERE timestamp >= ? AND jitter IS NOT NULL
+        """
+        params: list = [start_time]
+        if device_id:
+            summary_query += " AND device_id = ?"
+            bucket_query += " AND device_id = ?"
+            params.append(device_id)
+        bucket_query += " GROUP BY bucket"
+
+        summary_rows = await self._aggregate_fetchall(summary_query, params)
+        bucket_rows = await self._aggregate_fetchall(bucket_query, params)
+
+        s = summary_rows[0] if summary_rows else None
+        if not s or not s["count"]:
+            return {
+                "avg_jitter": 0.0, "min_jitter": 0.0, "max_jitter": 0.0,
+                "count": 0, "distribution": [],
+            }
+        return {
+            "avg_jitter": round(s["avg_jitter"], 2),
+            "min_jitter": round(s["min_jitter"], 2),
+            "max_jitter": round(s["max_jitter"], 2),
+            "count": s["count"],
+            "distribution": sorted(
+                [{"range": r["bucket"], "count": r["count"]} for r in bucket_rows],
+                key=lambda d: d["range"],
+            ),
+        }
+
+    @log_slow_query("aggregate_retransmission_stats")
+    async def aggregate_retransmission_stats(
+        self, start_time: int, device_id: Optional[str] = None
+    ) -> dict:
+        """Aggregate retransmission totals + per-protocol breakdown in SQL."""
+        overall_query = """
+            SELECT
+                COUNT(*) AS total_flows,
+                COALESCE(SUM(CASE WHEN retransmissions IS NOT NULL AND retransmissions > 0
+                         THEN 1 ELSE 0 END), 0) AS flows_with_retrans,
+                COALESCE(SUM(retransmissions), 0) AS total_retransmissions,
+                COALESCE(SUM(packets_in + packets_out), 0) AS total_packets
+            FROM flows
+            WHERE timestamp >= ?
+        """
+        protocol_query = """
+            SELECT protocol,
+                   COUNT(*) AS flows,
+                   COALESCE(SUM(retransmissions), 0) AS retransmissions,
+                   COALESCE(SUM(packets_in + packets_out), 0) AS packets
+            FROM flows
+            WHERE timestamp >= ? AND retransmissions IS NOT NULL
+        """
+        params: list = [start_time]
+        if device_id:
+            overall_query += " AND device_id = ?"
+            protocol_query += " AND device_id = ?"
+            params.append(device_id)
+        protocol_query += " GROUP BY protocol"
+
+        overall_rows = await self._aggregate_fetchall(overall_query, params)
+        protocol_rows = await self._aggregate_fetchall(protocol_query, params)
+
+        o = overall_rows[0] if overall_rows else None
+        total_flows = o["total_flows"] if o else 0
+        total_retransmissions = o["total_retransmissions"] if o else 0
+        total_packets = o["total_packets"] if o else 0
+        retransmission_rate = (
+            (total_retransmissions / total_packets * 100) if total_packets > 0 else 0
+        )
+
+        protocol_stats = []
+        for r in protocol_rows:
+            rate = (r["retransmissions"] / r["packets"] * 100) if r["packets"] > 0 else 0
+            protocol_stats.append({
+                "protocol": r["protocol"],
+                "flows": r["flows"],
+                "retransmissions": r["retransmissions"],
+                "rate": round(rate, 2),
+            })
+        protocol_stats.sort(key=lambda x: x["rate"], reverse=True)
+
+        return {
+            "total_flows": total_flows,
+            "flows_with_retransmissions": o["flows_with_retrans"] if o else 0,
+            "total_retransmissions": total_retransmissions,
+            "total_packets": total_packets,
+            "retransmission_rate": round(retransmission_rate, 2),
+            "by_protocol": protocol_stats[:10],
+        }
+
+    @log_slow_query("aggregate_connection_quality")
+    async def aggregate_connection_quality(
+        self, start_time: int, device_id: Optional[str] = None
+    ) -> dict:
+        """Aggregate the full connection-quality summary in SQL (avoids loading
+        up to 100k flows into Pydantic objects per call - this endpoint is
+        polled every ~60s by the frontend)."""
+        overall_query = """
+            SELECT
+                COUNT(*) AS total_flows,
+                AVG(duration) AS avg_duration,
+                AVG(CASE WHEN (packets_in + packets_out) > 0
+                         THEN 1.0 * (bytes_in + bytes_out) / (packets_in + packets_out)
+                         ELSE 0 END) AS avg_packet_size,
+                AVG(CASE WHEN duration > 0
+                         THEN 1.0 * (bytes_in + bytes_out) / (duration / 1000.0)
+                         ELSE 0 END) AS avg_bandwidth_utilization
+            FROM flows
+            WHERE timestamp >= ?
+        """
+        metrics_query = """
+            SELECT COUNT(*) AS flows_with_metrics,
+                   AVG(rtt) AS avg_rtt, AVG(jitter) AS avg_jitter,
+                   AVG(retransmissions) AS avg_retransmissions
+            FROM flows
+            WHERE timestamp >= ?
+                  AND (rtt IS NOT NULL OR jitter IS NOT NULL OR retransmissions IS NOT NULL)
+        """
+        protocol_query = """
+            SELECT protocol, COUNT(*) AS total,
+                   SUM(CASE WHEN duration < 10000 AND (bytes_in + bytes_out) > 1000
+                            THEN 1 ELSE 0 END) AS efficient
+            FROM flows
+            WHERE timestamp >= ?
+        """
+        distribution_query = """
+            SELECT
+                CASE
+                    WHEN COALESCE(rtt, 0) < 50 AND COALESCE(jitter, 0) < 10
+                         AND COALESCE(retransmissions, 0) = 0 THEN 'excellent'
+                    WHEN COALESCE(rtt, 0) < 100 AND COALESCE(jitter, 0) < 30
+                         AND COALESCE(retransmissions, 0) < 3 THEN 'good'
+                    WHEN COALESCE(rtt, 0) < 200 AND COALESCE(jitter, 0) < 100
+                         AND COALESCE(retransmissions, 0) < 10 THEN 'fair'
+                    ELSE 'poor'
+                END AS bucket,
+                COUNT(*) AS count
+            FROM flows
+            WHERE timestamp >= ?
+                  AND (rtt IS NOT NULL OR jitter IS NOT NULL OR retransmissions IS NOT NULL)
+        """
+        params: list = [start_time]
+        if device_id:
+            overall_query += " AND device_id = ?"
+            metrics_query += " AND device_id = ?"
+            protocol_query += " AND device_id = ?"
+            distribution_query += " AND device_id = ?"
+            params.append(device_id)
+        protocol_query += " GROUP BY protocol"
+        distribution_query += " GROUP BY bucket"
+
+        overall_rows = await self._aggregate_fetchall(overall_query, params)
+        metrics_rows = await self._aggregate_fetchall(metrics_query, params)
+        protocol_rows = await self._aggregate_fetchall(protocol_query, params)
+        distribution_rows = await self._aggregate_fetchall(distribution_query, params)
+
+        o = overall_rows[0] if overall_rows else None
+        m = metrics_rows[0] if metrics_rows else None
+        quality_dist = {"excellent": 0, "good": 0, "fair": 0, "poor": 0}
+        for r in distribution_rows:
+            quality_dist[r["bucket"]] = r["count"]
+
+        return {
+            "total_flows": o["total_flows"] if o else 0,
+            "avg_duration": (o["avg_duration"] or 0.0) if o else 0.0,
+            "avg_packet_size": (o["avg_packet_size"] or 0.0) if o else 0.0,
+            "avg_bandwidth_utilization": (o["avg_bandwidth_utilization"] or 0.0) if o else 0.0,
+            "flows_with_metrics": m["flows_with_metrics"] if m else 0,
+            "avg_rtt": (m["avg_rtt"] or 0.0) if m else 0.0,
+            "avg_jitter": (m["avg_jitter"] or 0.0) if m else 0.0,
+            "avg_retransmissions": (m["avg_retransmissions"] or 0.0) if m else 0.0,
+            "protocol_efficiency": {
+                r["protocol"]: {"total": r["total"], "efficient": r["efficient"]}
+                for r in protocol_rows
+            },
+            "quality_distribution": quality_dist,
+        }
+
     async def search_flows(self, query_text: str, limit: int = 50) -> List[NetworkFlow]:
         """Search flows by IP address or domain"""
         query = """
