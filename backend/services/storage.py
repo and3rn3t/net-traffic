@@ -8,7 +8,7 @@ import asyncio
 import os
 import time
 from functools import wraps
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime, timedelta, timezone
 
 from models.types import NetworkFlow, Device, Threat, FilterPreset
@@ -1299,6 +1299,152 @@ class StorageService:
             },
             "quality_distribution": quality_dist,
         }
+
+    @log_slow_query("aggregate_analytics_hourly")
+    async def aggregate_analytics_hourly(self, start_time: int) -> Dict[int, dict]:
+        """Aggregate bytes/connections/active-devices/threat-flagged-flows into
+        epoch-hour-aligned buckets in SQL (avoids loading flows; also matches the
+        alignment used by aggregate_threat_counts_by_hour so the two can be merged)."""
+        hour_ms = 60 * 60 * 1000
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT (timestamp / ?) * ? AS bucket,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS total_bytes,
+                   COUNT(*) AS total_connections,
+                   COUNT(DISTINCT device_id) AS active_devices,
+                   SUM(CASE WHEN threat_level IN ('medium','high','critical')
+                            THEN 1 ELSE 0 END) AS threat_count
+            FROM flows
+            WHERE timestamp >= ?
+            GROUP BY bucket
+            """,
+            (hour_ms, hour_ms, start_time),
+        )
+        return {
+            r["bucket"]: {
+                "total_bytes": r["total_bytes"],
+                "total_connections": r["total_connections"],
+                "active_devices": r["active_devices"],
+                "threat_count": r["threat_count"],
+            }
+            for r in rows
+        }
+
+    @log_slow_query("aggregate_protocol_stats")
+    async def aggregate_protocol_stats(
+        self, start_time: Optional[int] = None
+    ) -> List[dict]:
+        """Aggregate bytes/connections by protocol in SQL (avoids loading flows)."""
+        query = """
+            SELECT protocol,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes,
+                   COUNT(*) AS connections
+            FROM flows
+            WHERE 1=1
+        """
+        params: list = []
+        if start_time:
+            query += " AND timestamp >= ?"
+            params.append(start_time)
+        query += " GROUP BY protocol ORDER BY bytes DESC"
+
+        rows = await self._aggregate_fetchall(query, params)
+        return [
+            {"protocol": r["protocol"], "bytes": r["bytes"], "connections": r["connections"]}
+            for r in rows
+        ]
+
+    @log_slow_query("aggregate_application_breakdown")
+    async def aggregate_application_breakdown(
+        self, start_time: int, device_id: Optional[str] = None
+    ) -> List[dict]:
+        """Aggregate per-application traffic stats in SQL (avoids loading flows)."""
+        query = """
+            SELECT application,
+                   COUNT(*) AS connections,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes,
+                   COALESCE(SUM(packets_in + packets_out), 0) AS packets,
+                   COUNT(DISTINCT device_id) AS unique_devices,
+                   AVG(rtt) AS avg_rtt
+            FROM flows
+            WHERE timestamp >= ? AND application IS NOT NULL AND application <> ''
+        """
+        params: list = [start_time]
+        if device_id:
+            query += " AND device_id = ?"
+            params.append(device_id)
+        query += " GROUP BY application ORDER BY bytes DESC"
+
+        rows = await self._aggregate_fetchall(query, params)
+        return [
+            {
+                "application": r["application"],
+                "connections": r["connections"],
+                "bytes": r["bytes"],
+                "packets": r["packets"],
+                "unique_devices": r["unique_devices"],
+                "avg_rtt": r["avg_rtt"],
+            }
+            for r in rows
+        ]
+
+    @log_slow_query("aggregate_application_trends")
+    async def aggregate_application_trends(
+        self, start_time: int, interval_ms: int, application: Optional[str] = None
+    ) -> List[dict]:
+        """Aggregate per-application traffic into time buckets in SQL (avoids loading flows)."""
+        query = """
+            SELECT (timestamp / ?) * ? AS bucket,
+                   application,
+                   COUNT(*) AS connections,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes
+            FROM flows
+            WHERE timestamp >= ? AND application IS NOT NULL AND application <> ''
+        """
+        params: list = [interval_ms, interval_ms, start_time]
+        if application:
+            query += " AND application = ?"
+            params.append(application)
+        query += " GROUP BY bucket, application ORDER BY bucket ASC"
+
+        rows = await self._aggregate_fetchall(query, params)
+        return [
+            {
+                "bucket": r["bucket"],
+                "application": r["application"],
+                "connections": r["connections"],
+                "bytes": r["bytes"],
+            }
+            for r in rows
+        ]
+
+    @log_slow_query("aggregate_device_application_profile")
+    async def aggregate_device_application_profile(
+        self, device_id: str, start_time: int
+    ) -> List[dict]:
+        """Aggregate a single device's per-application usage in SQL (avoids loading flows)."""
+        rows = await self._aggregate_fetchall(
+            """
+            SELECT application,
+                   COUNT(*) AS connections,
+                   COALESCE(SUM(bytes_in + bytes_out), 0) AS bytes,
+                   COALESCE(SUM(duration), 0) AS duration
+            FROM flows
+            WHERE device_id = ? AND timestamp >= ?
+                  AND application IS NOT NULL AND application <> ''
+            GROUP BY application
+            """,
+            (device_id, start_time),
+        )
+        return [
+            {
+                "application": r["application"],
+                "connections": r["connections"],
+                "bytes": r["bytes"],
+                "duration": r["duration"],
+            }
+            for r in rows
+        ]
 
     async def search_flows(self, query_text: str, limit: int = 50) -> List[NetworkFlow]:
         """Search flows by IP address or domain"""
