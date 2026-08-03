@@ -29,14 +29,7 @@ export async function waitForAppReady(page: Page) {
  */
 export async function navigateToView(
   page: Page,
-  viewName:
-    | 'dashboard'
-    | 'analytics'
-    | 'devices'
-    | 'threats'
-    | 'insights'
-    | 'advanced'
-    | 'visualizations'
+  viewName: 'dashboard' | 'analytics' | 'devices' | 'threats' | 'system'
 ) {
   // Map view names to their tab values and labels
   const viewMap: Record<string, { value: string; label: string }> = {
@@ -44,9 +37,7 @@ export async function navigateToView(
     analytics: { value: 'analytics', label: 'Analytics' },
     devices: { value: 'devices', label: 'Devices' },
     threats: { value: 'threats', label: 'Threats' },
-    insights: { value: 'insights', label: 'Insights' },
-    advanced: { value: 'advanced', label: 'Advanced' },
-    visualizations: { value: 'visualizations', label: 'Visualizations' },
+    system: { value: 'system', label: 'System' },
   };
 
   const view = viewMap[viewName];

@@ -22,7 +22,6 @@ tests/e2e/
 ├── threats.spec.ts          # Threat management
 ├── filters.spec.ts         # Filter functionality
 ├── export.spec.ts           # Data export
-├── visualizations.spec.ts  # Data visualizations
 ├── error-handling.spec.ts   # Error handling
 ├── connections.spec.ts      # Connections table
 └── README.md               # This file

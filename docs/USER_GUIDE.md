@@ -70,7 +70,7 @@ NetInsight can run in two modes:
 
 ### Dashboard Tabs
 
-#### Overview Tab
+#### Dashboard Tab
 
 - **Metric Cards**: Key network statistics at a glance
   - Active Connections
@@ -78,41 +78,33 @@ NetInsight can run in two modes:
   - Active Devices
   - Threat Score
 - **Active Threats**: Real-time threat alerts
-- **Network Graph**: Visual representation of network connections
 - **Traffic Chart**: Bandwidth usage over time
-- **Flow Visualization**: Animated flow pipes showing data streams
 - **Connections Table**: Detailed list of all network connections
 
-#### Insights Tab
+#### Devices Tab
 
-- **Insights Summary**: AI-powered network insights
-- **Summary Statistics**: Overall network statistics
-- **Connection Quality**: Network performance metrics
-- **Peak Usage Analysis**: Usage patterns by time and day
+- **Devices List**: All discovered network devices, with vendor/type detection and inline editing
 - **Top Users**: Devices using the most bandwidth
+- **Protocol Breakdown**: Protocol usage across devices
+
+#### Threats Tab
+
+- **Threat List**: All active and dismissed threats
+- **Anomaly Detection**: AI-powered anomaly detection against learned per-device baselines
+- **Alert Rules**: Configure custom alert conditions and notification channels
+
+#### Analytics Tab
+
+- **Network Quality Dashboard**: RTT, jitter, retransmission, and connection quality metrics
+- **Application Usage Dashboard**: Bandwidth breakdown by application/service
 - **Top Sites**: Most visited domains
 - **Historical Trends**: Network trends over time
-- **Bandwidth Patterns**: Usage pattern analysis
-- **Geographic Distribution**: Connection locations
-- **Protocol Timeline**: Protocol usage over time
-- **User Activity Timeline**: User activity patterns
+- **Geographic Distribution**: Connection locations by country
 
-#### Advanced Tab
+#### System Tab
 
-- **Connection Health Monitor**: Backend service health and metrics
-- **Security Posture**: Overall security assessment
-- **Anomaly Detection**: AI-powered anomaly detection
-- **Bandwidth Cost Estimator**: Estimate bandwidth costs
+- **Maintenance Panel**: Database stats, cleanup, and backend health
 - **Data Exporter**: Export network data (CSV/JSON)
-
-#### Visualizations Tab
-
-- **Heatmap Timeline**: Traffic heatmap over time
-- **Packet Burst**: Packet activity visualization
-- **Bandwidth Gauge**: Current bandwidth usage
-- **Radar Chart**: Multi-dimensional device analysis
-- **Geographic Map**: World map showing connection locations
-- **Protocol Sankey**: Protocol flow diagram
 
 ### Key Features
 
@@ -197,7 +189,7 @@ To connect to a Raspberry Pi 5 backend:
 
 ### Viewing Network Connections
 
-1. Navigate to **Overview** tab
+1. Navigate to **Dashboard** tab
 2. Scroll to **Connections Table**
 3. Use filters to narrow down connections:
    - Click **Filters** button
@@ -214,7 +206,7 @@ To connect to a Raspberry Pi 5 backend:
 
 ### Editing Device Information
 
-1. Navigate to **Overview** or **Devices** section
+1. Navigate to **Devices** tab
 2. Find the device you want to edit
 3. Click the **Edit** button (pencil icon)
 4. Update device name, type, or notes
@@ -222,7 +214,7 @@ To connect to a Raspberry Pi 5 backend:
 
 ### Exporting Data
 
-1. Navigate to **Advanced** tab
+1. Navigate to **System** tab
 2. Scroll to **Data Exporter**
 3. Click **Export Data**
 4. Select format (CSV or JSON)
@@ -230,17 +222,11 @@ To connect to a Raspberry Pi 5 backend:
 6. Click **Export**
 7. File will download automatically
 
-### Monitoring Connection Health
+### Monitoring Backend Health
 
-1. Navigate to **Advanced** tab
-2. View **Connection Health Monitor** card
-3. Monitor:
-   - Connection status (Healthy/Degraded/Offline)
-   - Latency (response time)
-   - Packet loss
-   - Service status (Storage, Capture, Threat, Analytics)
-   - Connection history graph
-   - Uptime percentage
+1. Navigate to **System** tab
+2. View the **Maintenance Panel**
+3. Monitor database size, cleanup status, and backend health
 
 ### Using Filters
 
@@ -356,7 +342,7 @@ To connect to a Raspberry Pi 5 backend:
 
 ### Q: Can I export historical data?
 
-**A**: Yes! Use the Data Exporter in the Advanced tab. Set a time range to export historical flows.
+**A**: Yes! Use the Data Exporter in the System tab. Set a time range to export historical flows.
 
 ### Q: How do I filter connections by time?
 

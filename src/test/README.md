@@ -38,8 +38,7 @@ src/
 │       └── api.errors.integration.test.ts   # API error handling tests
 └── hooks/
     └── __tests__/
-        ├── useApiData.integration.test.tsx  # useApiData hook tests
-        └── useReconnection.integration.test.ts # Reconnection logic tests
+        └── useApiData.integration.test.tsx  # useApiData hook tests
 ```
 
 ## Test Categories
@@ -51,7 +50,6 @@ Integration tests verify that different parts of the application work together c
 - **API Client Tests** (`api.integration.test.ts`): Test API client methods, request/response handling, and WebSocket connections
 - **Error Handling Tests** (`api.errors.integration.test.ts`): Test error scenarios, retries, and edge cases
 - **Hook Tests** (`useApiData.integration.test.tsx`): Test React hooks with mocked API client
-- **Reconnection Tests** (`useReconnection.integration.test.ts`): Test WebSocket reconnection logic
 
 ## Writing Tests
 

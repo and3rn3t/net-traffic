@@ -81,23 +81,16 @@ This document describes the performance optimizations implemented in NetInsight 
 
 **Lazy-loaded components**:
 
-- `NetworkGraph` - 3D network visualization
-- `GeographicMap` - Map rendering
-- `FlowPipeVisualization` - Complex flow diagrams
-- `HeatmapTimeline` - Timeline heatmaps
-- `ProtocolSankey` - Sankey diagrams
-- `RadarChart` - Radar charts
 - `HistoricalTrends` - Historical analytics
 - `AnomalyDetection` - ML-based analysis
-- And more...
 
 **Usage**:
 
 ```tsx
-import { NetworkGraphLazy, LazyWrapper } from '@/components/lazy';
+import { HistoricalTrendsLazy, LazyWrapper } from '@/components/lazy';
 
 <LazyWrapper>
-  <NetworkGraphLazy data={networkData} />
+  <HistoricalTrendsLazy data={analyticsData} />
 </LazyWrapper>;
 ```
 
