@@ -12,7 +12,7 @@
 | [Interactive features](#interactive-features) | Visualizations, playback, command palette                               | 8     |
 | [Dashboard widgets](#dashboard-widgets)       | Composable widgets for the customizable dashboard                       | 8     |
 | [Backend refactor](#backend-refactor)         | Module splits, schema consolidation, tests                              | 5     |
-| [CI/CD pipeline](#cicd-pipeline)              | Dedupe workflows, caching, faster feedback, deploy hardening            | 9     |
+| [CI/CD pipeline](#cicd-pipeline)              | Dedupe workflows, caching, faster feedback, deploy hardening            | 13    |
 | [Medium priority](#medium-priority)           | Protocol coverage, ML, config UI, compliance                            | 8     |
 | [Exploratory](#exploratory)                   | Uncommitted ideas                                                       | —     |
 
@@ -92,6 +92,10 @@ Composable widgets for the customizable dashboard (each also viable standalone):
 - [x] **Build once, deploy the artifact** — `unit-tests` builds and uploads `dist/`; `deploy` downloads it instead of re-running `npm ci` + build.
 - [x] **Backend CI job** — `backend-checks` job runs `ruff check` (minimal `E9,F` gate via `backend/pyproject.toml` — the full default rule set surfaced ~788 findings, opt into more incrementally) + `python -m compileall` + `pytest` (see [Backend refactor](#backend-refactor) for the test infra). Fixed the 22 real ruff findings this surfaced, including a genuine bug: dead/unreachable duplicate decorator code in `utils/error_handler.py` referencing an undefined `func`. Line endings now come from `.gitattributes` (already existed) — removed the redundant `sed` step from `ci-cd.yml`/`nightly-tests.yml`.
 - [ ] **Fix the integration test suite** — 16/71 tests fail consistently on unmodified main (`useApiData.integration.test.tsx` almost entirely, plus `api.integration.test.tsx`'s "API Enabled Mode"/"Error Scenarios" blocks); currently masked by `continue-on-error` rather than fixed. Needed before that step can be unmasked.
+- [x] **Job-level `timeout-minutes`** — added to every job in `ci-cd.yml`/`nightly-tests.yml` (only `labeler.yml` had one before); bounds runner cost if a job hangs, e.g. the `webServer` startup flake already documented in [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md#known-incidents-context-for-future-debugging)-adjacent repo notes.
+- [x] **Least-privilege `permissions:`** — explicit top-level `permissions: contents: read` on `ci-cd.yml`/`nightly-tests.yml`; `deploy` keeps its own narrower override.
+- [x] **`CI Success` aggregate check + branch protection** — new `ci-success` job in `ci-cd.yml` (treats `e2e-tests`' PR-only `skipped` as fine, fails on real failure/cancellation); set as the sole required status check on `main` via the GitHub API (previously none existed).
+- [x] **Re-enable Renovate** — `renovate.json` restored to the shared `and3rn3t/.github` preset, reverting the 2026-07-17 "disable on inactive repo" decision now that the repo is under active development again.
 
 ### Medium priority
 
