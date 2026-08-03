@@ -8,3 +8,13 @@ exclude = [".venv", "venv"]
 # surfaced ~788 findings on first run - opt into those incrementally later
 # rather than gating CI on them now.
 select = ["E9", "F"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Safety net: a real stray-connection hang (see services/storage.py close())
+# was found via this test suite - a bounded timeout keeps a future regression
+# from burning a full CI run instead of failing fast.
+timeout = 30
+

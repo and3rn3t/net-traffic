@@ -15,7 +15,7 @@ concurrency:
 jobs:
   backend-checks:
     runs-on: ubuntu-latest
-    name: Backend Lint & Compile
+    name: Backend Checks
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,10 +25,11 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: backend/requirements-dev.txt
 
-      - name: Install ruff
-        run: pip install -q ruff
+      - name: Install dependencies
+        run: pip install -q -r requirements-dev.txt
+        working-directory: backend
 
       - name: Run ruff (syntax errors + pyflakes)
         run: ruff check .
@@ -36,6 +37,10 @@ jobs:
 
       - name: Byte-compile backend sources
         run: python -m compileall -q .
+        working-directory: backend
+
+      - name: Run pytest
+        run: python -m pytest
         working-directory: backend
 
   unit-tests:
