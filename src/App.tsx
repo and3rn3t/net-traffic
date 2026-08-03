@@ -14,15 +14,15 @@ import {
 } from 'lucide-react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
-import { ConnectionsTableEnhanced } from '@/components/ConnectionsTableEnhanced';
-import { DevicesListEnhanced } from '@/components/DevicesListEnhanced';
-import { DataExporterEnhanced } from '@/components/DataExporterEnhanced';
+import { ConnectionsTable } from '@/components/ConnectionsTable';
+import { DevicesList } from '@/components/DevicesList';
+import { DataExporter } from '@/components/DataExporter';
 import { SearchBar } from '@/components/SearchBar';
 import { TrafficChart } from '@/components/TrafficChart';
 import { ProtocolBreakdown } from '@/components/ProtocolBreakdown';
-import { TopUsersEnhanced } from '@/components/TopUsersEnhanced';
-import { TopSitesEnhanced } from '@/components/TopSitesEnhanced';
-import { GeographicDistributionEnhanced } from '@/components/GeographicDistributionEnhanced';
+import { TopUsers } from '@/components/TopUsers';
+import { TopSites } from '@/components/TopSites';
+import { GeographicDistribution } from '@/components/GeographicDistribution';
 import { AlertRules } from '@/components/AlertRules';
 // Lazy-loaded heavy components
 import { HistoricalTrendsLazy, AnomalyDetectionLazy, LazyWrapper } from '@/components/lazy';
@@ -297,7 +297,7 @@ function App() {
             </ErrorBoundary>
 
             <ErrorBoundary>
-              <ConnectionsTableEnhanced
+              <ConnectionsTable
                 flows={flows}
                 devices={devices}
                 useApiFilters={USE_REAL_API && isConnected}
@@ -307,7 +307,7 @@ function App() {
 
           <TabsContent value="devices" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DevicesListEnhanced
+              <DevicesList
                 devices={devices}
                 onDeviceUpdate={_updatedDevice => {
                   if (USE_REAL_API) refresh();
@@ -335,13 +335,7 @@ function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TopUsersEnhanced
-                devices={devices}
-                flows={flows}
-                hours={24}
-                limit={10}
-                sortBy="bytes"
-              />
+              <TopUsers devices={devices} flows={flows} hours={24} limit={10} sortBy="bytes" />
               <ProtocolBreakdown data={protocolStats} />
             </div>
           </TabsContent>
@@ -410,8 +404,8 @@ function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TopSitesEnhanced flows={flows} hours={24} limit={10} />
-              <GeographicDistributionEnhanced flows={flows} hours={24} />
+              <TopSites flows={flows} hours={24} limit={10} />
+              <GeographicDistribution flows={flows} hours={24} />
             </div>
 
             <ErrorBoundary>
@@ -461,7 +455,7 @@ function App() {
 
           <TabsContent value="system" className="space-y-6">
             <MaintenancePanel />
-            <DataExporterEnhanced flows={flows} devices={devices} threats={threats} />
+            <DataExporter flows={flows} devices={devices} threats={threats} />
           </TabsContent>
         </Tabs>
       </main>

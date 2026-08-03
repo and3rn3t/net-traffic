@@ -1,5 +1,5 @@
 /**
- * Enhanced TopSites component using API endpoints
+ * TopSites component using API endpoints
  * Falls back to calculating from flows if API unavailable
  */
 import { useMemo } from 'react';
@@ -12,13 +12,13 @@ import { Button } from '@/components/ui/button';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
 
-interface TopSitesEnhancedProps {
+interface TopSitesProps {
   flows?: NetworkFlow[]; // Fallback data
   hours?: number;
   limit?: number;
 }
 
-export function TopSitesEnhanced({ flows = [], hours = 24, limit = 10 }: TopSitesEnhancedProps) {
+export function TopSites({ flows = [], hours = 24, limit = 10 }: TopSitesProps) {
   const { topDomains, isLoading, error, fetchTopDomains } = useEnhancedAnalytics({
     autoFetch: true,
     hours,

@@ -1,5 +1,5 @@
 /**
- * Enhanced DevicesList component with device management (edit name, type, notes)
+ * DevicesList component with device management (edit name, type, notes)
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import { API_CONFIG } from '@/hooks/useApiConfig';
 import { DeviceAnalyticsView } from '@/components/DeviceAnalyticsView';
 import { useAuth } from '@/contexts/AuthContext';
-interface DevicesListEnhancedProps {
+interface DevicesListProps {
   readonly devices: Device[];
   readonly onDeviceUpdate?: (device: Device) => void;
   readonly onDeviceSelect?: (device: Device) => void;
@@ -51,12 +51,12 @@ const DEVICE_TYPES = [
   'unknown',
 ] as const;
 
-export function DevicesListEnhanced({
+export function DevicesList({
   devices,
   onDeviceUpdate,
   onDeviceSelect,
   onRefresh,
-}: DevicesListEnhancedProps) {
+}: DevicesListProps) {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [editForm, setEditForm] = useState({
     name: '',

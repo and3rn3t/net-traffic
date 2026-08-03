@@ -1,5 +1,5 @@
 /**
- * Enhanced GeographicDistribution component using API endpoints
+ * GeographicDistribution component using API endpoints
  */
 import { useMemo } from 'react';
 import { NetworkFlow } from '@/lib/types';
@@ -12,15 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
 
-interface GeographicDistributionEnhancedProps {
+interface GeographicDistributionProps {
   flows?: NetworkFlow[]; // Fallback data
   hours?: number;
 }
 
-export function GeographicDistributionEnhanced({
-  flows = [],
-  hours = 24,
-}: GeographicDistributionEnhancedProps) {
+export function GeographicDistribution({ flows = [], hours = 24 }: GeographicDistributionProps) {
   const { geographicStats, isLoading, error, fetchGeographicStats } = useEnhancedAnalytics({
     autoFetch: true,
     hours,

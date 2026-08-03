@@ -1,6 +1,6 @@
 /**
- * Unit tests for ConnectionsTableEnhanced component
- * Tests table rendering, sorting, filtering, and virtualization
+ * Unit tests for ConnectionsTable component
+ * Tests table rendering, sorting, and filtering
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -8,7 +8,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
-import { ConnectionsTableEnhanced } from '@/components/ConnectionsTableEnhanced';
+import { ConnectionsTable } from '@/components/ConnectionsTable';
 import { NetworkFlow, Device } from '@/lib/types';
 import { apiClient } from '@/lib/api';
 import { createDefaultFlowFilters } from '@/test/helpers';
@@ -108,7 +108,7 @@ vi.mock('@/hooks/useFlowFilters', () => ({
 }));
 
 const renderConnectionsTable = (
-  props: Partial<React.ComponentProps<typeof ConnectionsTableEnhanced>> = {}
+  props: Partial<React.ComponentProps<typeof ConnectionsTable>> = {}
 ) => {
   const defaultProps = {
     flows: [] as NetworkFlow[],
@@ -116,7 +116,7 @@ const renderConnectionsTable = (
   };
   return render(
     <QueryClientProvider client={queryClient}>
-      <ConnectionsTableEnhanced {...defaultProps} {...props} />
+      <ConnectionsTable {...defaultProps} {...props} />
     </QueryClientProvider>
   );
 };
@@ -160,7 +160,7 @@ const _mockDevice: Device = {
   },
 };
 
-describe('ConnectionsTableEnhanced', () => {
+describe('ConnectionsTable', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     queryClient.clear();
@@ -412,8 +412,8 @@ describe('ConnectionsTableEnhanced', () => {
     });
   });
 
-  describe('Virtualization', () => {
-    it('should use virtualization for large lists', () => {
+  describe('Large lists', () => {
+    it('should render a large number of flows', () => {
       const manyFlows: NetworkFlow[] = Array.from({ length: 150 }, (_, i) => ({
         ...mockFlow,
         id: String(i),
@@ -422,20 +422,14 @@ describe('ConnectionsTableEnhanced', () => {
       renderConnectionsTable({
         flows: manyFlows,
         useApiFilters: false, // Use local flows to avoid mock issues
-        useVirtualization: true,
-        virtualizationThreshold: 100,
       });
 
-      // Component shows "{count} total" - might appear multiple times
-      const totalTexts = screen.getAllByText(/150 total/i);
-      expect(totalTexts.length).toBeGreaterThan(0);
+      expect(screen.getByText(/150 total/i)).toBeInTheDocument();
     });
 
-    it('should not use virtualization for small lists', () => {
+    it('should render a small number of flows', () => {
       renderConnectionsTable({
         flows: [mockFlow],
-        useVirtualization: true,
-        virtualizationThreshold: 100,
       });
 
       expect(screen.getByText(/1 total/i)).toBeInTheDocument();

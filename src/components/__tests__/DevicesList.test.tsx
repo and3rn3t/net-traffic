@@ -1,5 +1,5 @@
 /**
- * Unit tests for DevicesListEnhanced component
+ * Unit tests for DevicesList component
  * Tests device display, edit functionality, and API integration
  */
 
@@ -8,7 +8,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
-import { DevicesListEnhanced } from '@/components/DevicesListEnhanced';
+import { DevicesList } from '@/components/DevicesList';
 import { apiClient } from '@/lib/api';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Device } from '@/lib/types';
@@ -77,14 +77,12 @@ const mockToast = {
   error: vi.mocked(toast.error),
 };
 
-const renderDevicesList = (
-  props: Partial<React.ComponentProps<typeof DevicesListEnhanced>> = {}
-) => {
+const renderDevicesList = (props: Partial<React.ComponentProps<typeof DevicesList>> = {}) => {
   const defaultProps = { devices: [] as Device[] };
   return render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <DevicesListEnhanced {...defaultProps} {...props} />
+        <DevicesList {...defaultProps} {...props} />
       </AuthProvider>
     </QueryClientProvider>
   );
@@ -110,7 +108,7 @@ const mockDevice: Device = {
   },
 };
 
-describe('DevicesListEnhanced', () => {
+describe('DevicesList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     queryClient.clear();

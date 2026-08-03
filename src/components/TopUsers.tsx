@@ -1,5 +1,5 @@
 /**
- * Enhanced TopUsers component using API endpoints
+ * TopUsers component using API endpoints
  * Falls back to calculating from devices/flows if API unavailable
  */
 import { useMemo } from 'react';
@@ -13,7 +13,7 @@ import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { useApiConfig } from '@/hooks/useApiConfig';
 import { TIME } from '@/lib/constants';
 
-interface TopUsersEnhancedProps {
+interface TopUsersProps {
   devices?: Device[]; // Fallback data
   flows?: NetworkFlow[]; // Fallback data
   hours?: number;
@@ -21,13 +21,13 @@ interface TopUsersEnhancedProps {
   sortBy?: 'bytes' | 'connections' | 'threats';
 }
 
-export function TopUsersEnhanced({
+export function TopUsers({
   devices = [],
   flows = [],
   hours = 24,
   limit = 10,
   sortBy = 'bytes',
-}: TopUsersEnhancedProps) {
+}: TopUsersProps) {
   const { topDevices, isLoading, error, fetchTopDevices } = useEnhancedAnalytics({
     autoFetch: true,
     hours,

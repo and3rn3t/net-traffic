@@ -1,5 +1,5 @@
 /**
- * Enhanced DataExporter component using API export endpoints
+ * DataExporter component using API export endpoints
  */
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -27,13 +27,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface DataExporterEnhancedProps {
+interface DataExporterProps {
   flows: NetworkFlow[];
   devices: Device[];
   threats: Threat[];
 }
 
-export function DataExporterEnhanced({ flows, devices, threats }: DataExporterEnhancedProps) {
+export function DataExporter({ flows, devices, threats }: DataExporterProps) {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportConfig, setExportConfig] = useState<{
     format: 'csv' | 'json';
