@@ -18,12 +18,14 @@ export default defineConfig({
     sparkPlugin({ port: 5001 }) as PluginOption,
   ],
   server: {
-    port: 5173,
-    strictPort: true, // Fail if port 5173 is in use
+    // Actual listen port is forced to 5001 by sparkPlugin({ port: 5001 })'s
+    // config() hook below, which overrides this regardless of CLI --port flags
+    port: 5001,
+    strictPort: true, // Fail if port 5001 is in use
     host: true, // Listen on all addresses
     hmr: {
       overlay: true,
-      clientPort: 5173,
+      clientPort: 5001,
     },
     watch: {
       usePolling: false,

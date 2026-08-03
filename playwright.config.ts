@@ -30,8 +30,10 @@ export default defineConfig({
 
   // Shared settings for all projects
   use: {
-    // Base URL for the application
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5000',
+    // Base URL for the application - dev server always listens on 5001
+    // (forced by vite.config.ts's sparkPlugin({ port: 5001 }), regardless of
+    // any --port flag), so this must match webServer.url below
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5001',
 
     // Trace on first retry
     trace: 'on-first-retry',
@@ -68,8 +70,8 @@ export default defineConfig({
 
   // Run local dev server before starting tests
   webServer: {
-    command: 'npx vite --port 5173',
-    url: 'http://localhost:5000',
+    command: 'npx vite',
+    url: 'http://localhost:5001',
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000, // Increased timeout to 3 minutes
     stdout: 'pipe', // Changed to see output for debugging
