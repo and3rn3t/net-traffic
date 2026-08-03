@@ -1,6 +1,6 @@
 # NetInsight - Roadmap
 
-**Last updated:** 2026-08-02. Solo-maintained project — features are picked up and shipped one at a time rather than on a fixed schedule, so this tracks status/priority, not calendar dates.
+**Last updated:** 2026-08-03. Solo-maintained project — features are picked up and shipped one at a time rather than on a fixed schedule, so this tracks status/priority, not calendar dates.
 
 ## Shipped
 
@@ -32,6 +32,31 @@ Remote SSH packet capture (`capture_mode=remote_ssh`) as the primary method, aft
 - **Setup wizard for first-time users** — currently requires manually editing `.env` / following [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md).
 - **Threat intelligence feed integration** — no external IP/domain reputation lookups yet (see [NETWORK_TRAFFIC_ANALYSIS.md](./NETWORK_TRAFFIC_ANALYSIS.md#genuine-remaining-gaps)).
 
+### Frontend refactor (added 2026-08-03)
+- **Standardize data fetching on TanStack Query** — it's installed and used in a couple of spots (`SearchBar`, `main.tsx` provider), but most views go through the homegrown `useApiData` hook (~324 lines of bespoke retry/poll/cache logic). Pick one; delete the other.
+- **Split `src/lib/api.ts`** (~920 lines) — REST client, WebSocket management, and per-domain endpoint methods all live in one file. Break into `rest.ts` / `ws.ts` / per-domain endpoint modules.
+- **Extract a WebSocket provider/context** — components currently share the `ApiClient` singleton's pub-sub (`wsListeners`); a React context would make subscriptions declarative and testable.
+- **Consolidate duplicate table components** — `ConnectionsTableEnhanced` vs `ConnectionsTableVirtualized` overlap; merge and retire the `-Enhanced` naming convention repo-wide.
+- **URL-synced navigation** — tabs are pure component state today, so views aren't deep-linkable or back-button friendly. Lightweight router or search-param sync.
+- **Make `tsc -b` green** — the project-references build fails on a few pre-existing type errors even though `tsc --noEmit` is clean; fix so `npm run build` doesn't need workarounds.
+
+### New interactive features (added 2026-08-03)
+- **Interactive network topology map** — force-directed graph of devices and their conversations, click a node to drill into that device's flows. Data already exists (devices + flows + fingerprinting).
+- **Live world map with animated connection arcs** — geolocation service already resolves external IPs; render active flows as arcs on a map instead of just the static geographic distribution list.
+- **Traffic Sankey diagram** — device → protocol → destination flow visualization for "where is my bandwidth going" at a glance.
+- **Timeline scrubbing / playback** — slider to replay historical traffic windows; flow data and hourly aggregates are already persisted.
+- **Per-device drill-down view** — sparklines of a device's metrics plotted against its learned baseline (baselines shipped; no dedicated UI consumes them beyond anomaly detection).
+- **Command palette (Cmd+K)** — global fuzzy jump to device/flow/view; `KeyboardShortcuts.tsx` already establishes the shortcut pattern.
+- **Customizable dashboard** — drag-and-drop widget layout (promoted from the exploratory tier below).
+- **Live activity ticker** — compact real-time feed of notable events (new device, threat, anomaly, alert-rule trigger) fed by the existing WS message types.
+
+### Backend refactor (added 2026-08-03)
+- **Split `services/storage.py`** (~2100 lines) — one class owns every table. Extract per-domain repositories (flows, devices, threats, baselines, alert rules) sharing the connection pool.
+- **Split `services/packet_capture.py`** (~1800 lines) — separate the protocol decoders (HTTP/DNS/TLS parsing) from capture-session/SSH management into their own modules.
+- **Single source of truth for schema** — tables are currently defined in three places (`storage._create_tables()`, `utils/migrations.py`, `auth_service._create_tables()`; see [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)). Consolidate so adding a table is a one-place change.
+- **Backend pytest infrastructure** — zero backend tests exist today; changes are verified by hand with `TestClient`. Add pytest + fixtures for storage/routers as a prerequisite for the splits above.
+- **Consolidate the analytics services** — `analytics.py`, `advanced_analytics.py`, `application_analytics.py`, and `network_quality_analytics.py` overlap in aggregation logic; unify around the SQL-aggregate patterns from the observability pass.
+
 ### Medium priority
 - **Remaining deep protocol coverage**: DHCP, SMTP/POP3/IMAP, FTP/TFTP analysis (HTTP/DNS/TLS already shipped).
 - **True ML-based anomaly detection** — current baseline system is EMA/z-score, not a trained model; behavioral profiling and auto-classification are still open.
@@ -42,7 +67,7 @@ Remote SSH packet capture (`capture_mode=remote_ssh`) as the primary method, aft
 - **Distributed/multi-sensor capture** — today assumes a single Pi/single network; no multi-site aggregation.
 
 ### Low priority / exploratory
-PostgreSQL or time-series DB migration option, packet sampling tuning for very high-traffic links (basic `sampling_rate` support already exists in `packet_capture.py`), customizable/drag-and-drop dashboards, SIEM/Grafana/Prometheus integrations, mobile-optimized views, plugin architecture. None of these are committed — revisit if a real need comes up.
+PostgreSQL or time-series DB migration option, packet sampling tuning for very high-traffic links (basic `sampling_rate` support already exists in `packet_capture.py`), SIEM/Grafana/Prometheus integrations, mobile-optimized views, plugin architecture. None of these are committed — revisit if a real need comes up.
 
 ## Notes for future roadmap edits
 - Update the "Shipped" section in the same commit as the feature that ships it.
