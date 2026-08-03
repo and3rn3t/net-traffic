@@ -3,16 +3,29 @@
  * Tests anomaly detection logic, rendering, and edge cases
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { AnomalyDetection } from '@/components/AnomalyDetection';
 import { createMockNetworkFlow, createMockDevice } from '@/test/helpers';
 
+function renderWithProvider(ui: React.ReactElement) {
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
 describe('AnomalyDetection', () => {
+  beforeEach(() => {
+    queryClient.clear();
+  });
+
+  afterEach(() => {
+    queryClient.clear();
+  });
   describe('Rendering', () => {
     it('should render component with title', () => {
-      render(<AnomalyDetection flows={[]} devices={[]} />);
+      renderWithProvider(<AnomalyDetection flows={[]} devices={[]} />);
 
       expect(screen.getByText(/anomaly detection/i)).toBeInTheDocument();
       expect(screen.getByText(/ai-powered behavioral analysis/i)).toBeInTheDocument();
@@ -25,7 +38,7 @@ describe('AnomalyDetection', () => {
       normalHour.setHours(10, 0, 0, 0);
       const flows = [createMockNetworkFlow({ timestamp: normalHour.getTime() })];
       const devices = [createMockDevice()];
-      render(<AnomalyDetection flows={flows} devices={devices} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={devices} />);
 
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
       expect(
@@ -63,7 +76,9 @@ describe('AnomalyDetection', () => {
       );
 
       const allFlows = [...normalFlows, ...highTrafficFlows];
-      render(<AnomalyDetection flows={allFlows} devices={[highTrafficDevice, ...normalDevices]} />);
+      renderWithProvider(
+        <AnomalyDetection flows={allFlows} devices={[highTrafficDevice, ...normalDevices]} />
+      );
 
       await waitFor(
         () => {
@@ -108,7 +123,7 @@ describe('AnomalyDetection', () => {
       const flows = [...normalFlows, ...highTrafficFlows];
       const devices = [highTrafficDevice, ...normalDevices];
 
-      render(<AnomalyDetection flows={flows} devices={devices} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={devices} />);
 
       // Wait for anomalies to be detected and rendered
       await waitFor(
@@ -135,7 +150,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      render(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
 
       expect(screen.getByText(/unusual activity hours/i)).toBeInTheDocument();
       expect(screen.getByText(/2AM-5AM/i)).toBeInTheDocument();
@@ -150,7 +165,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      render(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
 
       expect(screen.getByText(/potential port scanning/i)).toBeInTheDocument();
     });
@@ -163,7 +178,7 @@ describe('AnomalyDetection', () => {
         }),
       ];
 
-      render(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
 
       expect(screen.getByText(/large data upload/i)).toBeInTheDocument();
       expect(screen.getByText(/unusual upload\/download ratio/i)).toBeInTheDocument();
@@ -178,7 +193,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      render(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
 
       expect(screen.getByText(/repetitive connection pattern/i)).toBeInTheDocument();
       expect(screen.getByText(/possible C&C communication/i)).toBeInTheDocument();
@@ -224,7 +239,9 @@ describe('AnomalyDetection', () => {
       );
 
       const allFlows = [...normalFlows, ...highTrafficFlows];
-      render(<AnomalyDetection flows={allFlows} devices={[highTrafficDevice, ...normalDevices]} />);
+      renderWithProvider(
+        <AnomalyDetection flows={allFlows} devices={[highTrafficDevice, ...normalDevices]} />
+      );
 
       // Wait for anomalies to be detected
       await waitFor(
@@ -272,7 +289,9 @@ describe('AnomalyDetection', () => {
       );
 
       const allFlows = [...normalFlows, ...moderateFlows];
-      render(<AnomalyDetection flows={allFlows} devices={[moderateDevice, ...normalDevices]} />);
+      renderWithProvider(
+        <AnomalyDetection flows={allFlows} devices={[moderateDevice, ...normalDevices]} />
+      );
 
       // Wait for anomalies to be detected
       await waitFor(
@@ -300,7 +319,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      render(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
 
       expect(screen.getByText(/LOW/i)).toBeInTheDocument();
     });
@@ -317,7 +336,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      render(<AnomalyDetection flows={flows} devices={[device]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[device]} />);
 
       expect(screen.getByText(/anomaly score/i)).toBeInTheDocument();
       // Should display a numeric score
@@ -344,7 +363,7 @@ describe('AnomalyDetection', () => {
         ),
       ];
 
-      render(<AnomalyDetection flows={flows} devices={[device]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[device]} />);
 
       expect(screen.getByText(/anomaly score/i)).toBeInTheDocument();
     });
@@ -383,7 +402,7 @@ describe('AnomalyDetection', () => {
       );
 
       const flows = [...normalFlows, ...device1Flows];
-      render(<AnomalyDetection flows={flows} devices={[device1, ...normalDevices]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[device1, ...normalDevices]} />);
 
       // Wait for anomalies to be detected
       await waitFor(
@@ -417,7 +436,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      render(<AnomalyDetection flows={flows} devices={devices} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={devices} />);
 
       // Should show "+X more" if more than 3 devices
       const moreText = screen.queryByText(/\+.*more/i);
@@ -429,13 +448,13 @@ describe('AnomalyDetection', () => {
 
   describe('Edge Cases', () => {
     it('should handle empty flows', () => {
-      render(<AnomalyDetection flows={[]} devices={[createMockDevice()]} />);
+      renderWithProvider(<AnomalyDetection flows={[]} devices={[createMockDevice()]} />);
 
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
     });
 
     it('should handle empty devices', () => {
-      render(<AnomalyDetection flows={[createMockNetworkFlow()]} devices={[]} />);
+      renderWithProvider(<AnomalyDetection flows={[createMockNetworkFlow()]} devices={[]} />);
 
       // Should still render, but may not show device names
       expect(screen.getByText(/anomaly detection/i)).toBeInTheDocument();
@@ -453,7 +472,7 @@ describe('AnomalyDetection', () => {
           timestamp: normalHour.getTime() + i * 1000, // Spread timestamps slightly
         })
       );
-      render(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[createMockDevice()]} />);
 
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
     });
@@ -466,7 +485,7 @@ describe('AnomalyDetection', () => {
       const flows = [
         createMockNetworkFlow({ deviceId: device.id, timestamp: normalHour.getTime() }),
       ];
-      render(<AnomalyDetection flows={flows} devices={[device]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[device]} />);
 
       expect(screen.getByText(/no anomalies detected/i)).toBeInTheDocument();
     });
@@ -492,7 +511,7 @@ describe('AnomalyDetection', () => {
         ),
       ];
 
-      render(<AnomalyDetection flows={flows} devices={[device]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[device]} />);
 
       // Should display multiple anomalies, sorted by score
       const anomalies = screen.queryAllByText(/excessive bandwidth|potential port scanning/i);
@@ -510,7 +529,7 @@ describe('AnomalyDetection', () => {
         }),
       ];
 
-      render(<AnomalyDetection flows={flows} devices={[device]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[device]} />);
 
       expect(screen.getByText(/large data upload/i)).toBeInTheDocument();
     });
@@ -521,7 +540,7 @@ describe('AnomalyDetection', () => {
       // Use normal hours (10 AM) to avoid triggering "Unusual Activity Hours" anomaly
       const normalHour = new Date();
       normalHour.setHours(10, 0, 0, 0);
-      render(
+      renderWithProvider(
         <AnomalyDetection
           flows={[createMockNetworkFlow({ timestamp: normalHour.getTime() })]}
           devices={[createMockDevice()]}
@@ -542,7 +561,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      render(<AnomalyDetection flows={flows} devices={[device]} />);
+      renderWithProvider(<AnomalyDetection flows={flows} devices={[device]} />);
 
       // Should show warning (component uses Warning icon)
       expect(screen.queryByText(/no anomalies detected/i)).not.toBeInTheDocument();
@@ -559,7 +578,7 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      const { container } = render(
+      const { container } = renderWithProvider(
         <AnomalyDetection flows={flows} devices={[createMockDevice()]} />
       );
 
@@ -577,7 +596,9 @@ describe('AnomalyDetection', () => {
         })
       );
 
-      const { container } = render(<AnomalyDetection flows={flows} devices={[device]} />);
+      const { container } = renderWithProvider(
+        <AnomalyDetection flows={flows} devices={[device]} />
+      );
 
       expect(container).toBeInTheDocument();
     });

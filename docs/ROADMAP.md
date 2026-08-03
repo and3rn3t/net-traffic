@@ -42,7 +42,7 @@
 
 ### Frontend refactor
 
-- [ ] **Standardize data fetching on TanStack Query** — installed and used in a couple of spots (`SearchBar`, `main.tsx` provider), but most views go through the homegrown `useApiData` hook (~324 lines of bespoke retry/poll/cache logic). Pick one; delete the other.
+- [x] **Standardize data fetching on TanStack Query** — `useApiData.ts` rewritten internally to use `useQuery` (6 queries: health + devices/flows/threats/analytics/protocolStats) instead of hand-rolled fetch/poll/retry state, matching the pattern already used by `SearchBar.tsx`/`useFlowFilters.ts`. Public API/return shape unchanged, so `useDataSource.ts` (→ App.tsx), `AnomalyDetection.tsx`, and `MaintenancePanel.tsx` needed no changes.
 - [ ] **Split `src/lib/api.ts`** (~920 lines) — REST client, WebSocket management, and per-domain endpoint methods all in one file. Break into `rest.ts` / `ws.ts` / per-domain modules.
 - [ ] **WebSocket provider/context** — components share the `ApiClient` singleton's pub-sub (`wsListeners`); a React context makes subscriptions declarative and testable.
 - [ ] **Consolidate duplicate table components** — `ConnectionsTableEnhanced` vs `ConnectionsTableVirtualized` overlap; merge and retire the `-Enhanced` naming convention repo-wide.

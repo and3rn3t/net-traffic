@@ -4,7 +4,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { useApiData } from '@/hooks/useApiData';
 import { apiClient } from '@/lib/api';
 import { NetworkFlow, Device, Threat } from '@/lib/types';
@@ -122,12 +125,18 @@ const mockThreat: Threat = {
 };
 
 describe('useApiData', () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
   beforeEach(() => {
     vi.clearAllMocks();
+    queryClient.clear();
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    queryClient.clear();
   });
 
   describe('WebSocket Updates', () => {
@@ -163,7 +172,7 @@ describe('useApiData', () => {
         return () => {}; // Disconnect function
       });
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: true }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isConnected).toBe(true);
@@ -221,7 +230,7 @@ describe('useApiData', () => {
         return () => {};
       });
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: true }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isConnected).toBe(true);
@@ -278,7 +287,7 @@ describe('useApiData', () => {
         return () => {};
       });
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: true }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isConnected).toBe(true);
@@ -332,7 +341,7 @@ describe('useApiData', () => {
         return () => {};
       });
 
-      renderHook(() => useApiData({ useWebSocket: true }));
+      renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(() => {
         expect(apiClient.connectWebSocket).toHaveBeenCalled();
@@ -391,7 +400,7 @@ describe('useApiData', () => {
         return () => {};
       });
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: true }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isConnected).toBe(true);
@@ -421,7 +430,7 @@ describe('useApiData', () => {
       const error = new Error('Request timeout');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -454,7 +463,7 @@ describe('useApiData', () => {
       const error = new Error('Service unavailable');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -481,7 +490,7 @@ describe('useApiData', () => {
       const error = new Error('Network error');
       vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -520,7 +529,7 @@ describe('useApiData', () => {
       vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
       vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -546,7 +555,7 @@ describe('useApiData', () => {
       vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
       vi.mocked(apiClient.startCapture).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -597,7 +606,7 @@ describe('useApiData', () => {
         return () => {};
       });
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: true }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isConnected).toBe(true);
@@ -651,7 +660,7 @@ describe('useApiData', () => {
         return () => {};
       });
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: true }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isConnected).toBe(true);
@@ -700,7 +709,7 @@ describe('useApiData', () => {
       vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
       // Disable WebSocket to test polling behavior
-      renderHook(() => useApiData({ pollingInterval: 1000, useWebSocket: false }));
+      renderHook(() => useApiData({ pollingInterval: 1000, useWebSocket: false }), { wrapper });
 
       await waitFor(() => {
         expect(apiClient.healthCheck).toHaveBeenCalled();
@@ -739,7 +748,7 @@ describe('useApiData', () => {
       vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
       vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
-      renderHook(() => useApiData({ pollingInterval: 0 }));
+      renderHook(() => useApiData({ pollingInterval: 0 }), { wrapper });
 
       await waitFor(() => {
         expect(apiClient.healthCheck).toHaveBeenCalled();
@@ -778,7 +787,7 @@ describe('useApiData', () => {
       vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
       vi.mocked(apiClient.dismissThreat).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -789,7 +798,11 @@ describe('useApiData', () => {
       });
 
       expect(apiClient.dismissThreat).toHaveBeenCalledWith('threat-1');
-      expect(result.current.threats.find(t => t.id === 'threat-1')?.dismissed).toBe(true);
+      // setQueryData's subscriber notification lands on a following render,
+      // not necessarily flushed synchronously within the act() above.
+      await waitFor(() => {
+        expect(result.current.threats.find(t => t.id === 'threat-1')?.dismissed).toBe(true);
+      });
     });
   });
 });

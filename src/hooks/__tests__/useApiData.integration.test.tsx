@@ -4,7 +4,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { useApiData } from '../useApiData';
 import { apiClient } from '@/lib/api';
 
@@ -65,12 +68,18 @@ vi.mock('sonner', () => {
 });
 
 describe('useApiData Integration Tests', () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
   beforeEach(() => {
     vi.clearAllMocks();
+    queryClient.clear();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    queryClient.clear();
   });
 
   describe('Initial Data Fetching', () => {
@@ -96,7 +105,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockResolvedValue(mockAnalytics);
       (apiClient.getProtocolStats as any).mockResolvedValue(mockProtocolStats);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       // Wait for data to load (hook may start with isLoading true or false depending on USE_REAL_API)
       await waitFor(
@@ -123,7 +132,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockRejectedValue(error);
       (apiClient.getProtocolStats as any).mockRejectedValue(error);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       // Wait for initial attempt to fail
       await act(async () => {
@@ -160,8 +169,9 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
 
       // Disable WebSocket to test polling behavior
-      const { result } = renderHook(() =>
-        useApiData({ pollingInterval: 100, useWebSocket: false })
+      const { result } = renderHook(
+        () => useApiData({ pollingInterval: 100, useWebSocket: false }),
+        { wrapper }
       );
 
       // Wait for initial load
@@ -210,7 +220,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockResolvedValue([]);
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
 
-      const { result } = renderHook(() => useApiData({ pollingInterval: 0 }));
+      const { result } = renderHook(() => useApiData({ pollingInterval: 0 }), { wrapper });
 
       // Wait for initial load (should still happen via initial fetch effect)
       await waitFor(
@@ -254,7 +264,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockResolvedValue([]);
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: true }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
       await waitFor(
         () => {
@@ -286,7 +296,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockResolvedValue([]);
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
 
-      const { result } = renderHook(() => useApiData({ useWebSocket: false }));
+      const { result } = renderHook(() => useApiData({ useWebSocket: false }), { wrapper });
 
       await waitFor(
         () => {
@@ -323,7 +333,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
       (apiClient.startCapture as any).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -349,7 +359,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
       (apiClient.stopCapture as any).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -377,7 +387,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
       (apiClient.dismissThreat as any).mockResolvedValue(undefined);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       await waitFor(
         () => {
@@ -409,7 +419,7 @@ describe('useApiData Integration Tests', () => {
       (apiClient.getAnalytics as any).mockResolvedValue([]);
       (apiClient.getProtocolStats as any).mockResolvedValue([]);
 
-      const { result } = renderHook(() => useApiData());
+      const { result } = renderHook(() => useApiData(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);

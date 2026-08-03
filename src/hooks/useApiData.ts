@@ -1,8 +1,12 @@
 /**
  * React hook for fetching and managing API data
  * Provides a clean interface to switch between mock and real backend data
+ *
+ * Backed by TanStack Query (retry/caching/polling) instead of hand-rolled
+ * fetch state - matches the pattern used by SearchBar.tsx/useFlowFilters.ts.
  */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api';
 import { NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats } from '@/lib/types';
 import { toast } from 'sonner';
@@ -26,89 +30,189 @@ interface UseApiDataOptions {
   useWebSocket?: boolean;
 }
 
+const QUERY_KEYS = {
+  health: ['core', 'health'] as const,
+  devices: ['core', 'devices'] as const,
+  flows: ['core', 'flows'] as const,
+  threats: ['core', 'threats'] as const,
+  analytics: ['core', 'analytics'] as const,
+  protocolStats: ['core', 'protocolStats'] as const,
+};
+
 export function useApiData(options: UseApiDataOptions = {}) {
   const { pollingInterval = 5000, useWebSocket = true } = options;
+  const queryClient = useQueryClient();
 
   const snapshot = USE_REAL_API ? loadSnapshot<CoreSnapshot>(SNAPSHOT_KEY) : null;
-
-  const [devices, setDevices] = useState<Device[]>(snapshot?.devices ?? []);
-  const [flows, setFlows] = useState<NetworkFlow[]>(snapshot?.flows ?? []);
-  const [threats, setThreats] = useState<Threat[]>(snapshot?.threats ?? []);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>(
-    snapshot?.analyticsData ?? []
-  );
-  const [protocolStats, setProtocolStats] = useState<ProtocolStats[]>(
-    snapshot?.protocolStats ?? []
-  );
+  // initialDataUpdatedAt: 0 marks the hydrated snapshot as already-stale, so
+  // TanStack still kicks off a real background fetch on mount instead of
+  // treating the cached snapshot as fresh for a full staleTime window.
+  // (initialData is a function above so a missing snapshot cleanly resolves
+  // to `undefined` at runtime, matching TanStack's "no initial data" path,
+  // despite the `as` cast needed to satisfy the strict overload typing.)
+  const snapshotHydration = { initialDataUpdatedAt: () => 0 };
 
   const [isCapturing, setIsCapturing] = useState(false);
-  const [isLoading, setIsLoading] = useState(USE_REAL_API && !snapshot);
-  const [isConnected, setIsConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   // True once we've painted from a cached snapshot but haven't confirmed it
   // with a fresh fetch yet - lets the UI show a "stale data" hint.
   const [isShowingStaleSnapshot, setIsShowingStaleSnapshot] = useState(!!snapshot);
 
-  // Only the very first fetch should show the full-screen loading state -
-  // background polls/refreshes (WS backup poll, manual refresh) update data
-  // silently instead of flashing the "Connecting to backend..." screen.
-  const hasLoadedOnceRef = useRef(!!snapshot);
+  const healthQuery = useQuery({
+    queryKey: QUERY_KEYS.health,
+    queryFn: () => apiClient.healthCheck(),
+    enabled: USE_REAL_API,
+    // ApiClient already retries internally on 5xx errors - don't stack a
+    // second layer of retries on top, matching the original hook's
+    // single-attempt-per-fetch design.
+    retry: false,
+    refetchInterval: (pollingInterval || false) as number | false,
+  });
 
-  // Fetch all data (ApiClient handles internal retries on 5xx errors)
-  const fetchAll = useCallback(async () => {
-    if (!USE_REAL_API) {
-      setIsLoading(false);
-      return;
+  const isConnected = USE_REAL_API && healthQuery.isSuccess;
+
+  // Backup poll every 60s once WebSocket is providing real-time updates,
+  // otherwise fall back to normal interval polling.
+  const dataRefetchInterval: number | false =
+    useWebSocket && isConnected ? 60000 : pollingInterval || false;
+  const dataQueryOptions: { enabled: boolean; retry: false; refetchInterval: number | false } = {
+    enabled: USE_REAL_API,
+    retry: false,
+    refetchInterval: dataRefetchInterval,
+  };
+
+  const devicesQuery = useQuery({
+    queryKey: QUERY_KEYS.devices,
+    queryFn: () => apiClient.getDevices(),
+    initialData: () => snapshot?.devices as Device[],
+    ...snapshotHydration,
+    ...dataQueryOptions,
+  });
+  const flowsQuery = useQuery({
+    queryKey: QUERY_KEYS.flows,
+    queryFn: () => apiClient.getFlows(100),
+    initialData: () => snapshot?.flows as NetworkFlow[],
+    ...snapshotHydration,
+    ...dataQueryOptions,
+  });
+  const threatsQuery = useQuery({
+    queryKey: QUERY_KEYS.threats,
+    queryFn: () => apiClient.getThreats(true),
+    initialData: () => snapshot?.threats as Threat[],
+    ...snapshotHydration,
+    ...dataQueryOptions,
+  });
+  const analyticsQuery = useQuery({
+    queryKey: QUERY_KEYS.analytics,
+    queryFn: () => apiClient.getAnalytics(24),
+    initialData: () => snapshot?.analyticsData as AnalyticsData[],
+    ...snapshotHydration,
+    ...dataQueryOptions,
+  });
+  const protocolStatsQuery = useQuery({
+    queryKey: QUERY_KEYS.protocolStats,
+    queryFn: () => apiClient.getProtocolStats(),
+    initialData: () => snapshot?.protocolStats as ProtocolStats[],
+    ...snapshotHydration,
+    ...dataQueryOptions,
+  });
+
+  const devices = devicesQuery.data ?? [];
+  const flows = flowsQuery.data ?? [];
+  const threats = threatsQuery.data ?? [];
+  const analyticsData = analyticsQuery.data ?? [];
+  const protocolStats = protocolStatsQuery.data ?? [];
+
+  const isLoading =
+    USE_REAL_API &&
+    (devicesQuery.isLoading ||
+      flowsQuery.isLoading ||
+      threatsQuery.isLoading ||
+      analyticsQuery.isLoading ||
+      protocolStatsQuery.isLoading);
+
+  const firstError =
+    healthQuery.error ||
+    devicesQuery.error ||
+    flowsQuery.error ||
+    threatsQuery.error ||
+    analyticsQuery.error ||
+    protocolStatsQuery.error;
+  const error = firstError
+    ? firstError instanceof Error
+      ? firstError.message
+      : 'Failed to fetch data'
+    : null;
+
+  // Sync isCapturing from the health check (background poll keeps it fresh);
+  // startCapture/stopCapture below override it immediately for instant UI feedback.
+  useEffect(() => {
+    if (healthQuery.data) {
+      setIsCapturing(healthQuery.data.capture_running || false);
     }
+  }, [healthQuery.data]);
 
-    try {
-      if (!hasLoadedOnceRef.current) {
-        setIsLoading(true);
-      }
-      setError(null);
-
-      // Check backend health
-      const health = await apiClient.healthCheck();
-      setIsConnected(true);
-      setIsCapturing(health.capture_running || false);
-
-      // Fetch all data in parallel
-      const [devicesData, flowsData, threatsData, analyticsDataResult, protocolStatsData] =
-        await Promise.all([
-          apiClient.getDevices(),
-          apiClient.getFlows(100),
-          apiClient.getThreats(true),
-          apiClient.getAnalytics(24),
-          apiClient.getProtocolStats(),
-        ]);
-
-      setDevices(devicesData || []);
-      setFlows(flowsData || []);
-      setThreats(threatsData || []);
-      setAnalyticsData(analyticsDataResult || []);
-      setProtocolStats(protocolStatsData || []);
+  // Clear the "stale snapshot" flag once every core query has completed at
+  // least one real network fetch (not just the hydrated snapshot).
+  useEffect(() => {
+    if (
+      isShowingStaleSnapshot &&
+      devicesQuery.isFetched &&
+      flowsQuery.isFetched &&
+      threatsQuery.isFetched &&
+      analyticsQuery.isFetched &&
+      protocolStatsQuery.isFetched
+    ) {
       setIsShowingStaleSnapshot(false);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch data';
-      setError(errorMessage);
-      setIsConnected(false);
-      console.error('API fetch error:', err);
+    }
+  }, [
+    isShowingStaleSnapshot,
+    devicesQuery.isFetched,
+    flowsQuery.isFetched,
+    threatsQuery.isFetched,
+    analyticsQuery.isFetched,
+    protocolStatsQuery.isFetched,
+  ]);
 
+  const refetchAll = useCallback(async () => {
+    if (!USE_REAL_API) return;
+    await Promise.all([
+      healthQuery.refetch(),
+      devicesQuery.refetch(),
+      flowsQuery.refetch(),
+      threatsQuery.refetch(),
+      analyticsQuery.refetch(),
+      protocolStatsQuery.refetch(),
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Toast once per new failure incident (rising edge), not once per
+  // individual retry/poll attempt - avoids toast spam while the backend
+  // stays down across many background polls.
+  const isError =
+    healthQuery.isError ||
+    devicesQuery.isError ||
+    flowsQuery.isError ||
+    threatsQuery.isError ||
+    analyticsQuery.isError ||
+    protocolStatsQuery.isError;
+  const wasErrorRef = useRef(false);
+  useEffect(() => {
+    if (isError && !wasErrorRef.current) {
       toast.error('Backend unavailable', {
         description:
-          err instanceof ApiError && err.requestId
-            ? `Cannot connect to backend. Check that the service is running. (Request ID: ${err.requestId})`
+          firstError instanceof ApiError && firstError.requestId
+            ? `Cannot connect to backend. Check that the service is running. (Request ID: ${firstError.requestId})`
             : 'Cannot connect to backend. Check that the service is running.',
         action: {
           label: 'Retry',
-          onClick: () => fetchAll(),
+          onClick: () => refetchAll(),
         },
       });
-    } finally {
-      hasLoadedOnceRef.current = true;
-      setIsLoading(false);
     }
-  }, []);
+    wasErrorRef.current = isError;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isError]);
 
   // WebSocket connection for real-time updates
   useEffect(() => {
@@ -124,20 +228,20 @@ export function useApiData(options: UseApiDataOptions = {}) {
         switch (message.type) {
           case 'initial_state':
             if (message.devices && Array.isArray(message.devices)) {
-              setDevices(message.devices as Device[]);
+              queryClient.setQueryData(QUERY_KEYS.devices, message.devices as Device[]);
             }
             if (message.flows && Array.isArray(message.flows)) {
-              setFlows(message.flows as NetworkFlow[]);
+              queryClient.setQueryData(QUERY_KEYS.flows, message.flows as NetworkFlow[]);
             }
             if (message.threats && Array.isArray(message.threats)) {
-              setThreats(message.threats as Threat[]);
+              queryClient.setQueryData(QUERY_KEYS.threats, message.threats as Threat[]);
             }
             break;
 
           case 'flow_update':
             if (message.flow && typeof message.flow === 'object') {
               const flow = message.flow as NetworkFlow;
-              setFlows(current => {
+              queryClient.setQueryData(QUERY_KEYS.flows, (current: NetworkFlow[] = []) => {
                 const existing = current.findIndex(f => f.id === flow.id);
                 if (existing >= 0) {
                   const updated = [...current];
@@ -152,7 +256,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
           case 'device_update':
             if (message.device && typeof message.device === 'object') {
               const device = message.device as Device;
-              setDevices(current => {
+              queryClient.setQueryData(QUERY_KEYS.devices, (current: Device[] = []) => {
                 const existing = current.findIndex(d => d.id === device.id);
                 if (existing >= 0) {
                   const updated = [...current];
@@ -167,7 +271,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
           case 'threat_update':
             if (message.threat && typeof message.threat === 'object') {
               const threat = message.threat as Threat;
-              setThreats(current => {
+              queryClient.setQueryData(QUERY_KEYS.threats, (current: Threat[] = []) => {
                 const existing = current.findIndex(t => t.id === threat.id);
                 if (existing >= 0) {
                   const updated = [...current];
@@ -196,7 +300,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
     });
 
     return disconnect;
-  }, [useWebSocket, isConnected]);
+  }, [useWebSocket, isConnected, queryClient]);
 
   // Persist a trimmed snapshot to localStorage (debounced) so a reload can
   // paint instantly from cache instead of showing a blank loading screen.
@@ -213,37 +317,6 @@ export function useApiData(options: UseApiDataOptions = {}) {
     }, SNAPSHOT_SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
   }, [devices, flows, threats, analyticsData, protocolStats]);
-
-  // Polling for data updates (only as fallback when WebSocket is not available)
-  useEffect(() => {
-    if (!USE_REAL_API || pollingInterval === 0) {
-      return;
-    }
-
-    // If WebSocket is enabled and connected, reduce polling frequency significantly
-    // or disable it entirely since WebSocket provides real-time updates
-    if (useWebSocket && isConnected) {
-      // Only poll every 60 seconds as a backup health check when WebSocket is active
-      const backupInterval = setInterval(() => {
-        // Silent health check - only update if WebSocket might have missed something
-        fetchAll().catch(() => {
-          // Silently fail - WebSocket will handle updates
-        });
-      }, 60000); // 60 seconds instead of 5
-      return () => clearInterval(backupInterval);
-    }
-
-    // Normal polling when WebSocket is not available
-    fetchAll();
-    const interval = setInterval(fetchAll, pollingInterval);
-
-    return () => clearInterval(interval);
-  }, [fetchAll, pollingInterval, useWebSocket, isConnected]);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
 
   // Control functions
   const startCapture = useCallback(async () => {
@@ -280,21 +353,27 @@ export function useApiData(options: UseApiDataOptions = {}) {
     }
   }, []);
 
-  const dismissThreat = useCallback(async (threatId: string) => {
-    if (!USE_REAL_API) {
-      setThreats(current => current.map(t => (t.id === threatId ? { ...t, dismissed: true } : t)));
-      return;
-    }
+  const dismissThreat = useCallback(
+    async (threatId: string) => {
+      const markDismissed = (current: Threat[] = []) =>
+        current.map(t => (t.id === threatId ? { ...t, dismissed: true } : t));
 
-    try {
-      await apiClient.dismissThreat(threatId);
-      setThreats(current => current.map(t => (t.id === threatId ? { ...t, dismissed: true } : t)));
-    } catch (err) {
-      toast.error('Failed to dismiss threat', {
-        description: err instanceof Error ? err.message : 'Unknown error',
-      });
-    }
-  }, []);
+      if (!USE_REAL_API) {
+        queryClient.setQueryData(QUERY_KEYS.threats, markDismissed);
+        return;
+      }
+
+      try {
+        await apiClient.dismissThreat(threatId);
+        queryClient.setQueryData(QUERY_KEYS.threats, markDismissed);
+      } catch (err) {
+        toast.error('Failed to dismiss threat', {
+          description: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
+    },
+    [queryClient]
+  );
 
   return {
     // Data
@@ -315,8 +394,8 @@ export function useApiData(options: UseApiDataOptions = {}) {
     startCapture,
     stopCapture,
     dismissThreat,
-    refresh: fetchAll,
-    retryNow: fetchAll,
+    refresh: refetchAll,
+    retryNow: refetchAll,
 
     // Metadata
     useRealApi: USE_REAL_API,
