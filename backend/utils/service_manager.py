@@ -10,10 +10,7 @@ from services.oui_lookup import OuiLookup
 from services.dhcp_lease_service import DhcpLeaseService
 from services.threat_detection import ThreatDetectionService
 from services.analytics import AnalyticsService
-from services.advanced_analytics import AdvancedAnalyticsService
 from services.geolocation import GeolocationService
-from services.network_quality_analytics import NetworkQualityAnalyticsService
-from services.application_analytics import ApplicationAnalyticsService
 from services.packet_capture import PacketCaptureService
 from services.enhanced_identification import EnhancedIdentificationService
 from services.alerting import AlertingService
@@ -32,10 +29,10 @@ class ServiceManager:
         self.device_service: Optional[DeviceFingerprintingService] = None
         self.threat_service: Optional[ThreatDetectionService] = None
         self.analytics: Optional[AnalyticsService] = None
-        self.advanced_analytics: Optional[AdvancedAnalyticsService] = None
+        self.advanced_analytics: Optional[AnalyticsService] = None
         self.geolocation_service: Optional[GeolocationService] = None
-        self.network_quality_analytics: Optional[NetworkQualityAnalyticsService] = None
-        self.application_analytics: Optional[ApplicationAnalyticsService] = None
+        self.network_quality_analytics: Optional[AnalyticsService] = None
+        self.application_analytics: Optional[AnalyticsService] = None
         self.packet_capture: Optional[PacketCaptureService] = None
         self.alerting_service: Optional[AlertingService] = None
         self.baseline_learning_service: Optional[BaselineLearningService] = None
@@ -72,15 +69,18 @@ class ServiceManager:
         self.baseline_learning_service = BaselineLearningService(
             self.storage, on_threat_update=on_threat_update
         )
+        # AnalyticsService consolidates what used to be 4 separate classes
+        # (analytics/advanced_analytics/network_quality_analytics/
+        # application_analytics) - all 4 attribute names below point at the
+        # same instance so every existing state.<name>.method() call site
+        # keeps working unchanged.
         self.analytics = AnalyticsService(self.storage)
-        self.advanced_analytics = AdvancedAnalyticsService(self.storage)
+        self.advanced_analytics = self.analytics
+        self.network_quality_analytics = self.analytics
+        self.application_analytics = self.analytics
 
         # Initialize geolocation service
         self.geolocation_service = GeolocationService(db_path=config.geoip_db_path)
-
-        # Initialize new analytics services
-        self.network_quality_analytics = NetworkQualityAnalyticsService(self.storage)
-        self.application_analytics = ApplicationAnalyticsService(self.storage)
 
         # Initialize enhanced identification service
         enhanced_identification = EnhancedIdentificationService(

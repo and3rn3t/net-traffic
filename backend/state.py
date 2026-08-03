@@ -20,10 +20,7 @@ if TYPE_CHECKING:
     from services.threat_detection import ThreatDetectionService
     from services.storage import StorageService
     from services.analytics import AnalyticsService
-    from services.advanced_analytics import AdvancedAnalyticsService
     from services.geolocation import GeolocationService
-    from services.network_quality_analytics import NetworkQualityAnalyticsService
-    from services.application_analytics import ApplicationAnalyticsService
     from services.auth_service import AuthService
     from services.cache_service import CacheService
     from services.alerting import AlertingService
@@ -38,10 +35,14 @@ device_service: Optional["DeviceFingerprintingService"] = None
 threat_service: Optional["ThreatDetectionService"] = None
 storage: Optional["StorageService"] = None
 analytics: Optional["AnalyticsService"] = None
-advanced_analytics: Optional["AdvancedAnalyticsService"] = None
+# advanced_analytics/network_quality_analytics/application_analytics were
+# previously distinct service classes, now all aliases of the same
+# consolidated AnalyticsService instance (see utils/service_manager.py) -
+# kept as separate attributes so router call sites don't need to change.
+advanced_analytics: Optional["AnalyticsService"] = None
 geolocation_service: Optional["GeolocationService"] = None
-network_quality_analytics: Optional["NetworkQualityAnalyticsService"] = None
-application_analytics: Optional["ApplicationAnalyticsService"] = None
+network_quality_analytics: Optional["AnalyticsService"] = None
+application_analytics: Optional["AnalyticsService"] = None
 auth_service: Optional["AuthService"] = None
 cache_service: Optional["CacheService"] = None
 alerting_service: Optional["AlertingService"] = None
