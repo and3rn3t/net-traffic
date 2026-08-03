@@ -9,6 +9,7 @@ import { ErrorFallback } from './ErrorFallback.tsx';
 import { queryClient } from './lib/queryClient';
 import { AppProvider } from './contexts/AppContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 
 import './main.css';
 import './styles/theme.css';
@@ -19,9 +20,11 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider attribute="data-appearance" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <AppProvider>
-            <App />
-          </AppProvider>
+          <WebSocketProvider>
+            <AppProvider>
+              <App />
+            </AppProvider>
+          </WebSocketProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

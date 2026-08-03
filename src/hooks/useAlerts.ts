@@ -3,6 +3,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api';
+import { useWebSocketSubscription } from '@/contexts/WebSocketContext';
 import { AlertRule, AlertRuleInput, TriggeredAlert } from '@/lib/types';
 import { toast } from 'sonner';
 import { API_CONFIG } from '@/hooks/useApiConfig';
@@ -45,33 +46,26 @@ export function useAlerts() {
     refresh();
   }, [refresh]);
 
-  // Live triggered-alert feed via the WebSocket pub/sub
-  useEffect(() => {
-    if (!USE_REAL_API) {
-      return;
+  // Live triggered-alert feed via the shared WebSocket pub/sub - a no-op
+  // subscription when USE_REAL_API is false, since nothing ever publishes.
+  useWebSocketSubscription('alert_triggered', (data: unknown) => {
+    if (!data || typeof data !== 'object') return;
+    const message = data as Record<string, unknown>;
+    if (!message.alert || typeof message.alert !== 'object') return;
+
+    const alert = message.alert as TriggeredAlert;
+    setTriggeredAlerts(current => [alert, ...current].slice(0, 100));
+
+    if (alert.severity === 'critical' || alert.severity === 'high') {
+      toast.error(`Alert: ${alert.description}`, {
+        description: `Severity: ${alert.severity}`,
+      });
+    } else {
+      toast.warning(`Alert: ${alert.description}`, {
+        description: `Severity: ${alert.severity}`,
+      });
     }
-
-    const unsubscribe = apiClient.on('alert_triggered', (data: unknown) => {
-      if (!data || typeof data !== 'object') return;
-      const message = data as Record<string, unknown>;
-      if (!message.alert || typeof message.alert !== 'object') return;
-
-      const alert = message.alert as TriggeredAlert;
-      setTriggeredAlerts(current => [alert, ...current].slice(0, 100));
-
-      if (alert.severity === 'critical' || alert.severity === 'high') {
-        toast.error(`Alert: ${alert.description}`, {
-          description: `Severity: ${alert.severity}`,
-        });
-      } else {
-        toast.warning(`Alert: ${alert.description}`, {
-          description: `Severity: ${alert.severity}`,
-        });
-      }
-    });
-
-    return unsubscribe;
-  }, []);
+  });
 
   const createRule = useCallback(async (rule: AlertRuleInput) => {
     const created = await apiClient.createAlertRule(rule);
