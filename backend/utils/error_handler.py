@@ -166,38 +166,3 @@ async def handle_endpoint_error_call(operation, error_message: str = "Operation 
             status_code=500,
             detail=f"{error_message}: An unexpected error occurred"
         )
-    """
-    Decorator for FastAPI endpoints with error handling (no arguments version)
-
-    Usage:
-        @app.get("/api/endpoint")
-        @handle_endpoint_error
-        async def my_endpoint():
-            # endpoint code
-    """
-    @wraps(func)
-    async def wrapper(*args: Any, **kwargs: Any) -> Any:
-        try:
-            return await func(*args, **kwargs)
-        except HTTPException:
-            # Re-raise HTTP exceptions (they're already properly formatted)
-            raise
-        except ValueError as e:
-            # Validation errors
-            logger.warning(f"Validation error: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
-        except aiosqlite.Error as e:
-            # Database errors
-            logger.error(f"Database error: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail="Database error occurred. Please try again later."
-            )
-        except Exception as e:
-            # Unexpected errors
-            logger.error(f"Unexpected error: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500,
-                detail="Operation failed: An unexpected error occurred"
-            )
-    return wrapper

@@ -11,7 +11,7 @@ from collections import defaultdict
 import re
 
 try:
-    import dns.resolver
+    import dns.resolver  # noqa: F401 - import itself is the availability check
     DNS_AVAILABLE = True
 except ImportError:
     DNS_AVAILABLE = False

@@ -7,8 +7,7 @@ import logging
 import json
 import time
 import redis.asyncio as redis
-from typing import Optional, Any, List
-from datetime import timedelta
+from typing import Optional, Any
 
 logger = logging.getLogger(__name__)
 

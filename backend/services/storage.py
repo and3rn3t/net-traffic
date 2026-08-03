@@ -184,7 +184,7 @@ class StorageService:
                 else:
                     # Not a connection error, don't retry
                     raise
-            except Exception as e:
+            except Exception:
                 # Other errors - don't retry
                 raise
 

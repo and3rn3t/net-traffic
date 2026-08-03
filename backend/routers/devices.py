@@ -1,7 +1,7 @@
 """Device endpoints."""
-from typing import List, Optional
+from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 
 import state
 from models.auth import User
@@ -10,7 +10,7 @@ from models.types import Device
 from utils.auth_dependencies import require_operator_or_admin
 from utils.constants import ErrorMessages
 from utils.error_handler import handle_endpoint_error_call
-from utils.validators import DeviceIdPath, HoursQuery, LimitQuery, OffsetQuery
+from utils.validators import DeviceIdPath, HoursQuery
 from utils.validators import validate_string_param
 
 router = APIRouter(prefix="/api", tags=["devices"])

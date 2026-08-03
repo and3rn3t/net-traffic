@@ -1,6 +1,6 @@
 """Authentication endpoints."""
 from datetime import timedelta
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -10,7 +10,7 @@ from models.auth import (
     APIKey, APIKeyCreate, PasswordChange, Token, User, UserCreate, UserUpdate,
 )
 from utils.auth_dependencies import (
-    get_current_active_user, get_current_user, require_admin,
+    get_current_active_user, require_admin,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])

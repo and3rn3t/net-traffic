@@ -8,7 +8,7 @@ from models.types import NetworkFlow
 from utils.constants import ErrorMessages
 from utils.error_handler import handle_endpoint_error_call
 from utils.validators import (
-    FlowIdPath, HoursQuery, IPQuery, LimitQuery, OffsetQuery,
+    FlowIdPath, IPQuery, LimitQuery, OffsetQuery,
     StatusQuery, ThreatLevelQuery, validate_min_bytes, validate_time_range,
 )
 

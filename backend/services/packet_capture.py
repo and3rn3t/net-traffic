@@ -5,7 +5,6 @@ Captures network traffic and extracts flow information
 import asyncio
 import ipaddress
 import logging
-import socket
 import subprocess
 import time
 from typing import Optional, Callable, Dict, List

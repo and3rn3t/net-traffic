@@ -3,7 +3,7 @@ Geolocation service using GeoIP2
 """
 import ipaddress
 import logging
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict
 
 try:
     import geoip2.database

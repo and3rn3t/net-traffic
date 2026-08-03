@@ -5,7 +5,7 @@ Provides dependency injection for authentication and authorization
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
-from models.auth import User, UserRole, TokenData
+from models.auth import User, UserRole
 from services.auth_service import AuthService
 from utils.constants import ErrorMessages
 

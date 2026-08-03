@@ -1,0 +1,10 @@
+[tool.ruff]
+target-version = "py311"
+exclude = [".venv", "venv"]
+
+[tool.ruff.lint]
+# Minimal real-correctness gate for CI (E9 syntax errors, F pyflakes).
+# The broader style/modernization rule catalog (UP, BLE, DTZ, SIM, TRY, S, ...)
+# surfaced ~788 findings on first run - opt into those incrementally later
+# rather than gating CI on them now.
+select = ["E9", "F"]

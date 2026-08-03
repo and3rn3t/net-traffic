@@ -109,7 +109,7 @@ def setup_logging(
             logging.error(f"Failed to setup file logging: {e}")
 
     logging.info(
-        f"Logging configured",
+        "Logging configured",
         extra={
             'level': level,
             'json_format': use_json,

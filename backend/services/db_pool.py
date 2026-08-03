@@ -5,9 +5,8 @@ Provides connection pooling, health checks, and query queuing for SQLite
 import asyncio
 import logging
 import aiosqlite
-from typing import Optional, Callable, Any
+from typing import Callable, Any
 from contextlib import asynccontextmanager
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
