@@ -8,13 +8,9 @@ import {
   TrendingUp,
   Network,
   AlertTriangle,
-  Eye,
-  LineChart,
-  Sparkles,
   Circle,
   WifiOff,
   Database,
-  Bell,
 } from 'lucide-react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
@@ -24,40 +20,18 @@ import { DataExporterEnhanced } from '@/components/DataExporterEnhanced';
 import { SearchBar } from '@/components/SearchBar';
 import { TrafficChart } from '@/components/TrafficChart';
 import { ProtocolBreakdown } from '@/components/ProtocolBreakdown';
-import { PacketBurst } from '@/components/PacketBurst';
-import { BandwidthGauge } from '@/components/BandwidthGauge';
 import { TopUsersEnhanced } from '@/components/TopUsersEnhanced';
 import { TopSitesEnhanced } from '@/components/TopSitesEnhanced';
 import { GeographicDistributionEnhanced } from '@/components/GeographicDistributionEnhanced';
-import { SummaryStatsCard } from '@/components/SummaryStatsCard';
-import { InsightsSummary } from '@/components/InsightsSummary';
-import { ConnectionQuality } from '@/components/ConnectionQuality';
-import { ConnectionHealthMonitor } from '@/components/ConnectionHealthMonitor';
+import { AlertRules } from '@/components/AlertRules';
 // Lazy-loaded heavy components
-import {
-  NetworkGraphLazy,
-  GeographicMapLazy,
-  FlowPipeVisualizationLazy,
-  HeatmapTimelineLazy,
-  ProtocolSankeyLazy,
-  RadarChartLazy,
-  HistoricalTrendsLazy,
-  PeakUsageAnalysisLazy,
-  BandwidthPatternsLazy,
-  ProtocolTimelineLazy,
-  UserActivityTimelineLazy,
-  AnomalyDetectionLazy,
-  SecurityPostureLazy,
-  BandwidthCostEstimatorLazy,
-  LazyWrapper,
-} from '@/components/lazy';
+import { HistoricalTrendsLazy, AnomalyDetectionLazy, LazyWrapper } from '@/components/lazy';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { NetworkQualityDashboard } from '@/components/NetworkQualityDashboard';
 import { ApplicationUsageDashboard } from '@/components/ApplicationUsageDashboard';
 import { MaintenancePanel } from '@/components/MaintenancePanel';
-import { AlertRules } from '@/components/AlertRules';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { AccountMenu } from '@/components/AccountMenu';
@@ -225,18 +199,6 @@ function App() {
               <Activity size={16} />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger value="insights" className="gap-2">
-              <LineChart size={16} />
-              Insights
-            </TabsTrigger>
-            <TabsTrigger value="advanced" className="gap-2">
-              <Sparkles size={16} />
-              Advanced
-            </TabsTrigger>
-            <TabsTrigger value="visualizations" className="gap-2">
-              <Eye size={16} />
-              Visualizations
-            </TabsTrigger>
             <TabsTrigger value="devices" className="gap-2">
               <Smartphone size={16} />
               Devices
@@ -254,13 +216,9 @@ function App() {
               <TrendingUp size={16} />
               Analytics
             </TabsTrigger>
-            <TabsTrigger value="alerts" className="gap-2">
-              <Bell size={16} />
-              Alerts
-            </TabsTrigger>
-            <TabsTrigger value="maintenance" className="gap-2">
+            <TabsTrigger value="system" className="gap-2">
               <Database size={16} />
-              Maintenance
+              System
             </TabsTrigger>
           </TabsList>
 
@@ -335,34 +293,7 @@ function App() {
             )}
 
             <ErrorBoundary>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                <ErrorBoundary>
-                  <LazyWrapper>
-                    <NetworkGraphLazy
-                      flows={activeFlows.slice(0, 20)}
-                      devices={devices || []}
-                      useApi={USE_REAL_API && isConnected}
-                    />
-                  </LazyWrapper>
-                </ErrorBoundary>
-                <ErrorBoundary>
-                  <TrafficChart
-                    data={analyticsData}
-                    useApi={USE_REAL_API && isConnected}
-                    hours={24}
-                  />
-                </ErrorBoundary>
-              </div>
-            </ErrorBoundary>
-
-            <ErrorBoundary>
-              <LazyWrapper>
-                <FlowPipeVisualizationLazy
-                  flows={flows}
-                  devices={devices}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
+              <TrafficChart data={analyticsData} useApi={USE_REAL_API && isConnected} hours={24} />
             </ErrorBoundary>
 
             <ErrorBoundary>
@@ -372,178 +303,6 @@ function App() {
                 useApiFilters={USE_REAL_API && isConnected}
               />
             </ErrorBoundary>
-          </TabsContent>
-
-          <TabsContent value="insights" className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">Network Insights</h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Deep analysis of network patterns, top users, destinations, and usage trends
-              </p>
-            </div>
-
-            <InsightsSummary
-              devices={devices}
-              flows={flows}
-              threats={threats}
-              useApi={USE_REAL_API && isConnected}
-            />
-
-            {/* Summary Statistics Card - Enhanced API */}
-            <SummaryStatsCard />
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ConnectionQuality flows={flows} hours={24} />
-              <LazyWrapper>
-                <PeakUsageAnalysisLazy
-                  flows={flows}
-                  devices={devices}
-                  hours={24}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TopUsersEnhanced
-                devices={devices}
-                flows={flows}
-                hours={24}
-                limit={10}
-                sortBy="bytes"
-              />
-              <TopSitesEnhanced flows={flows} hours={24} limit={10} />
-            </div>
-
-            <ErrorBoundary>
-              <LazyWrapper>
-                <HistoricalTrendsLazy data={analyticsData} useApi={USE_REAL_API && isConnected} />
-              </LazyWrapper>
-            </ErrorBoundary>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <LazyWrapper>
-                <BandwidthPatternsLazy
-                  flows={flows}
-                  hours={24}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
-              <GeographicDistributionEnhanced flows={flows} hours={24} />
-            </div>
-
-            <LazyWrapper>
-              <ProtocolTimelineLazy
-                flows={flows}
-                protocolStats={protocolStats}
-                useApi={USE_REAL_API && isConnected}
-              />
-            </LazyWrapper>
-
-            <LazyWrapper>
-              <UserActivityTimelineLazy
-                flows={flows}
-                hours={24}
-                useApi={USE_REAL_API && isConnected}
-              />
-            </LazyWrapper>
-          </TabsContent>
-
-          <TabsContent value="advanced" className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">Advanced Analytics</h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                AI-powered insights, security scoring, cost analysis, and data export tools
-              </p>
-            </div>
-
-            {USE_REAL_API && (
-              <ErrorBoundary>
-                <ConnectionHealthMonitor
-                  isConnected={isConnected}
-                  error={error}
-                  onRetry={() => refresh()}
-                  enableMetrics={true}
-                />
-              </ErrorBoundary>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <LazyWrapper>
-                <SecurityPostureLazy
-                  flows={flows}
-                  devices={devices}
-                  threats={threats}
-                  protocolStats={protocolStats}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
-              <LazyWrapper>
-                <AnomalyDetectionLazy
-                  flows={flows}
-                  devices={devices}
-                  threats={threats}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <LazyWrapper>
-                <BandwidthCostEstimatorLazy flows={flows} useApi={USE_REAL_API && isConnected} />
-              </LazyWrapper>
-              <DataExporterEnhanced flows={flows} devices={devices} threats={threats} />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="visualizations" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <LazyWrapper>
-                <HeatmapTimelineLazy
-                  flows={flows}
-                  hours={24}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
-              <PacketBurst flows={flows} useApi={USE_REAL_API && isConnected} />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BandwidthGauge currentBytes={totalBytes} useApi={USE_REAL_API && isConnected} />
-              <LazyWrapper>
-                <RadarChartLazy devices={devices} useApi={USE_REAL_API && isConnected} />
-              </LazyWrapper>
-            </div>
-
-            <LazyWrapper>
-              <GeographicMapLazy flows={flows} hours={24} useApi={USE_REAL_API && isConnected} />
-            </LazyWrapper>
-
-            <LazyWrapper>
-              <ProtocolSankeyLazy
-                flows={flows}
-                devices={devices}
-                protocolStats={protocolStats}
-                useApi={USE_REAL_API && isConnected}
-              />
-            </LazyWrapper>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <LazyWrapper>
-                <NetworkGraphLazy
-                  flows={activeFlows.slice(0, 20)}
-                  devices={devices}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
-              <LazyWrapper>
-                <FlowPipeVisualizationLazy
-                  flows={flows}
-                  devices={devices}
-                  useApi={USE_REAL_API && isConnected}
-                />
-              </LazyWrapper>
-            </div>
           </TabsContent>
 
           <TabsContent value="devices" className="space-y-6">
@@ -573,6 +332,16 @@ function App() {
                   </div>
                 </Card>
               )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TopUsersEnhanced
+                devices={devices}
+                flows={flows}
+                hours={24}
+                limit={10}
+                sortBy="bytes"
+              />
               <ProtocolBreakdown data={protocolStats} />
             </div>
           </TabsContent>
@@ -619,20 +388,37 @@ function App() {
                 )}
               </div>
             )}
+
+            <ErrorBoundary>
+              <LazyWrapper>
+                <AnomalyDetectionLazy
+                  flows={flows}
+                  devices={devices}
+                  threats={threats}
+                  useApi={USE_REAL_API && isConnected}
+                />
+              </LazyWrapper>
+            </ErrorBoundary>
+
+            <AlertRules />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
-            {/* New Enhanced Analytics Dashboards */}
             <div className="space-y-6">
               <NetworkQualityDashboard hours={24} />
               <ApplicationUsageDashboard hours={24} />
             </div>
 
-            {/* Existing Analytics Components */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TrafficChart data={analyticsData} useApi={USE_REAL_API && isConnected} hours={24} />
-              <ProtocolBreakdown data={protocolStats} />
+              <TopSitesEnhanced flows={flows} hours={24} limit={10} />
+              <GeographicDistributionEnhanced flows={flows} hours={24} />
             </div>
+
+            <ErrorBoundary>
+              <LazyWrapper>
+                <HistoricalTrendsLazy data={analyticsData} useApi={USE_REAL_API && isConnected} />
+              </LazyWrapper>
+            </ErrorBoundary>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <MetricCard
@@ -671,20 +457,11 @@ function App() {
                 subtitle={`${activeThreats.length} unresolved`}
               />
             </div>
-
-            <ConnectionsTableEnhanced
-              flows={flows}
-              devices={devices}
-              useApiFilters={USE_REAL_API && isConnected}
-            />
           </TabsContent>
 
-          <TabsContent value="alerts" className="space-y-6">
-            <AlertRules />
-          </TabsContent>
-
-          <TabsContent value="maintenance" className="space-y-6">
+          <TabsContent value="system" className="space-y-6">
             <MaintenancePanel />
+            <DataExporterEnhanced flows={flows} devices={devices} threats={threats} />
           </TabsContent>
         </Tabs>
       </main>

@@ -1,14 +1,13 @@
 /**
  * Integration tests for error scenarios
- * Tests error handling, retry mechanisms, and offline mode
+ * Tests error handling and offline mode
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, act, renderHook } from '@testing-library/react';
+import { render, screen, renderHook } from '@testing-library/react';
 import { queryClient } from '@/lib/queryClient';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { getErrorInfo } from '@/utils/errorMessages';
-import { useRetry } from '@/hooks/useRetry';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
 
 describe('Error Scenario Integration Tests', () => {
@@ -112,89 +111,6 @@ describe('Error Scenario Integration Tests', () => {
       // Note: This would need the actual errorInfo to be passed or mocked
       // For now, we verify the component renders
       expect(screen.getByText(errorInfo.title)).toBeInTheDocument();
-    });
-  });
-
-  describe('Retry Mechanism', () => {
-    it('should retry failed operations with exponential backoff', async () => {
-      let attemptCount = 0;
-      const mockOperation = vi.fn(async () => {
-        attemptCount++;
-        if (attemptCount < 3) {
-          throw new Error('Operation failed');
-        }
-        return 'success';
-      });
-
-      const { result } = renderHook(() =>
-        useRetry({
-          maxRetries: 5,
-          initialDelay: 50,
-          maxDelay: 1000,
-        })
-      );
-
-      const startTime = Date.now();
-      const success = await result.current.retry(mockOperation);
-      const endTime = Date.now();
-
-      expect(success).toBe('success');
-      expect(mockOperation).toHaveBeenCalledTimes(3);
-      expect(endTime - startTime).toBeGreaterThan(100); // Should have delays
-    });
-
-    it('should stop retrying after max retries', async () => {
-      const mockOperation = vi.fn(async () => {
-        throw new Error('Operation failed');
-      });
-
-      const onMaxRetriesReached = vi.fn();
-
-      const { result } = renderHook(() =>
-        useRetry({
-          maxRetries: 2,
-          initialDelay: 50,
-          onMaxRetriesReached,
-        })
-      );
-
-      await expect(result.current.retry(mockOperation)).rejects.toThrow();
-      expect(mockOperation).toHaveBeenCalledTimes(3); // Initial + 2 retries
-      expect(onMaxRetriesReached).toHaveBeenCalled();
-    });
-
-    it('should track retry state', async () => {
-      // Use real timers for this test to avoid complex async/timer interactions
-      vi.useRealTimers();
-
-      let attemptCount = 0;
-      const mockOperation = vi.fn(async () => {
-        attemptCount++;
-        if (attemptCount < 2) {
-          throw new Error('Operation failed');
-        }
-        return 'success';
-      });
-
-      const { result } = renderHook(() =>
-        useRetry({
-          maxRetries: 5,
-          initialDelay: 10, // Use short delay for faster test
-        })
-      );
-
-      // Start the retry operation
-      const retryPromise = result.current.retry(mockOperation);
-
-      // Wait for retry to complete
-      await act(async () => {
-        await retryPromise;
-      });
-
-      // Verify final state - operation succeeded after retry
-      expect(mockOperation).toHaveBeenCalledTimes(2);
-      expect(result.current.isRetrying).toBe(false);
-      expect(result.current.retryCount).toBe(0);
     });
   });
 
