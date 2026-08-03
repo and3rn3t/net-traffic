@@ -12,7 +12,7 @@
 | [Interactive features](#interactive-features) | Visualizations, playback, command palette                               | 8     |
 | [Dashboard widgets](#dashboard-widgets)       | Composable widgets for the customizable dashboard                       | 8     |
 | [Backend refactor](#backend-refactor)         | Module splits, schema consolidation, tests                              | 5     |
-| [CI/CD pipeline](#cicd-pipeline)              | Dedupe workflows, caching, faster feedback, deploy hardening            | 8     |
+| [CI/CD pipeline](#cicd-pipeline)              | Dedupe workflows, caching, faster feedback, deploy hardening            | 9     |
 | [Medium priority](#medium-priority)           | Protocol coverage, ML, config UI, compliance                            | 8     |
 | [Exploratory](#exploratory)                   | Uncommitted ideas                                                       | —     |
 
@@ -83,14 +83,15 @@ Composable widgets for the customizable dashboard (each also viable standalone):
 
 ### CI/CD pipeline
 
-- [ ] **Deduplicate `ci-cd.yml` and `tests.yml`** — both run an identical unit-tests job (type-check, lint, format, unit, integration) on every push/PR, doubling CI minutes. Extract a reusable `workflow_call` job or delete the overlap; `tests.yml`'s nightly cron also duplicates `nightly-tests.yml`.
-- [ ] **Add `concurrency` groups with `cancel-in-progress`** — no workflow has one, so superseded pushes keep burning runners.
-- [ ] **Path filters** — docs-only or backend-only changes currently trigger the full frontend test + deploy pipeline; add `paths` / `paths-ignore` per workflow.
-- [ ] **Cache Playwright browsers** — `npx playwright install --with-deps` re-downloads ~400 MB every E2E run; cache `~/.cache/ms-playwright` keyed on the Playwright version.
-- [ ] **Stop masking failures with `continue-on-error`** — integration tests (both workflows) and E2E (`ci-cd.yml`) can't fail the build; quarantine the known flaky tests instead so real regressions surface.
-- [ ] **Replace deploy curl scripting with `cloudflare/wrangler-action`** — ~200 lines of hand-rolled Cloudflare API calls (project create/verify, domain setup) plus a fresh `npm install -g wrangler@3` per deploy; the one-time project/domain setup doesn't belong in every run.
-- [ ] **Build once, deploy the artifact** — the deploy job re-runs `npm ci` + build after unit-tests already did; pass `dist/` between jobs via artifacts.
-- [ ] **Backend CI job** — zero Python checks in CI today; add ruff + `py_compile`/mypy now, pytest once the backend test infra lands (see [Backend refactor](#backend-refactor)). Also fix line endings via `.gitattributes` instead of the `sed` normalize step in both test workflows.
+- [x] **Deduplicate `ci-cd.yml` and `tests.yml`** — `tests.yml` deleted (no branch-protection required checks referenced it); `ci-cd.yml` is now the single push/PR pipeline, `nightly-tests.yml` keeps the cron.
+- [x] **Add `concurrency` groups with `cancel-in-progress`** — added to `ci-cd.yml`, `codeql.yml`, `actionlint.yml`, `consistency.yml`, `gitleaks.yml`, `dependency-review.yml`, `release-drafter.yml` (skipped `nightly-tests.yml`/`lighthouse.yml`, cron-only or manual-dispatch-only).
+- [x] **Path filters** — `paths-ignore: ['docs/**', '**/*.md']` added to `ci-cd.yml`. Full frontend/backend mutual exclusion would need per-job path filtering (`dorny/paths-filter`) since a single workflow's `paths-ignore` applies to every job in it — left as a future refinement, not done here.
+- [x] **Cache Playwright browsers** — `actions/cache` on `~/.cache/ms-playwright` keyed on the installed `@playwright/test` version from `package-lock.json`.
+- [x] **Stop masking failures with `continue-on-error`** — removed from E2E (verified 47/47 passing locally, `retries: 2` already set in CI). Integration tests (`npm run test:integration`) are NOT unmasked: verified via `git stash` on unmodified main that 16/71 tests fail consistently (not flaky), a real pre-existing gap much bigger than assumed — tracked as a new item below instead of silently masking it forever.
+- [x] **Replace deploy curl scripting with `cloudflare/wrangler-action`** — one-time project/custom-domain setup moved to [CLOUDFLARE_DEPLOYMENT.md](./CLOUDFLARE_DEPLOYMENT.md); the deploy job now just calls `wrangler-action@v3`.
+- [x] **Build once, deploy the artifact** — `unit-tests` builds and uploads `dist/`; `deploy` downloads it instead of re-running `npm ci` + build.
+- [x] **Backend CI job** — new `backend-checks` job runs `ruff check` (minimal `E9,F` gate via `backend/pyproject.toml` — the full default rule set surfaced ~788 findings, opt into more incrementally) + `python -m compileall`. Fixed the 22 real findings this surfaced, including a genuine bug: dead/unreachable duplicate decorator code in `utils/error_handler.py` referencing an undefined `func`. pytest lands with the backend test infra (see [Backend refactor](#backend-refactor)). Line endings now come from `.gitattributes` (already existed) — removed the redundant `sed` step from `ci-cd.yml`/`nightly-tests.yml`.
+- [ ] **Fix the integration test suite** — 16/71 tests fail consistently on unmodified main (`useApiData.integration.test.tsx` almost entirely, plus `api.integration.test.tsx`'s "API Enabled Mode"/"Error Scenarios" blocks); currently masked by `continue-on-error` rather than fixed. Needed before that step can be unmasked.
 
 ### Medium priority
 

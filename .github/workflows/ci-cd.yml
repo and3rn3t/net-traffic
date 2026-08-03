@@ -3,10 +3,41 @@ name: CI/CD
 on:
   push:
     branches: [main, master]
+    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
     branches: [main, master]
+    paths-ignore: ['docs/**', '**/*.md']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    name: Backend Lint & Compile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install ruff
+        run: pip install -q ruff
+
+      - name: Run ruff (syntax errors + pyflakes)
+        run: ruff check .
+        working-directory: backend
+
+      - name: Byte-compile backend sources
+        run: python -m compileall -q .
+        working-directory: backend
+
   unit-tests:
     runs-on: ubuntu-latest
     name: Unit Tests & Quality Checks
@@ -23,11 +54,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Normalize line endings
-        run: |
-          # Ensure all source files have LF line endings (fixes Windows CRLF issues)
-          find src -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) -exec sed -i 's/\r$//' {} +
-
       - name: Run type check
         run: npm run type-check
 
@@ -42,11 +68,29 @@ jobs:
         env:
           VITE_USE_REAL_API: 'false'
 
+      # continue-on-error stays until the pre-existing integration-suite
+      # failures are fixed (16/71 fail on unmodified main - not flaky, real gap)
       - name: Run integration tests
         run: npm run test:integration
         env:
           VITE_USE_REAL_API: 'false'
         continue-on-error: true
+
+      - name: Build for Cloudflare Pages
+        run: npm run build
+        env:
+          NODE_ENV: production
+          # Build-time environment variables (optional - can be set in GitHub secrets)
+          # If not set, defaults are used. Recommended: Set in Cloudflare Dashboard instead.
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_USE_REAL_API: ${{ secrets.VITE_USE_REAL_API }}
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
 
       - name: Upload test results
         if: always()
@@ -76,15 +120,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright OS dependencies
+        run: npx playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
 
       - name: Run E2E tests
         run: npm run test:e2e
         env:
           CI: true
           VITE_USE_REAL_API: 'false'
-        continue-on-error: true
 
       - name: Upload test results
         if: always()
@@ -106,7 +165,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    name: Build & Deploy
+    name: Deploy
     needs: [unit-tests]
     if: |
       github.event_name == 'push' &&
@@ -116,190 +175,17 @@ jobs:
       contents: read
       deployments: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Download build output
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          name: dist
+          path: dist
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build for Cloudflare Pages
-        run: npm run build
-        env:
-          NODE_ENV: production
-          # Build-time environment variables (optional - can be set in GitHub secrets)
-          # If not set, defaults are used. Recommended: Set in Cloudflare Dashboard instead.
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-          VITE_USE_REAL_API: ${{ secrets.VITE_USE_REAL_API }}
-
-      - name: Create Cloudflare Pages Project (if not exists)
-        run: |
-          PROJECT_NAME="net-traffic"
-          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
-
-          echo "Checking if project '${PROJECT_NAME}' exists..."
-
-          # Check if project exists
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}" \
-            -H "Authorization: Bearer ${API_TOKEN}" \
-            -H "Content-Type: application/json")
-
-          echo "HTTP Status Code: ${HTTP_CODE}"
-
-          # If project doesn't exist (404), create it
-          if [ "$HTTP_CODE" = "404" ]; then
-            echo "Project not found (404), creating it..."
-            CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects" \
-              -H "Authorization: Bearer ${API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "{\"name\":\"${PROJECT_NAME}\",\"production_branch\":\"main\"}")
-
-            echo "Create Response: ${CREATE_RESPONSE}"
-
-            # Check if creation was successful
-            if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
-              echo "✅ Project created successfully"
-              echo "Waiting 3 seconds for project to be ready..."
-              sleep 3
-            else
-              echo "❌ Failed to create project"
-              echo "Response: ${CREATE_RESPONSE}"
-              # Don't exit - let Wrangler try to create it or provide better error
-            fi
-          elif [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Project already exists"
-          else
-            echo "⚠️ Unexpected HTTP code: ${HTTP_CODE}"
-            echo "Will attempt deployment anyway..."
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Verify Project Exists
-        run: |
-          PROJECT_NAME="net-traffic"
-          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
-
-          echo "Verifying project '${PROJECT_NAME}' exists before deployment..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}" \
-            -H "Authorization: Bearer ${API_TOKEN}" \
-            -H "Content-Type: application/json")
-
-          echo "HTTP Status Code: ${HTTP_CODE}"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Project verified and ready for deployment"
-          else
-            echo "⚠️ Warning: Project verification returned HTTP ${HTTP_CODE}"
-            echo "Continuing with deployment anyway..."
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        continue-on-error: true
-
+      # One-time project/domain setup lives in docs/CLOUDFLARE_DEPLOYMENT.md,
+      # not here - wrangler deploys to an existing project, it doesn't create one.
       - name: Deploy to Cloudflare Pages
-        run: |
-          # Install wrangler for deployment
-          npm install -g wrangler@3
-
-          # Deploy using wrangler
-          wrangler pages deploy dist \
-            --project-name=net-traffic \
-            --branch="$BRANCH_NAME" \
-            --commit-hash="$COMMIT_SHA" \
-            --commit-message="$COMMIT_MESSAGE" \
-            --commit-dirty=false
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Untrusted values (commit message can contain shell metacharacters)
-          # go through env: rather than being interpolated directly into the
-          # script, so they can't break out of the quoted arguments.
-          BRANCH_NAME: ${{ github.ref_name }}
-          COMMIT_SHA: ${{ github.sha }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Deploy from GitHub Actions' }}
-
-      - name: Verify Deployment
-        run: |
-          PROJECT_NAME="net-traffic"
-          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
-          CUSTOM_DOMAIN="${{ secrets.CLOUDFLARE_CUSTOM_DOMAIN }}"
-
-          echo "Waiting 10 seconds for deployment to propagate..."
-          sleep 10
-
-          echo "Checking deployment status..."
-          DEPLOYMENTS=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/deployments" \
-            -H "Authorization: Bearer ${API_TOKEN}" \
-            -H "Content-Type: application/json")
-
-          LATEST_DEPLOYMENT=$(echo "$DEPLOYMENTS" | jq -r '.result[0].url // empty')
-
-          if [ -n "$LATEST_DEPLOYMENT" ]; then
-            echo "✅ Deployment successful!"
-            echo "🌐 Pages URL: $LATEST_DEPLOYMENT"
-            if [ -n "$CUSTOM_DOMAIN" ]; then
-              echo "🌐 Custom Domain: https://${CUSTOM_DOMAIN}"
-              echo "::notice title=Deployment Success::Deployed to https://${CUSTOM_DOMAIN}"
-            else
-              echo "::notice title=Deployment Success::Deployed to $LATEST_DEPLOYMENT"
-            fi
-          else
-            echo "⚠️ Could not verify deployment URL"
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        continue-on-error: true
-
-      - name: Setup Custom Domain (if configured)
-        run: |
-          PROJECT_NAME="net-traffic"
-          DOMAIN="${{ secrets.CLOUDFLARE_CUSTOM_DOMAIN }}"
-          ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          API_TOKEN="${{ secrets.CLOUDFLARE_API_TOKEN }}"
-
-          if [ -z "$DOMAIN" ]; then
-            echo "ℹ️  No custom domain configured (CLOUDFLARE_CUSTOM_DOMAIN secret not set)"
-            echo "   Skipping custom domain setup"
-            exit 0
-          fi
-
-          echo "🌐 Configuring custom domain: ${DOMAIN}"
-
-          # Check if domain already exists
-          EXISTING_DOMAINS=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/domains" \
-            -H "Authorization: Bearer ${API_TOKEN}" \
-            -H "Content-Type: application/json")
-
-          if echo "$EXISTING_DOMAINS" | grep -q "\"${DOMAIN}\""; then
-            echo "✅ Domain ${DOMAIN} is already configured"
-          else
-            # Add custom domain
-            RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/pages/projects/${PROJECT_NAME}/domains" \
-              -H "Authorization: Bearer ${API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "{\"domain\":\"${DOMAIN}\"}")
-
-            if echo "$RESPONSE" | grep -q '"success":true'; then
-              echo "✅ Custom domain ${DOMAIN} added successfully!"
-              echo "📝 Note: Ensure DNS CNAME record is configured in Cloudflare DNS"
-            else
-              echo "⚠️ Failed to add custom domain (may already exist or need manual setup)"
-              echo "$RESPONSE" | jq -r '.errors[0].message // "Unknown error"' 2>/dev/null || echo "Check Cloudflare Dashboard"
-            fi
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=net-traffic --branch=${{ github.ref_name }} --commit-dirty=false

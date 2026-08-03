@@ -101,8 +101,12 @@ wrangler pages deploy dist --project-name=netinsight
 1. Add repository secrets under **Settings > Secrets and variables > Actions**:
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
-2. Push to `main` — the `ci-cd.yml` workflow builds and deploys automatically.
-3. Check progress in the **Actions** tab.
+   - `CLOUDFLARE_CUSTOM_DOMAIN` (optional)
+2. **One-time setup** (not part of the workflow — do this once via the Dashboard or Wrangler CLI, not on every deploy):
+   - Create the Pages project: **Pages > Create a project** in the Dashboard, or `wrangler pages project create net-traffic --production-branch=main`.
+   - Attach a custom domain (if any): **Pages > net-traffic > Custom domains**, or `wrangler pages domain add net-traffic <your-domain>`. Add the DNS CNAME record Cloudflare gives you.
+3. Push to `main` — the `ci-cd.yml` workflow builds and deploys automatically via `cloudflare/wrangler-action`.
+4. Check progress in the **Actions** tab.
 
 Useful local npm scripts for this flow:
 
