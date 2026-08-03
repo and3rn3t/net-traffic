@@ -583,12 +583,16 @@ class StorageService:
         )
 
     async def close(self):
-        """Close database connection"""
+        """Close database connection(s)"""
         if self.pool:
             await self.pool.close()
             logger.info("Database connection pool closed")
-        elif self.db:
+        if self.db:
+            # Several write methods call _ensure_connection() unconditionally
+            # even in pool mode, opening a stray non-pooled connection - close
+            # it too so its aiosqlite writer thread doesn't block process exit.
             await self.db.close()
+            self.db = None
             logger.info("Database connection closed")
 
     def get_pool_stats(self) -> dict:

@@ -5,6 +5,7 @@ Handles user authentication, JWT token generation, and API key management
 import logging
 import os
 import secrets
+import string
 import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
@@ -39,6 +40,19 @@ else:
     )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+
+def _generate_strong_password(length: int = 16) -> str:
+    """Random password guaranteed to pass UserCreate.password_strength (upper+lower+digit)."""
+    required = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+    ]
+    rest = [secrets.choice(string.ascii_letters + string.digits) for _ in range(length - len(required))]
+    chars = required + rest
+    secrets.SystemRandom().shuffle(chars)
+    return "".join(chars)
 
 
 class AuthService:
@@ -110,7 +124,7 @@ class AuthService:
                 # Create default admin user. Use DEFAULT_ADMIN_PASSWORD if set,
                 # otherwise generate a random one-time password (logged below)
                 # so the credentials aren't a fixed, publicly-known value.
-                admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD") or secrets.token_urlsafe(12)
+                admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD") or _generate_strong_password()
                 admin_user = UserCreate(
                     username="admin",
                     email="admin@netinsight.com",
