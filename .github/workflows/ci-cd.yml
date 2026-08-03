@@ -12,10 +12,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   backend-checks:
     runs-on: ubuntu-latest
     name: Backend Checks
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,7 +29,9 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-          cache-dependency-path: backend/requirements-dev.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
 
       - name: Install dependencies
         run: pip install -q -r requirements-dev.txt
@@ -46,6 +52,7 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     name: Unit Tests & Quality Checks
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,6 +117,7 @@ jobs:
   e2e-tests:
     runs-on: ubuntu-latest
     name: E2E Tests
+    timeout-minutes: 15
     # Only run E2E tests on push to main/master, not on PRs (to save CI time)
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
@@ -171,6 +179,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Deploy
+    timeout-minutes: 5
     needs: [unit-tests]
     if: |
       github.event_name == 'push' &&
@@ -194,3 +203,23 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=net-traffic --branch=${{ github.ref_name }} --commit-dirty=false
+
+  ci-success:
+    runs-on: ubuntu-latest
+    name: CI Success
+    timeout-minutes: 2
+    needs: [backend-checks, unit-tests, e2e-tests]
+    if: always()
+    steps:
+      # Single check for branch protection - e2e-tests is legitimately
+      # 'skipped' on PRs (only runs on push), so only treat failure/
+      # cancelled as a hard stop, not skipped.
+      - name: Check required job results
+        run: |
+          for result in "${{ needs.backend-checks.result }}" "${{ needs.unit-tests.result }}" "${{ needs.e2e-tests.result }}"; do
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "A required job did not succeed: $result"
+              exit 1
+            fi
+          done
+          echo "All required jobs passed."
