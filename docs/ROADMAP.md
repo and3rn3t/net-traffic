@@ -12,6 +12,7 @@
 | [Interactive features](#interactive-features) | Visualizations, playback, command palette                               | 8     |
 | [Dashboard widgets](#dashboard-widgets)       | Composable widgets for the customizable dashboard                       | 8     |
 | [Backend refactor](#backend-refactor)         | Module splits, schema consolidation, tests                              | 5     |
+| [CI/CD pipeline](#cicd-pipeline)              | Dedupe workflows, caching, faster feedback, deploy hardening            | 8     |
 | [Medium priority](#medium-priority)           | Protocol coverage, ML, config UI, compliance                            | 8     |
 | [Exploratory](#exploratory)                   | Uncommitted ideas                                                       | —     |
 
@@ -79,6 +80,17 @@ Composable widgets for the customizable dashboard (each also viable standalone):
 - [ ] **Single source of truth for schema** — tables are defined in three places (`storage._create_tables()`, `utils/migrations.py`, `auth_service._create_tables()`; see [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)). Make adding a table a one-place change.
 - [ ] **Backend pytest infrastructure** — zero backend tests today; changes are verified by hand with `TestClient`. Prerequisite for the splits above.
 - [ ] **Consolidate analytics services** — `analytics.py`, `advanced_analytics.py`, `application_analytics.py`, `network_quality_analytics.py` overlap in aggregation logic; unify around the SQL-aggregate patterns from the observability pass.
+
+### CI/CD pipeline
+
+- [ ] **Deduplicate `ci-cd.yml` and `tests.yml`** — both run an identical unit-tests job (type-check, lint, format, unit, integration) on every push/PR, doubling CI minutes. Extract a reusable `workflow_call` job or delete the overlap; `tests.yml`'s nightly cron also duplicates `nightly-tests.yml`.
+- [ ] **Add `concurrency` groups with `cancel-in-progress`** — no workflow has one, so superseded pushes keep burning runners.
+- [ ] **Path filters** — docs-only or backend-only changes currently trigger the full frontend test + deploy pipeline; add `paths` / `paths-ignore` per workflow.
+- [ ] **Cache Playwright browsers** — `npx playwright install --with-deps` re-downloads ~400 MB every E2E run; cache `~/.cache/ms-playwright` keyed on the Playwright version.
+- [ ] **Stop masking failures with `continue-on-error`** — integration tests (both workflows) and E2E (`ci-cd.yml`) can't fail the build; quarantine the known flaky tests instead so real regressions surface.
+- [ ] **Replace deploy curl scripting with `cloudflare/wrangler-action`** — ~200 lines of hand-rolled Cloudflare API calls (project create/verify, domain setup) plus a fresh `npm install -g wrangler@3` per deploy; the one-time project/domain setup doesn't belong in every run.
+- [ ] **Build once, deploy the artifact** — the deploy job re-runs `npm ci` + build after unit-tests already did; pass `dist/` between jobs via artifacts.
+- [ ] **Backend CI job** — zero Python checks in CI today; add ruff + `py_compile`/mypy now, pytest once the backend test infra lands (see [Backend refactor](#backend-refactor)). Also fix line endings via `.gitattributes` instead of the `sed` normalize step in both test workflows.
 
 ### Medium priority
 
