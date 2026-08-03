@@ -273,8 +273,10 @@ function App() {
                 icon={<Network size={24} />}
                 trend="up"
                 trendValue={
-                  useRealApi && summaryStats
-                    ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
+                  useRealApi
+                    ? summaryStats
+                      ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
+                      : undefined
                     : `${Math.floor(Math.random() * 20)}% from last hour`
                 }
               />
@@ -289,8 +291,10 @@ function App() {
                 icon={<Activity size={24} />}
                 trend="up"
                 trendValue={
-                  useRealApi && summaryStats
-                    ? `${formatBytesShort(totalBytes / Math.max(summaryStats.capture_duration_hours, 1))}/hr`
+                  useRealApi
+                    ? summaryStats
+                      ? `${formatBytesShort(totalBytes / Math.max(summaryStats.capture_duration_hours, 1))}/hr`
+                      : undefined
                     : `${Math.floor(Math.random() * 30)}% increase`
                 }
               />

@@ -119,7 +119,12 @@ export function GeographicDistributionEnhanced({
           ))}
           {stats.length === 0 && !isLoading && (
             <div className="text-center py-8 text-muted-foreground">
-              No geographic data available
+              <p>No geographic data yet</p>
+              {useRealApi && (
+                <p className="text-xs mt-1">
+                  Country data is added as new connections close - check back shortly.
+                </p>
+              )}
             </div>
           )}
           {isLoading && <div className="text-center py-8 text-muted-foreground">Loading...</div>}

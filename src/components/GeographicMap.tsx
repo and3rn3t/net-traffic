@@ -307,7 +307,12 @@ export function GeographicMap({ flows, hours = 24, useApi = false }: GeographicM
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <MapPin size={48} className="text-muted-foreground mx-auto mb-3 opacity-30" />
-                <p className="text-muted-foreground text-sm">No geographic data available</p>
+                <p className="text-muted-foreground text-sm">No geographic data yet</p>
+                {useRealApi && useApi && (
+                  <p className="text-muted-foreground text-xs mt-1">
+                    Country data is added as new connections close
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -217,6 +217,11 @@ export function DevicesListEnhanced({
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{device.name}</p>
                             <p className="text-xs text-muted-foreground font-mono">{device.ip}</p>
+                            {device.vendor && device.vendor !== 'Unknown' && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {device.vendor}
+                              </p>
+                            )}
                             {notes && (
                               <p className="text-xs text-muted-foreground mt-1 italic">{notes}</p>
                             )}
