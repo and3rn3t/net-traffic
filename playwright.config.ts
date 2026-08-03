@@ -76,6 +76,20 @@ export default defineConfig({
     timeout: 180 * 1000, // Increased timeout to 3 minutes
     stdout: 'pipe', // Changed to see output for debugging
     stderr: 'pipe',
+    env: {
+      // Force mock/local data mode for e2e runs, overriding the repo's .env
+      // (which sets VITE_USE_REAL_API=true for manual `npm run dev` against
+      // the real Raspberry Pi backend). Running e2e tests against a real,
+      // network-dependent backend keeps a WebSocket connection + polling
+      // active, which prevents `networkidle` from ever resolving and causes
+      // near-total test failures as soon as more than one worker runs
+      // (previously masked by always running with --workers=1). Mock mode
+      // matches CI (see .github/workflows/*.yml) and is fast + deterministic.
+      // NOTE: this only applies when Playwright spawns the server itself -
+      // if a dev server is already running on port 5001 (e.g. from `npm run
+      // dev`), reuseExistingServer will reuse it as-is, .env and all.
+      VITE_USE_REAL_API: 'false',
+    },
   },
   // Optional: Start backend server for E2E tests
   // Uncomment if you want to test against real backend
