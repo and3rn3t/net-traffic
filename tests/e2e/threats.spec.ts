@@ -23,9 +23,10 @@ test.describe('Threat Management', () => {
   test('should display threats list', async ({ page }) => {
     // Threats list should be visible (even if empty)
     // Look for threats content - may show "No active threats" or threat alerts
-    const threatsContent = page.locator(
-      'text=/threat/i, text=/No active threats/i, [role="alert"]'
-    ).first();
+    const threatsContent = page
+      .getByText(/threat|no active threats/i)
+      .or(page.locator('[role="alert"]'))
+      .first();
     await expect(threatsContent).toBeVisible({ timeout: 10000 });
   });
 
@@ -61,7 +62,7 @@ test.describe('Threat Management', () => {
       expect(detailsFound || count > 0).toBeTruthy();
     } else {
       // No threats available, that's okay
-      const noThreatsMessage = page.locator('text=No threats, text=All clear');
+      const noThreatsMessage = page.getByText(/No threats|All clear/);
       const hasMessage = await noThreatsMessage
         .first()
         .isVisible({ timeout: 2000 })
@@ -115,7 +116,10 @@ test.describe('Threat Management', () => {
       expect(threatCountAfter <= threatCountBefore).toBeTruthy();
     } else {
       // Dismiss functionality might not be available - verify threats view is visible
-      const threatsViewVisible = await page.locator('text=/threat/i, text=/No active threats/i').first().isVisible({ timeout: 5000 });
+      const threatsViewVisible = await page
+        .getByText(/threat|no active threats/i)
+        .first()
+        .isVisible({ timeout: 5000 });
       expect(threatsViewVisible).toBeTruthy();
     }
   });
@@ -147,9 +151,9 @@ test.describe('Threat Management', () => {
       await page.waitForTimeout(500);
 
       // Look for severity options
-      const severityOptions = page.locator(
-        'text=High, text=Medium, text=Low, text=Critical, [data-testid="severity-high"]'
-      );
+      const severityOptions = page
+        .getByText(/High|Medium|Low|Critical/)
+        .or(page.locator('[data-testid="severity-high"]'));
 
       if (await severityOptions.first().isVisible({ timeout: 2000 })) {
         await severityOptions.first().click();
@@ -161,7 +165,10 @@ test.describe('Threat Management', () => {
       }
     } else {
       // Filter might not be available - verify threats view is functional
-      const threatsViewVisible = await page.locator('text=/threat/i, text=/No active threats/i').first().isVisible({ timeout: 5000 });
+      const threatsViewVisible = await page
+        .getByText(/threat|no active threats/i)
+        .first()
+        .isVisible({ timeout: 5000 });
       expect(threatsViewVisible).toBeTruthy();
     }
   });

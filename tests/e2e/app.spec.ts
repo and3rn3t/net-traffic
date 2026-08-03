@@ -50,7 +50,7 @@ test.describe('Application Core', () => {
 
     // Check for dashboard content - look for metric cards or dashboard-specific content
     const dashboardContent = page
-      .locator('text=Active Connections, text=Network Throughput, text=Active Devices')
+      .getByText(/Active Connections|Network Throughput|Active Devices/)
       .first();
     await expect(dashboardContent).toBeVisible({ timeout: 10000 });
   });
@@ -112,9 +112,7 @@ test.describe('Application Core', () => {
     await expect(header).toBeVisible({ timeout: 10000 });
 
     // App should load back to dashboard (default view) - verify dashboard content is visible
-    const dashboardContent = page
-      .locator('text=Active Connections, text=Network Throughput')
-      .first();
+    const dashboardContent = page.getByText(/Active Connections|Network Throughput/).first();
     await expect(dashboardContent).toBeVisible({ timeout: 5000 });
   });
 

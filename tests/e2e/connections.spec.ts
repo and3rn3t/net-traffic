@@ -36,7 +36,7 @@ test.describe('Connections Table', () => {
     expect(
       tableFound ||
         (await page
-          .locator('text=Connection, text=Flow')
+          .getByText(/Connection|Flow/)
           .first()
           .isVisible({ timeout: 2000 })
           .catch(() => false))
@@ -59,9 +59,11 @@ test.describe('Connections Table', () => {
         expect(await firstHeader.isVisible()).toBeTruthy();
       }
     } else {
-      // Sorting might not be available - verify table is visible
+      // Sorting might not be available (connections render as a card list, not a <table>) -
+      // verify connections content is visible
       const tableVisible = await page
         .locator('table, [role="table"]')
+        .or(page.getByText(/connection/i))
         .first()
         .isVisible({ timeout: 5000 });
       expect(tableVisible).toBeTruthy();
@@ -102,7 +104,8 @@ test.describe('Connections Table', () => {
     // In that case, just verify connections table is visible
     if (!paginationFound) {
       const tableVisible = await page
-        .locator('table, [role="table"], text=/connection/i')
+        .locator('table, [role="table"]')
+        .or(page.getByText(/connection/i))
         .first()
         .isVisible({ timeout: 5000 });
       expect(tableVisible).toBeTruthy();

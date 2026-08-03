@@ -191,7 +191,8 @@ test.describe('Data Export', () => {
           } else {
             // Check for success
             const success = await page
-              .locator('text=Exported, text=Downloaded, [role="status"]')
+              .getByText(/Exported|Downloaded/)
+              .or(page.locator('[role="status"]'))
               .first()
               .isVisible({ timeout: 3000 })
               .catch(() => false);

@@ -172,9 +172,9 @@ test.describe('Error Handling', () => {
     await waitForDataLoad(page);
 
     // Look for error message
-    const errorMessage = page.locator(
-      'text=Error, text=Failed, [role="alert"], [data-testid="error-message"]'
-    );
+    const errorMessage = page
+      .getByText(/Error|Failed/)
+      .or(page.locator('[role="alert"], [data-testid="error-message"]'));
 
     // Error message might be shown or app might handle it gracefully
     const hasError = await errorMessage

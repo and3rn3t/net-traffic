@@ -81,9 +81,7 @@ test.describe('Filter Functionality', () => {
       }
     } else {
       // Filter might not be available - verify dashboard is functional
-      const dashboardContent = page
-        .locator('text=Active Connections, text=Network Throughput')
-        .first();
+      const dashboardContent = page.getByText(/Active Connections|Network Throughput/).first();
       await expect(dashboardContent).toBeVisible({ timeout: 5000 });
     }
   });
@@ -119,9 +117,9 @@ test.describe('Filter Functionality', () => {
       await page.waitForTimeout(500);
 
       // Select a time range option
-      const timeOptions = page.locator(
-        'text=Last 24 hours, text=Last 7 days, text=Last hour, button:has-text("24h")'
-      );
+      const timeOptions = page
+        .getByText(/Last 24 hours|Last 7 days|Last hour/)
+        .or(page.locator('button:has-text("24h")'));
 
       if (await timeOptions.first().isVisible({ timeout: 2000 })) {
         await timeOptions.first().click();
@@ -133,9 +131,7 @@ test.describe('Filter Functionality', () => {
       }
     } else {
       // Time filter might not be available - verify dashboard is functional
-      const dashboardContent = page
-        .locator('text=Active Connections, text=Network Throughput')
-        .first();
+      const dashboardContent = page.getByText(/Active Connections|Network Throughput/).first();
       await expect(dashboardContent).toBeVisible({ timeout: 5000 });
     }
   });
@@ -176,9 +172,7 @@ test.describe('Filter Functionality', () => {
       expect(filterValue).toContain('192.168.1');
     } else {
       // IP filter might not be available - verify dashboard is functional
-      const dashboardContent = page
-        .locator('text=Active Connections, text=Network Throughput')
-        .first();
+      const dashboardContent = page.getByText(/Active Connections|Network Throughput/).first();
       await expect(dashboardContent).toBeVisible({ timeout: 5000 });
     }
   });
@@ -226,9 +220,7 @@ test.describe('Filter Functionality', () => {
       }
     } else {
       // Filter input might not be available - verify dashboard is functional
-      const dashboardContent = page
-        .locator('text=Active Connections, text=Network Throughput')
-        .first();
+      const dashboardContent = page.getByText(/Active Connections|Network Throughput/).first();
       await expect(dashboardContent).toBeVisible({ timeout: 5000 });
     }
   });
