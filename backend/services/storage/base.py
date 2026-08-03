@@ -371,6 +371,43 @@ class StorageBase:
             )
         """)
 
+        # Auth tables (users/api_keys) - historically created by AuthService's
+        # own separate connection, now defined here so the schema has a
+        # single source of truth. AuthService connects to the same db file
+        # AFTER StorageService.initialize() completes (see main.py's lifespan),
+        # so these are always created before AuthService needs them.
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT,
+                full_name TEXT,
+                hashed_password TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'viewer',
+                disabled INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL,
+                last_login INTEGER
+            )
+        """)
+
+        await self.db.execute("""
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id TEXT PRIMARY KEY,
+                key_hash TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                last_used INTEGER,
+                expires_at INTEGER,
+                disabled INTEGER NOT NULL DEFAULT 0,
+                permissions TEXT,  -- JSON array
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+
+        await self.db.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        await self.db.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)")
+
         # Create indexes for performance optimization
         # Flow indexes
         await self.db.execute("""

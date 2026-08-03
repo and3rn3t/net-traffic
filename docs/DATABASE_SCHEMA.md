@@ -2,17 +2,16 @@
 
 SQLite database (`aiosqlite`), WAL mode with tuned pragmas (see [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md#database-sqlite)). Path set via `DB_PATH` (see [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md)).
 
-## ⚠️ Tables are defined in THREE places — update all that apply
+## Tables are defined in TWO places — update both that apply
 
-This is a recurring source of bugs. When adding or changing a table, you may need to touch **all** of:
+When adding or changing a table, you may need to touch both of:
 
-1. **`backend/services/storage.py`'s `_create_tables()`** — idempotent `CREATE TABLE IF NOT EXISTS`, used for brand-new/fresh databases. Covers: `devices`, `flows`, `filter_presets`, `alert_rules`, `triggered_alerts`, `device_baselines`, `threats`, plus their indexes.
+1. **`backend/services/storage/base.py`'s `_create_tables()`** — idempotent `CREATE TABLE IF NOT EXISTS`, the single source of truth for fresh databases. Covers every table: `devices`, `flows`, `filter_presets`, `alert_rules`, `triggered_alerts`, `device_baselines`, `threats`, `users`, `api_keys`, plus their indexes. `users`/`api_keys` used to be created separately by `auth_service.py`'s own connection — consolidated here since `state.storage.initialize()` always runs before `AuthService` connects (see main.py's lifespan), so they're guaranteed to exist by the time auth needs them.
 2. **`backend/utils/migrations.py`'s `MIGRATIONS` dict + `run_migrations()`** — versioned migrations that upgrade an *existing* deployed database. This is what actually runs against the Pi's live DB, not `_create_tables()`. **Gotcha**: `run_migrations()` uses `db.executescript()` (not `db.execute()`) for the generic case, because a migration's `up` SQL may contain more than one `;`-separated statement — `execute()` only runs one statement at a time in sqlite3/aiosqlite.
-3. **`backend/services/auth_service.py`'s own `_create_tables()`** — a *separate* connection/lifecycle for `users` and `api_keys`, not covered by `storage.py` or `migrations.py` at all.
 
 If you add a table or column, decide: does it need to survive on the Pi's already-deployed, non-empty database? If yes, add a migration (#2). Always also add it to `_create_tables()` (#1) so fresh installs get it without waiting for migrations to run.
 
-## Current schema version: 8
+## Current schema version: 9
 
 | Version | Description |
 |---|---|
@@ -24,6 +23,7 @@ If you add a table or column, decide: does it need to survive on the Pi's alread
 | 6 | Add `device_baselines` table (baseline/predictive analytics feature) |
 | 7 | Add deep protocol decoding columns to `flows`: `http_host`, `http_status_code`, `dns_query_name`, `dns_answers`, `tls_version` |
 | 8 | Add `occurrence_count` column to `threats` (dedup) |
+| 9 | Remove junk devices with unspecified/link-local IPs and their orphaned `new_device` threats |
 
 Schema version is tracked in a `schema_version` table (`version INTEGER PRIMARY KEY`, `applied_at`, `description`), auto-created by `create_schema_version_table()`. `run_migrations()` runs on every backend startup and only applies migrations above the DB's current recorded version — safe to run repeatedly.
 
@@ -52,10 +52,10 @@ Indexes: `timestamp DESC`, `device_id`, `status`, `source_ip`, `dest_ip`, `domai
 ### `triggered_alerts`
 `id` (PK), `rule_id`, `rule_name`, `timestamp`, `severity`, `device_id`, `flow_id`, `metric`, `value`, `description`, `acknowledged`. Indexes on `timestamp DESC` and `acknowledged`.
 
-### `users` (auth_service.py, separate connection)
-`id` (PK), `username` (UNIQUE), `email`, `full_name`, `hashed_password`, `role` (default `viewer`), `disabled`, `created_at`, `last_login`. A default `admin` account is auto-created on first boot with a random password (see `DEFAULT_ADMIN_PASSWORD` in [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md)).
+### `users`
+`id` (PK), `username` (UNIQUE), `email`, `full_name`, `hashed_password`, `role` (default `viewer`), `disabled`, `created_at`, `last_login`. A default `admin` account is auto-created on first boot with a random password (see `DEFAULT_ADMIN_PASSWORD` in [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md)). `auth_service.py` connects to the same db file with its own separate `aiosqlite` connection, but the table itself is created by `storage/base.py`.
 
-### `api_keys` (auth_service.py)
+### `api_keys`
 `id` (PK), `key_hash` (UNIQUE), `name`, `user_id` (FK → `users.id`, `ON DELETE CASCADE`), `created_at`, `last_used`, `expires_at`, `disabled`, `permissions` (JSON array).
 
 ## Retention & maintenance

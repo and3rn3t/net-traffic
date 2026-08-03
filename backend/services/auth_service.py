@@ -67,10 +67,16 @@ class AuthService:
         self.db: Optional[aiosqlite.Connection] = None
 
     async def initialize(self):
-        """Initialize database connection and create auth tables"""
+        """Initialize database connection and create the default admin.
+
+        The `users`/`api_keys` tables themselves are owned by
+        `services/storage/base.py`'s `_create_tables()` (single source of
+        truth for schema) - main.py's lifespan runs
+        `state.storage.initialize()` before constructing AuthService, so
+        they already exist by the time this connects.
+        """
         self.db = await aiosqlite.connect(self.db_path)
         self.db.row_factory = aiosqlite.Row
-        await self._create_tables()
         await self._create_default_admin()
         logger.info("Authentication service initialized")
 
@@ -79,42 +85,6 @@ class AuthService:
         if self.db:
             await self.db.close()
             logger.info("Authentication service closed")
-
-    async def _create_tables(self):
-        """Create authentication tables"""
-        await self.db.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                username TEXT UNIQUE NOT NULL,
-                email TEXT,
-                full_name TEXT,
-                hashed_password TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'viewer',
-                disabled INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL,
-                last_login INTEGER
-            )
-        """)
-
-        await self.db.execute("""
-            CREATE TABLE IF NOT EXISTS api_keys (
-                id TEXT PRIMARY KEY,
-                key_hash TEXT UNIQUE NOT NULL,
-                name TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                last_used INTEGER,
-                expires_at INTEGER,
-                disabled INTEGER NOT NULL DEFAULT 0,
-                permissions TEXT,  -- JSON array
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-        """)
-
-        # Create indexes
-        await self.db.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-        await self.db.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)")
-        await self.db.commit()
 
     async def _create_default_admin(self):
         """Create default admin user if no users exist"""
