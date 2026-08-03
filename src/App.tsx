@@ -37,11 +37,16 @@ import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { AccountMenu } from '@/components/AccountMenu';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useDataSource } from '@/hooks/useDataSource';
+import { useUrlTab } from '@/hooks/useUrlTab';
 import { API_CONFIG } from '@/hooks/useApiConfig';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 
+const TAB_VALUES = ['dashboard', 'devices', 'threats', 'analytics', 'system'] as const;
+
 function App() {
+  const [activeTab, setActiveTab] = useUrlTab(TAB_VALUES, 'dashboard');
+
   const {
     devices,
     flows,
@@ -193,7 +198,12 @@ function App() {
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 py-4 sm:py-6" role="main">
-        <Tabs defaultValue="dashboard" className="space-y-6" aria-label="Main navigation tabs">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-6"
+          aria-label="Main navigation tabs"
+        >
           <TabsList className="bg-card/60 border border-border/60 overflow-x-auto flex-nowrap shadow-sm">
             <TabsTrigger value="dashboard" className="gap-2">
               <Activity size={16} />

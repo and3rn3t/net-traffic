@@ -111,9 +111,10 @@ test.describe('Application Core', () => {
       .first();
     await expect(header).toBeVisible({ timeout: 10000 });
 
-    // App should load back to dashboard (default view) - verify dashboard content is visible
-    const dashboardContent = page.getByText(/Active Connections|Network Throughput/).first();
-    await expect(dashboardContent).toBeVisible({ timeout: 5000 });
+    // The active tab is synced to the `?tab=` URL search param, so refresh
+    // should restore the devices view rather than resetting to dashboard.
+    const devicesTab = page.getByRole('tab', { name: /Devices/i });
+    await expect(devicesTab).toHaveAttribute('data-state', 'active', { timeout: 10000 });
   });
 
   test('should be responsive on mobile viewport', async ({ page }) => {

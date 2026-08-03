@@ -149,7 +149,10 @@ test.describe('Navigation', () => {
     const analyticsTabBefore = page.getByRole('tab', { name: /Analytics/i });
     await expect(analyticsTabBefore).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    // Refresh page (app will default back to dashboard since tabs don't persist in URL)
+    // The active tab is synced to the `?tab=` URL search param, so a refresh
+    // should restore the same view instead of resetting to the default.
+    expect(new URL(page.url()).searchParams.get('tab')).toBe('analytics');
+
     await page.reload();
     await waitForAppReady(page);
     await waitForDataLoad(page);
@@ -158,11 +161,9 @@ test.describe('Navigation', () => {
     const header = page.getByText(/NetInsight/i).first();
     await expect(header).toBeVisible({ timeout: 10000 });
 
-    // Should default back to dashboard after refresh
-    const dashboardTab = page.getByRole('tab', { name: /Dashboard/i });
-    await expect(dashboardTab).toBeVisible({ timeout: 10000 });
-    // Dashboard should be active (default tab)
-    await expect(dashboardTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
+    // Analytics should still be active after refresh, not the dashboard default.
+    const analyticsTabAfter = page.getByRole('tab', { name: /Analytics/i });
+    await expect(analyticsTabAfter).toHaveAttribute('data-state', 'active', { timeout: 10000 });
   });
 
   test('should handle back/forward browser navigation', async ({ page }) => {
@@ -178,17 +179,13 @@ test.describe('Navigation', () => {
     const analyticsTab = page.getByRole('tab', { name: /Analytics/i });
     await expect(analyticsTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    // Since tabs don't update URL, browser navigation won't change tabs
-    // This test just verifies that the app can navigate between tabs successfully
-    // and remains functional
+    // Going back should restore the dashboard tab via the popstate listener,
+    // and forward should return to analytics.
+    await page.goBack();
     const dashboardTab = page.getByRole('tab', { name: /Dashboard/i });
-    await expect(dashboardTab).toBeVisible({ timeout: 5000 });
-
-    // Navigate back to dashboard to verify multiple navigations work
-    await navigateToView(page, 'dashboard');
-    await waitForDataLoad(page);
-
-    // Verify dashboard is now active
     await expect(dashboardTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
+
+    await page.goForward();
+    await expect(analyticsTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
   });
 });
