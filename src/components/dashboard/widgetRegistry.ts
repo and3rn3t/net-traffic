@@ -1,0 +1,42 @@
+export interface WidgetDefinition {
+  id: string;
+  title: string;
+  description: string;
+  /** Default grid size in layout units (w columns x h rows). */
+  defaultLayout: { w: number; h: number; minW?: number; minH?: number };
+  /** Whether this widget is included in a brand-new dashboard by default. */
+  defaultEnabled: boolean;
+}
+
+/**
+ * Static metadata for every widget the "Add widget" catalog can offer.
+ * Rendering is resolved separately in DashboardTab.tsx, which has access
+ * to the live data each widget needs.
+ */
+export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
+  {
+    id: 'metrics',
+    title: 'Key metrics',
+    description: 'Active connections, throughput, devices, and threat score at a glance.',
+    defaultLayout: { w: 12, h: 2, minW: 6, minH: 2 },
+    defaultEnabled: true,
+  },
+  {
+    id: 'traffic-chart',
+    title: 'Traffic chart',
+    description: 'Bandwidth over time, in and out.',
+    defaultLayout: { w: 8, h: 4, minW: 4, minH: 3 },
+    defaultEnabled: true,
+  },
+  {
+    id: 'connections-table',
+    title: 'Network connections',
+    description: 'Live table of active and recent flows.',
+    defaultLayout: { w: 12, h: 6, minW: 6, minH: 3 },
+    defaultEnabled: true,
+  },
+];
+
+export function getWidgetDefinition(id: string): WidgetDefinition | undefined {
+  return WIDGET_DEFINITIONS.find(widget => widget.id === id);
+}

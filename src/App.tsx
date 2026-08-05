@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   Smartphone,
   TrendingUp,
-  Network,
   AlertTriangle,
   Circle,
   WifiOff,
@@ -14,16 +13,15 @@ import {
 } from 'lucide-react';
 import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
-import { ConnectionsTable } from '@/components/ConnectionsTable';
 import { DevicesList } from '@/components/DevicesList';
 import { DataExporter } from '@/components/DataExporter';
 import { SearchBar } from '@/components/SearchBar';
-import { TrafficChart } from '@/components/TrafficChart';
 import { ProtocolBreakdown } from '@/components/ProtocolBreakdown';
 import { TopUsers } from '@/components/TopUsers';
 import { TopSites } from '@/components/TopSites';
 import { GeographicDistribution } from '@/components/GeographicDistribution';
 import { AlertRules } from '@/components/AlertRules';
+import { DashboardTab } from '@/components/dashboard/DashboardTab';
 // Lazy-loaded heavy components
 import { HistoricalTrendsLazy, AnomalyDetectionLazy, LazyWrapper } from '@/components/lazy';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
@@ -242,86 +240,23 @@ function App() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-              <MetricCard
-                title="Active Connections"
-                value={activeFlowsCount.toString()}
-                subtitle={`${totalFlows} total`}
-                icon={<Network size={24} />}
-                trend="up"
-                trendValue={
-                  useRealApi
-                    ? summaryStats
-                      ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
-                      : undefined
-                    : `${Math.floor(Math.random() * 20)}% from last hour`
-                }
-              />
-              <MetricCard
-                title="Network Throughput"
-                value={formatBytesShort(totalBytes)}
-                subtitle={
-                  useRealApi && summaryStats
-                    ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
-                    : 'Last 24 hours'
-                }
-                icon={<Activity size={24} />}
-                trend="up"
-                trendValue={
-                  useRealApi
-                    ? summaryStats
-                      ? `${formatBytesShort(totalBytes / Math.max(summaryStats.capture_duration_hours, 1))}/hr`
-                      : undefined
-                    : `${Math.floor(Math.random() * 30)}% increase`
-                }
-              />
-              <MetricCard
-                title="Active Devices"
-                value={totalDevices.toString()}
-                subtitle={`${activeDevicesCount} online now`}
-                icon={<Smartphone size={24} />}
-                trend="neutral"
-              />
-              <MetricCard
-                title="Threat Score"
-                value={`${avgThreatScore.toFixed(0)}%`}
-                subtitle={
-                  activeThreats.length > 0
-                    ? `${activeThreats.length} active threats`
-                    : 'Network secure'
-                }
-                icon={<ShieldCheck size={24} />}
-                trend={avgThreatScore > 50 ? 'up' : 'down'}
-                trendValue={avgThreatScore > 50 ? 'High risk' : 'Low risk'}
-                className={avgThreatScore > 50 ? 'border-destructive/30' : ''}
-              />
-            </div>
-
-            {activeThreats.length > 0 && (
-              <div className="space-y-3">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <AlertTriangle className="text-destructive" size={20} />
-                  Active Threats
-                </h2>
-                <div className="space-y-2">
-                  {activeThreats.slice(0, 3).map(threat => (
-                    <ThreatAlert key={threat.id} threat={threat} onDismiss={handleDismissThreat} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <ErrorBoundary>
-              <TrafficChart data={analyticsData} useApi={USE_REAL_API && isConnected} hours={24} />
-            </ErrorBoundary>
-
-            <ErrorBoundary>
-              <ConnectionsTable
-                flows={flows}
-                devices={devices}
-                useApiFilters={USE_REAL_API && isConnected}
-              />
-            </ErrorBoundary>
+            <DashboardTab
+              activeFlowsCount={activeFlowsCount}
+              totalFlows={totalFlows}
+              useRealApi={useRealApi}
+              summaryStats={summaryStats}
+              totalBytes={totalBytes}
+              totalDevices={totalDevices}
+              activeDevicesCount={activeDevicesCount}
+              avgThreatScore={avgThreatScore}
+              activeThreats={activeThreats}
+              onDismissThreat={handleDismissThreat}
+              analyticsData={analyticsData}
+              USE_REAL_API={USE_REAL_API}
+              isConnected={isConnected}
+              flows={flows}
+              devices={devices}
+            />
           </TabsContent>
 
           <TabsContent value="devices" className="space-y-6">
