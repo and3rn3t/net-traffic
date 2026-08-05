@@ -56,6 +56,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'health-score',
+    title: 'Network health score',
+    description: 'Blended 0-100 score from connection quality, threats, and anomalies.',
+    defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {

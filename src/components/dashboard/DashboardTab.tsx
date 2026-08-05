@@ -18,6 +18,7 @@ import { ConnectionsTable } from '@/components/ConnectionsTable';
 import { ActivityTicker } from '@/components/dashboard/ActivityTicker';
 import { TopTalkersWidget } from '@/components/dashboard/TopTalkersWidget';
 import { ThroughputGaugeWidget } from '@/components/dashboard/ThroughputGaugeWidget';
+import { NetworkHealthScoreWidget } from '@/components/dashboard/NetworkHealthScoreWidget';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -157,6 +158,12 @@ export function DashboardTab({
         return (
           <ErrorBoundary>
             <ThroughputGaugeWidget />
+          </ErrorBoundary>
+        );
+      case 'health-score':
+        return (
+          <ErrorBoundary>
+            <NetworkHealthScoreWidget activeThreats={activeThreats} devices={devices} />
           </ErrorBoundary>
         );
       default:
