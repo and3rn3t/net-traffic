@@ -217,6 +217,26 @@ async def get_latency_quality_calendar(
     return result
 
 
+@router.get("/stats/monthly-usage")
+async def get_monthly_usage():
+    """Get month-to-date bandwidth usage, the prior month's total, and a
+    linear end-of-month projection."""
+    if not state.advanced_analytics:
+        raise HTTPException(status_code=503, detail=ErrorMessages.ADV_ANALYTICS_NOT_INIT)
+    if state.cache_service and state.cache_service.is_enabled():
+        cache_key = "analytics:monthly_usage"
+        cached = await state.cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+    result = await handle_endpoint_error_call(
+        lambda: state.advanced_analytics.get_monthly_usage(),
+        "Failed to retrieve monthly usage",
+    )
+    if state.cache_service and state.cache_service.is_enabled():
+        await state.cache_service.set(cache_key, result)
+    return result
+
+
 @router.get("/analytics/rtt-trends")
 async def get_rtt_trends(
     hours: int = HoursQuery(24, 720),

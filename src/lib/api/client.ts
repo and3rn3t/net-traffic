@@ -210,6 +210,10 @@ export class ApiClient {
     return this.analyticsApi.getLatencyQualityCalendar(days, deviceId);
   }
 
+  getMonthlyUsage() {
+    return this.analyticsApi.getMonthlyUsage();
+  }
+
   getTopDevices(
     limit: number = 10,
     hours: number = 24,

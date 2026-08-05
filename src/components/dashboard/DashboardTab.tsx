@@ -23,6 +23,7 @@ import { WeekComparisonWidget } from '@/components/dashboard/WeekComparisonWidge
 import { DnsInsightsWidget } from '@/components/dashboard/DnsInsightsWidget';
 import { DevicePresenceWidget } from '@/components/dashboard/DevicePresenceWidget';
 import { LatencyQualityCalendarWidget } from '@/components/dashboard/LatencyQualityCalendarWidget';
+import { DataBudgetWidget } from '@/components/dashboard/DataBudgetWidget';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -192,6 +193,12 @@ export function DashboardTab({
         return (
           <ErrorBoundary>
             <LatencyQualityCalendarWidget />
+          </ErrorBoundary>
+        );
+      case 'data-budget':
+        return (
+          <ErrorBoundary>
+            <DataBudgetWidget />
           </ErrorBoundary>
         );
       default:

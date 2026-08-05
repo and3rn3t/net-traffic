@@ -51,3 +51,12 @@ def test_latency_quality_calendar(api_client):
     assert len(body["day_labels"]) == 7
     assert len(body["cells"]) == 7
     assert len(body["cells"][0]) == 24
+
+
+def test_monthly_usage(api_client):
+    response = api_client.get("/api/stats/monthly-usage")
+    assert response.status_code == 200
+    body = response.json()
+    assert "current_bytes" in body
+    assert "prior_month_bytes" in body
+    assert "projected_month_bytes" in body

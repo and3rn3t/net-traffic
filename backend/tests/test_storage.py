@@ -261,3 +261,19 @@ async def test_aggregate_hourly_quality_filters_by_device(storage):
     assert rows[0]["avg_rtt"] == pytest.approx(10.0)
 
 
+@pytest.mark.asyncio
+async def test_aggregate_bytes_total(storage):
+    await storage.upsert_device(make_device("dev-1", "10.0.0.1", "AA:BB:CC:DD:EE:01"))
+    await storage.add_flow(make_flow("flow-1", timestamp=1_000))
+    await storage.add_flow(make_flow("flow-2", timestamp=2_000))
+    await storage.add_flow(make_flow("flow-3", timestamp=5_000))
+
+    totals = await storage.aggregate_bytes_total(1_000)
+    assert totals["bytes_in"] == 3000
+    assert totals["bytes_out"] == 1500
+
+    totals_bounded = await storage.aggregate_bytes_total(1_000, 5_000)
+    assert totals_bounded["bytes_in"] == 2000
+    assert totals_bounded["bytes_out"] == 1000
+
+

@@ -18,6 +18,8 @@ export interface UserPreferences {
   defaultTab: string;
   columnsVisible: Record<string, boolean>;
   sortPreferences: Record<string, { column: string; direction: 'asc' | 'desc' }>;
+  /** Monthly data budget cap in GB, used by the data budget tracker widget. Undefined = no cap set. */
+  monthlyDataCapGb?: number;
 }
 
 interface AppContextType {
@@ -54,6 +56,7 @@ const defaultPreferences: UserPreferences = {
   defaultTab: 'dashboard',
   columnsVisible: {},
   sortPreferences: {},
+  monthlyDataCapGb: undefined,
 };
 
 // Load preferences from localStorage

@@ -91,6 +91,14 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 8, h: 4, minW: 5, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'data-budget',
+    title: 'Data budget tracker',
+    description:
+      'Month-to-date usage against a configurable monthly cap, with end-of-month projection.',
+    defaultLayout: { w: 4, h: 3, minW: 3, minH: 2 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {

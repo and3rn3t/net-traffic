@@ -103,6 +103,18 @@ export class AnalyticsApi {
     return this.http.request(`/api/stats/latency-calendar?${params.toString()}`);
   }
 
+  // Monthly Usage: month-to-date bytes, prior month total, end-of-month projection
+  async getMonthlyUsage(): Promise<{
+    month_start: number;
+    current_bytes: number;
+    prior_month_bytes: number;
+    days_elapsed: number;
+    days_in_month: number;
+    projected_month_bytes: number;
+  }> {
+    return this.http.request('/api/stats/monthly-usage');
+  }
+
   // Top Devices
   async getTopDevices(
     limit: number = 10,

@@ -7,6 +7,7 @@ network_quality_analytics.py) that all shared the same
 hours_back, then delegate to a storage.aggregate_*() SQL method" pattern.
 """
 import logging
+import calendar
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -287,6 +288,43 @@ class AnalyticsService:
             "days": days,
             "day_labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
             "cells": cells,
+        }
+
+    async def get_monthly_usage(self) -> Dict:
+        """Get month-to-date bandwidth usage, the prior full month's total,
+        and a linear end-of-month projection based on the days elapsed so
+        far. The monthly cap itself lives client-side (a user preference),
+        so this endpoint only reports raw byte totals."""
+        now = datetime.now()
+        month_start = datetime(now.year, now.month, 1)
+        if now.month == 1:
+            prev_month_start = datetime(now.year - 1, 12, 1)
+        else:
+            prev_month_start = datetime(now.year, now.month - 1, 1)
+
+        month_start_ms = int(month_start.timestamp() * 1000)
+        prev_month_start_ms = int(prev_month_start.timestamp() * 1000)
+        now_ms = int(now.timestamp() * 1000)
+
+        current = await self.storage.aggregate_bytes_total(month_start_ms, None)
+        prior = await self.storage.aggregate_bytes_total(prev_month_start_ms, month_start_ms)
+
+        current_bytes = current["bytes_in"] + current["bytes_out"]
+        prior_bytes = prior["bytes_in"] + prior["bytes_out"]
+
+        days_in_month = calendar.monthrange(now.year, now.month)[1]
+        days_elapsed = (now - month_start).days + 1
+        projected_bytes = (
+            int(current_bytes / days_elapsed * days_in_month) if days_elapsed > 0 else current_bytes
+        )
+
+        return {
+            "month_start": month_start_ms,
+            "current_bytes": current_bytes,
+            "prior_month_bytes": prior_bytes,
+            "days_elapsed": days_elapsed,
+            "days_in_month": days_in_month,
+            "projected_month_bytes": projected_bytes,
         }
 
     async def get_bandwidth_timeline(self, hours_back: int = 24, interval_minutes: int = 5) -> List[Dict]:

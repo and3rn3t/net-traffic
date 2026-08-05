@@ -358,6 +358,30 @@ class FlowRepository(Repository):
             for r in rows
         ]
 
+    @log_slow_query("aggregate_bytes_total")
+    async def aggregate_bytes_total(
+        self, start_time: int, end_time: Optional[int] = None
+    ) -> Dict[str, int]:
+        """Sum bytes_in/bytes_out over a timestamp range (used for the
+        monthly data budget tracker's month-to-date and prior-month totals)."""
+        query = """
+            SELECT COALESCE(SUM(bytes_in), 0) AS bytes_in,
+                   COALESCE(SUM(bytes_out), 0) AS bytes_out
+            FROM flows
+            WHERE timestamp >= ?
+        """
+        params: list = [start_time]
+        if end_time is not None:
+            query += " AND timestamp < ?"
+            params.append(end_time)
+
+        rows = await self.base._aggregate_fetchall(query, params)
+        row = rows[0] if rows else None
+        return {
+            "bytes_in": row["bytes_in"] if row else 0,
+            "bytes_out": row["bytes_out"] if row else 0,
+        }
+
     @log_slow_query("aggregate_top_devices")
     async def aggregate_top_devices(self, start_time: int) -> List[dict]:
         """Aggregate per-device traffic in SQL. Enrichment done by caller."""
