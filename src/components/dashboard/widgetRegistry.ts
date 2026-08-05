@@ -63,6 +63,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'week-comparison',
+    title: 'This week vs last week',
+    description: 'Overlay of the last two 7-day bandwidth periods with a % delta callout.',
+    defaultLayout: { w: 6, h: 4, minW: 4, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {
