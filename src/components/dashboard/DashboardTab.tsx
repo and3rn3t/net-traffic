@@ -17,6 +17,7 @@ import { TrafficChart } from '@/components/TrafficChart';
 import { ConnectionsTable } from '@/components/ConnectionsTable';
 import { ActivityTicker } from '@/components/dashboard/ActivityTicker';
 import { TopTalkersWidget } from '@/components/dashboard/TopTalkersWidget';
+import { ThroughputGaugeWidget } from '@/components/dashboard/ThroughputGaugeWidget';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -150,6 +151,12 @@ export function DashboardTab({
         return (
           <ErrorBoundary>
             <TopTalkersWidget />
+          </ErrorBoundary>
+        );
+      case 'throughput-gauge':
+        return (
+          <ErrorBoundary>
+            <ThroughputGaugeWidget />
           </ErrorBoundary>
         );
       default:

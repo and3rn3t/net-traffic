@@ -49,6 +49,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'throughput-gauge',
+    title: 'Live throughput',
+    description: 'Current bandwidth on a gauge, with a decaying peak-hold marker.',
+    defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {

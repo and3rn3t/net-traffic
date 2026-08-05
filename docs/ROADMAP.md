@@ -65,7 +65,7 @@
 Composable widgets for the customizable dashboard (each also viable standalone):
 
 - [ ] **Network health score** — single 0–100 gauge blending threat count, anomaly rate, retransmission rate, and latency vs. baseline.
-- [ ] **Live throughput gauge** — speedometer-style up/down bandwidth with peak-hold markers.
+- [x] **Live throughput gauge** — speedometer-style up/down bandwidth with peak-hold markers. `useThroughputGauge.ts` polls `getBandwidthTimeline` (10s via TanStack Query) for the current rate and nudges an early refetch on `flow_update` (throttled to 1 per 3s); a peak-hold value updates immediately on new highs and decays 5% per second after 5s of no new peak. `ThroughputGaugeWidget.tsx` renders a hand-rolled SVG semicircle gauge (no charting dep) with a peak marker dot.
 - [x] **Top talkers leaderboard** — ranked device list with live rank-change indicators and per-device sparklines. `useTopTalkers.ts` polls `getTopDevices` (15s interval via TanStack Query) and diffs ranks against the previous fetch; `TopTalkersWidget.tsx` renders rank, device icon/name/IP, bandwidth, and an up/down/neutral rank-change indicator. Per-device sparklines deferred — `getTopDevices` returns point-in-time totals, not a time series, so a proper sparkline needs a new backend aggregate (tracked for Phase 2).
 - [ ] **Device presence heatmap** — online/offline grid by device × hour ("who's home"), from existing device last-seen data.
 - [ ] **DNS insights** — top queried domains, NXDOMAIN/failure rate, unusual TLD flags, from the shipped DNS decoding.
