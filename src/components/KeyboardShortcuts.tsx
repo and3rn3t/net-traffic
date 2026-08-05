@@ -35,7 +35,7 @@ export function KeyboardShortcuts() {
     {
       category: 'Navigation',
       items: [
-        { keys: ['⌘', 'K'], description: 'Open search' },
+        { keys: ['⌘', 'K'], description: 'Open command palette' },
         { keys: ['Esc'], description: 'Close dialogs / Clear search' },
         { keys: ['?'], description: 'Show keyboard shortcuts' },
       ],

@@ -81,11 +81,6 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K or Ctrl+K to focus search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        document.querySelector<HTMLInputElement>('input[type="text"]')?.focus();
-      }
       // Escape to clear search
       if (e.key === 'Escape') {
         setShowResults(false);

@@ -63,6 +63,9 @@ globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
 globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url') as any;
 globalThis.URL.revokeObjectURL = vi.fn() as any;
 
+// Mock scrollIntoView (not implemented in jsdom; cmdk calls it on selection change)
+Element.prototype.scrollIntoView = vi.fn();
+
 // Suppress console errors in tests (optional - remove if you want to see them)
 // global.console = {
 //   ...console,

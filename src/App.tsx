@@ -34,6 +34,7 @@ import { ApplicationUsageDashboard } from '@/components/ApplicationUsageDashboar
 import { MaintenancePanel } from '@/components/MaintenancePanel';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { KeyboardShortcuts } from '@/components/KeyboardShortcuts';
+import { CommandPalette } from '@/components/CommandPalette';
 import { AccountMenu } from '@/components/AccountMenu';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useDataSource } from '@/hooks/useDataSource';
@@ -143,6 +144,14 @@ function App() {
               <AccountMenu />
               {/* Keyboard Shortcuts */}
               <KeyboardShortcuts />
+              {/* Command Palette (Cmd+K) */}
+              <CommandPalette
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                devices={devices}
+                isCapturing={isCapturing}
+                onToggleCapture={handleToggleCapture}
+              />
               {/* Connection Status Indicator */}
               {USE_REAL_API && (
                 <Badge

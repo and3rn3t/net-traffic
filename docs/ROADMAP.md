@@ -56,7 +56,7 @@
 - [ ] **Traffic Sankey diagram** — device → protocol → destination, for "where is my bandwidth going" at a glance.
 - [ ] **Timeline scrubbing / playback** — slider to replay historical traffic windows; flow data and hourly aggregates are already persisted.
 - [ ] **Per-device drill-down view** — sparklines of a device's metrics plotted against its learned baseline (baselines shipped; only anomaly detection consumes them today).
-- [ ] **Command palette (Cmd+K)** — global fuzzy jump to device/flow/view; `KeyboardShortcuts.tsx` already establishes the shortcut pattern.
+- [x] **Command palette (Cmd+K)** — new `CommandPalette.tsx` (built on the existing `ui/command.tsx`/cmdk primitive) lets you jump to any tab or device and run quick actions (toggle capture, switch theme) from one fuzzy-searchable list. Repurposed the `⌘K` shortcut that `SearchBar.tsx` previously used to just focus its input — that focus behavior is superseded by the palette's own search/filter box, so the old handler was removed to avoid both firing at once.
 - [ ] **Customizable dashboard** — drag-and-drop widget layout with per-user persisted arrangement; the widget catalog below plugs into this.
 - [ ] **Live activity ticker** — compact real-time feed of notable events (new device, threat, anomaly, alert trigger) fed by existing WS message types.
 
