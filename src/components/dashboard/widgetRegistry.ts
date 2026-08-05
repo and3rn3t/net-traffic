@@ -70,6 +70,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 6, h: 4, minW: 4, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'dns-insights',
+    title: 'DNS insights',
+    description: 'Query volume, failure rate, top queried domains, and unusual TLDs.',
+    defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {

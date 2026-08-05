@@ -92,6 +92,9 @@ class StorageService(StorageBase):
     async def aggregate_top_domains(self, start_time: int, limit: int = 20) -> List[dict]:
         return await self._flows.aggregate_top_domains(start_time, limit)
 
+    async def aggregate_dns_stats(self, start_time: int, limit: int = 20) -> dict:
+        return await self._flows.aggregate_dns_stats(start_time, limit)
+
     async def aggregate_top_devices(self, start_time: int) -> List[dict]:
         return await self._flows.aggregate_top_devices(start_time)
 

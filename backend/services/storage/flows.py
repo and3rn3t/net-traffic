@@ -239,6 +239,69 @@ class FlowRepository(Repository):
             for r in rows
         ]
 
+    @log_slow_query("aggregate_dns_stats")
+    async def aggregate_dns_stats(self, start_time: int, limit: int = 20) -> dict:
+        """Aggregate DNS query volume, response-code breakdown, and top
+        queried domains (with per-domain failure counts) in SQL."""
+        overall_rows = await self.base._aggregate_fetchall(
+            """
+            SELECT COUNT(*) AS total_queries,
+                   SUM(CASE WHEN dns_response_code IS NOT NULL
+                                 AND dns_response_code <> 'NOERROR'
+                            THEN 1 ELSE 0 END) AS failure_count
+            FROM flows
+            WHERE timestamp >= ? AND dns_query_name IS NOT NULL AND dns_query_name <> ''
+            """,
+            (start_time,),
+        )
+
+        response_code_rows = await self.base._aggregate_fetchall(
+            """
+            SELECT dns_response_code AS code, COUNT(*) AS count
+            FROM flows
+            WHERE timestamp >= ? AND dns_query_name IS NOT NULL AND dns_response_code IS NOT NULL
+            GROUP BY dns_response_code
+            ORDER BY count DESC
+            """,
+            (start_time,),
+        )
+
+        domain_rows = await self.base._aggregate_fetchall(
+            """
+            SELECT dns_query_name AS domain,
+                   COUNT(*) AS query_count,
+                   SUM(CASE WHEN dns_response_code IS NOT NULL
+                                 AND dns_response_code <> 'NOERROR'
+                            THEN 1 ELSE 0 END) AS failure_count
+            FROM flows
+            WHERE timestamp >= ? AND dns_query_name IS NOT NULL AND dns_query_name <> ''
+            GROUP BY dns_query_name
+            ORDER BY query_count DESC
+            LIMIT ?
+            """,
+            (start_time, limit),
+        )
+
+        overall = overall_rows[0] if overall_rows else None
+        total_queries = overall["total_queries"] if overall else 0
+        failure_count = (overall["failure_count"] or 0) if overall else 0
+
+        return {
+            "total_queries": total_queries,
+            "failure_count": failure_count,
+            "response_codes": [
+                {"code": r["code"], "count": r["count"]} for r in response_code_rows
+            ],
+            "top_domains": [
+                {
+                    "domain": r["domain"],
+                    "query_count": r["query_count"],
+                    "failure_count": r["failure_count"],
+                }
+                for r in domain_rows
+            ],
+        }
+
     @log_slow_query("aggregate_top_devices")
     async def aggregate_top_devices(self, start_time: int) -> List[dict]:
         """Aggregate per-device traffic in SQL. Enrichment done by caller."""

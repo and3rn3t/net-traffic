@@ -22,3 +22,12 @@ def test_baselines_list(api_client):
     response = api_client.get("/api/baselines")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+def test_dns_stats(api_client):
+    response = api_client.get("/api/stats/dns")
+    assert response.status_code == 200
+    body = response.json()
+    assert "total_queries" in body
+    assert "top_domains" in body
+    assert "unusual_tlds" in body

@@ -16,6 +16,18 @@ from services.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
+# TLDs common enough that flagging them as "unusual" would just be noise.
+COMMON_TLDS = {
+    "com", "net", "org", "io", "co", "gov", "edu", "us", "uk",
+    "local", "lan", "home", "arpa", "internal",
+}
+
+
+def _extract_tld(domain: str) -> str:
+    """Return the lowercase last label of a domain name (its TLD)."""
+    parts = domain.rstrip(".").split(".")
+    return parts[-1].lower() if parts and parts[-1] else ""
+
 
 class AnalyticsService:
     def __init__(self, storage: StorageService):
@@ -129,6 +141,37 @@ class AnalyticsService:
         """Get top domains by traffic"""
         start_time = self._start_time_ms(hours_back)
         return await self.storage.aggregate_top_domains(start_time, limit)
+
+    async def get_dns_stats(self, limit: int = 20, hours_back: int = 24) -> Dict:
+        """Get DNS query volume, response-code breakdown, top queried domains
+        (with failure counts), and unusual (uncommon) TLDs among them."""
+        start_time = self._start_time_ms(hours_back)
+        stats = await self.storage.aggregate_dns_stats(start_time, limit)
+
+        total_queries = stats["total_queries"]
+        failure_count = stats["failure_count"]
+        failure_rate = (failure_count / total_queries * 100) if total_queries else 0.0
+
+        tld_counts: Dict[str, int] = defaultdict(int)
+        for entry in stats["top_domains"]:
+            tld = _extract_tld(entry["domain"])
+            if tld and tld not in COMMON_TLDS:
+                tld_counts[tld] += entry["query_count"]
+
+        unusual_tlds = sorted(
+            ({"tld": tld, "count": count} for tld, count in tld_counts.items()),
+            key=lambda item: item["count"],
+            reverse=True,
+        )[:10]
+
+        return {
+            "total_queries": total_queries,
+            "failure_count": failure_count,
+            "failure_rate": round(failure_rate, 2),
+            "response_codes": stats["response_codes"],
+            "top_domains": stats["top_domains"],
+            "unusual_tlds": unusual_tlds,
+        }
 
     async def get_top_devices(self, limit: int = 10, hours_back: int = 24, sort_by: str = "bytes") -> List[Dict]:
         """Get top devices by traffic"""

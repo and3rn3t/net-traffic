@@ -198,6 +198,10 @@ export class ApiClient {
     return this.analyticsApi.getTopDomains(limit, hours);
   }
 
+  getDnsStats(limit: number = 20, hours: number = 24) {
+    return this.analyticsApi.getDnsStats(limit, hours);
+  }
+
   getTopDevices(
     limit: number = 10,
     hours: number = 24,

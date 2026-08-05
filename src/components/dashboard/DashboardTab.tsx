@@ -20,6 +20,7 @@ import { TopTalkersWidget } from '@/components/dashboard/TopTalkersWidget';
 import { ThroughputGaugeWidget } from '@/components/dashboard/ThroughputGaugeWidget';
 import { NetworkHealthScoreWidget } from '@/components/dashboard/NetworkHealthScoreWidget';
 import { WeekComparisonWidget } from '@/components/dashboard/WeekComparisonWidget';
+import { DnsInsightsWidget } from '@/components/dashboard/DnsInsightsWidget';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -171,6 +172,12 @@ export function DashboardTab({
         return (
           <ErrorBoundary>
             <WeekComparisonWidget />
+          </ErrorBoundary>
+        );
+      case 'dns-insights':
+        return (
+          <ErrorBoundary>
+            <DnsInsightsWidget />
           </ErrorBoundary>
         );
       default:

@@ -116,6 +116,25 @@ async def get_top_domains(limit: int = LimitQuery(20, 100), hours: int = HoursQu
     return result
 
 
+@router.get("/stats/dns")
+async def get_dns_stats(limit: int = LimitQuery(20, 100), hours: int = HoursQuery(24, 720)):
+    """Get DNS query volume, response-code breakdown, top queried domains, and unusual TLDs."""
+    if not state.advanced_analytics:
+        raise HTTPException(status_code=503, detail=ErrorMessages.ADV_ANALYTICS_NOT_INIT)
+    if state.cache_service and state.cache_service.is_enabled():
+        cache_key = f"analytics:dns_stats:{hours}h:{limit}"
+        cached = await state.cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+    result = await handle_endpoint_error_call(
+        lambda: state.advanced_analytics.get_dns_stats(limit=limit, hours_back=hours),
+        "Failed to retrieve DNS statistics",
+    )
+    if state.cache_service and state.cache_service.is_enabled():
+        await state.cache_service.set(cache_key, result)
+    return result
+
+
 @router.get("/stats/top/devices")
 async def get_top_devices(
     limit: int = LimitQuery(10, 100),

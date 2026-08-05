@@ -41,6 +41,34 @@ def make_flow(flow_id: str = "flow-1", device_id: str = "dev-1", timestamp: int 
     )
 
 
+def make_dns_flow(
+    flow_id: str,
+    query_name: str,
+    response_code: str = "NOERROR",
+    device_id: str = "dev-1",
+    timestamp: int = 1_700_000_000_000,
+) -> NetworkFlow:
+    return NetworkFlow(
+        id=flow_id,
+        timestamp=timestamp,
+        sourceIp="10.0.0.1",
+        sourcePort=53,
+        destIp="8.8.8.8",
+        destPort=53,
+        protocol="UDP",
+        bytesIn=100,
+        bytesOut=50,
+        packetsIn=1,
+        packetsOut=1,
+        duration=10,
+        status="closed",
+        threatLevel="safe",
+        deviceId=device_id,
+        dnsQueryName=query_name,
+        dnsResponseCode=response_code,
+    )
+
+
 def make_threat(threat_id: str = "threat-1", device_id: str = "dev-1", severity: str = "high", type_: str = "anomaly") -> Threat:
     return Threat(
         id=threat_id,
@@ -119,3 +147,36 @@ async def test_aggregate_threat_stats(storage):
     assert stats["total"] == 2
     assert stats["active"] == 2
     assert stats["critical_active"] == 1
+
+
+@pytest.mark.asyncio
+async def test_aggregate_dns_stats(storage):
+    await storage.upsert_device(make_device())
+    await storage.add_flow(make_dns_flow("dns-1", "example.com", "NOERROR"))
+    await storage.add_flow(make_dns_flow("dns-2", "example.com", "NOERROR"))
+    await storage.add_flow(make_dns_flow("dns-3", "bad.example.net", "NXDOMAIN"))
+    await storage.add_flow(make_dns_flow("dns-4", "other.example.com", "NOERROR"))
+
+    stats = await storage.aggregate_dns_stats(0, limit=10)
+
+    assert stats["total_queries"] == 4
+    assert stats["failure_count"] == 1
+    codes = {r["code"]: r["count"] for r in stats["response_codes"]}
+    assert codes == {"NOERROR": 3, "NXDOMAIN": 1}
+    domains = {d["domain"]: d for d in stats["top_domains"]}
+    assert domains["example.com"]["query_count"] == 2
+    assert domains["example.com"]["failure_count"] == 0
+    assert domains["bad.example.net"]["failure_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_aggregate_dns_stats_ignores_non_dns_flows(storage):
+    await storage.upsert_device(make_device())
+    await storage.add_flow(make_flow("flow-1"))  # no dns_query_name set
+
+    stats = await storage.aggregate_dns_stats(0, limit=10)
+
+    assert stats["total_queries"] == 0
+    assert stats["failure_count"] == 0
+    assert stats["top_domains"] == []
+

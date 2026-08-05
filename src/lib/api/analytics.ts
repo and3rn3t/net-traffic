@@ -56,6 +56,21 @@ export class AnalyticsApi {
     return this.http.request(`/api/stats/top/domains?limit=${limit}&hours=${hours}`);
   }
 
+  // DNS Insights: query volume, response-code breakdown, top domains, unusual TLDs
+  async getDnsStats(
+    limit: number = 20,
+    hours: number = 24
+  ): Promise<{
+    total_queries: number;
+    failure_count: number;
+    failure_rate: number;
+    response_codes: Array<{ code: string; count: number }>;
+    top_domains: Array<{ domain: string; query_count: number; failure_count: number }>;
+    unusual_tlds: Array<{ tld: string; count: number }>;
+  }> {
+    return this.http.request(`/api/stats/dns?limit=${limit}&hours=${hours}`);
+  }
+
   // Top Devices
   async getTopDevices(
     limit: number = 10,
