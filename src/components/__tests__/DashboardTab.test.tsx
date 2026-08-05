@@ -3,7 +3,7 @@
  * Tests widget rendering, edit mode, add/remove flows, and localStorage persistence
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { DashboardTab } from '@/components/dashboard/DashboardTab';
 import type { Threat } from '@/lib/types';
 
@@ -80,7 +80,9 @@ describe('DashboardTab', () => {
     await waitFor(() => expect(screen.queryByTestId('traffic-chart')).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: /Add widget/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Add' }));
+    const titleGroup = (await screen.findByText('Traffic chart')).closest('div');
+    const trafficChartRow = titleGroup?.parentElement as HTMLElement;
+    fireEvent.click(within(trafficChartRow).getByRole('button', { name: 'Add' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('traffic-chart')).toBeInTheDocument();

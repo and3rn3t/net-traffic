@@ -35,6 +35,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 12, h: 6, minW: 6, minH: 3 },
     defaultEnabled: true,
   },
+  {
+    id: 'activity-ticker',
+    title: 'Live activity',
+    description: 'Recent device, threat, and alert events as they happen.',
+    defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {

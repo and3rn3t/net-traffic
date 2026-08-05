@@ -15,6 +15,7 @@ import { MetricCard } from '@/components/MetricCard';
 import { ThreatAlert } from '@/components/ThreatAlert';
 import { TrafficChart } from '@/components/TrafficChart';
 import { ConnectionsTable } from '@/components/ConnectionsTable';
+import { ActivityTicker } from '@/components/dashboard/ActivityTicker';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -136,6 +137,12 @@ export function DashboardTab({
               devices={devices}
               useApiFilters={USE_REAL_API && isConnected}
             />
+          </ErrorBoundary>
+        );
+      case 'activity-ticker':
+        return (
+          <ErrorBoundary>
+            <ActivityTicker />
           </ErrorBoundary>
         );
       default:
