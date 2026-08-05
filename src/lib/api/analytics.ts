@@ -89,6 +89,20 @@ export class AnalyticsApi {
     return this.http.request(`/api/stats/device-presence?days=${days}&limit=${limit}`);
   }
 
+  // Latency Quality Calendar: RTT/jitter heatmap by hour-of-day x day-of-week
+  async getLatencyQualityCalendar(
+    days: number = 14,
+    deviceId?: string
+  ): Promise<{
+    days: number;
+    day_labels: string[];
+    cells: Array<Array<{ avg_rtt: number | null; avg_jitter: number | null; count: number }>>;
+  }> {
+    const params = new URLSearchParams({ days: String(days) });
+    if (deviceId) params.set('device_id', deviceId);
+    return this.http.request(`/api/stats/latency-calendar?${params.toString()}`);
+  }
+
   // Top Devices
   async getTopDevices(
     limit: number = 10,

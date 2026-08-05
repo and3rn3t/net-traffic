@@ -40,3 +40,14 @@ def test_device_presence(api_client):
     assert "days" in body
     assert "hours" in body
     assert "devices" in body
+
+
+def test_latency_quality_calendar(api_client):
+    response = api_client.get("/api/stats/latency-calendar")
+    assert response.status_code == 200
+    body = response.json()
+    assert "days" in body
+    assert "day_labels" in body
+    assert len(body["day_labels"]) == 7
+    assert len(body["cells"]) == 7
+    assert len(body["cells"][0]) == 24

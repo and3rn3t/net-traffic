@@ -84,6 +84,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 8, h: 4, minW: 5, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'latency-quality-calendar',
+    title: 'Latency quality calendar',
+    description: 'Average RTT by day-of-week x hour-of-day over the last two weeks.',
+    defaultLayout: { w: 8, h: 4, minW: 5, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {

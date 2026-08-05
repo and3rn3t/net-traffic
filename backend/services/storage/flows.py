@@ -326,6 +326,38 @@ class FlowRepository(Repository):
             for r in rows
         ]
 
+    @log_slow_query("aggregate_hourly_quality")
+    async def aggregate_hourly_quality(
+        self, start_time: int, device_id: Optional[str] = None
+    ) -> List[dict]:
+        """Aggregate avg RTT/jitter per absolute hour bucket in SQL (the raw
+        material for a day-of-week x hour-of-day latency quality calendar,
+        which buckets further by local time in Python)."""
+        query = """
+            SELECT CAST(timestamp / 3600000 AS INTEGER) AS hour_bucket,
+                   AVG(rtt) AS avg_rtt,
+                   AVG(jitter) AS avg_jitter,
+                   COUNT(*) AS count
+            FROM flows
+            WHERE timestamp >= ? AND (rtt IS NOT NULL OR jitter IS NOT NULL)
+        """
+        params: list = [start_time]
+        if device_id:
+            query += " AND device_id = ?"
+            params.append(device_id)
+        query += " GROUP BY hour_bucket"
+
+        rows = await self.base._aggregate_fetchall(query, params)
+        return [
+            {
+                "hour_bucket": r["hour_bucket"],
+                "avg_rtt": r["avg_rtt"],
+                "avg_jitter": r["avg_jitter"],
+                "count": r["count"],
+            }
+            for r in rows
+        ]
+
     @log_slow_query("aggregate_top_devices")
     async def aggregate_top_devices(self, start_time: int) -> List[dict]:
         """Aggregate per-device traffic in SQL. Enrichment done by caller."""

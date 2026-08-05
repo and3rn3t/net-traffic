@@ -98,6 +98,9 @@ class StorageService(StorageBase):
     async def aggregate_device_presence(self, start_time: int) -> List[dict]:
         return await self._flows.aggregate_device_presence(start_time)
 
+    async def aggregate_hourly_quality(self, start_time: int, device_id: Optional[str] = None) -> List[dict]:
+        return await self._flows.aggregate_hourly_quality(start_time, device_id)
+
     async def aggregate_top_devices(self, start_time: int) -> List[dict]:
         return await self._flows.aggregate_top_devices(start_time)
 

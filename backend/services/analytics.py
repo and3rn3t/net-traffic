@@ -242,6 +242,53 @@ class AnalyticsService:
             "devices": result_devices,
         }
 
+    async def get_latency_quality_calendar(self, days: int = 14, device_id: Optional[str] = None) -> Dict:
+        """Get an RTT/jitter heatmap by hour-of-day x day-of-week, averaged
+        over the last `days` days (in local time)."""
+        hours = days * 24
+        start_time = self._start_time_ms(hours)
+        rows = await self.storage.aggregate_hourly_quality(start_time, device_id=device_id)
+
+        # weighted_rtt[day_of_week][hour_of_day] accumulates (sum, count) so
+        # multiple days landing on the same day-of-week/hour-of-day cell
+        # (e.g. two Mondays across a 14-day window) average correctly.
+        rtt_sum = [[0.0] * 24 for _ in range(7)]
+        jitter_sum = [[0.0] * 24 for _ in range(7)]
+        cell_count = [[0] * 24 for _ in range(7)]
+
+        for row in rows:
+            local_dt = datetime.fromtimestamp(row["hour_bucket"] * 3600)
+            day_of_week = local_dt.weekday()  # Monday = 0 .. Sunday = 6
+            hour_of_day = local_dt.hour
+            count = row["count"]
+            if row["avg_rtt"] is not None:
+                rtt_sum[day_of_week][hour_of_day] += row["avg_rtt"] * count
+            if row["avg_jitter"] is not None:
+                jitter_sum[day_of_week][hour_of_day] += row["avg_jitter"] * count
+            cell_count[day_of_week][hour_of_day] += count
+
+        cells = [
+            [
+                {
+                    "avg_rtt": round(rtt_sum[day][hour] / cell_count[day][hour], 2)
+                    if cell_count[day][hour]
+                    else None,
+                    "avg_jitter": round(jitter_sum[day][hour] / cell_count[day][hour], 2)
+                    if cell_count[day][hour]
+                    else None,
+                    "count": cell_count[day][hour],
+                }
+                for hour in range(24)
+            ]
+            for day in range(7)
+        ]
+
+        return {
+            "days": days,
+            "day_labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            "cells": cells,
+        }
+
     async def get_bandwidth_timeline(self, hours_back: int = 24, interval_minutes: int = 5) -> List[Dict]:
         """Get bandwidth usage timeline with configurable interval"""
         start_time = self._start_time_ms(hours_back)

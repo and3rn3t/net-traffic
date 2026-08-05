@@ -206,6 +206,10 @@ export class ApiClient {
     return this.analyticsApi.getDevicePresence(days, limit);
   }
 
+  getLatencyQualityCalendar(days: number = 14, deviceId?: string) {
+    return this.analyticsApi.getLatencyQualityCalendar(days, deviceId);
+  }
+
   getTopDevices(
     limit: number = 10,
     hours: number = 24,

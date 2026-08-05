@@ -196,6 +196,27 @@ async def get_device_presence(days: int = Query(7, ge=1, le=30), limit: int = Li
     return result
 
 
+@router.get("/stats/latency-calendar")
+async def get_latency_quality_calendar(
+    days: int = Query(14, ge=1, le=30), device_id: Optional[str] = Query(None)
+):
+    """Get an RTT/jitter heatmap by hour-of-day x day-of-week over the last N days."""
+    if not state.advanced_analytics:
+        raise HTTPException(status_code=503, detail=ErrorMessages.ADV_ANALYTICS_NOT_INIT)
+    if state.cache_service and state.cache_service.is_enabled():
+        cache_key = f"analytics:latency_calendar:{days}d:{device_id or 'all'}"
+        cached = await state.cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+    result = await handle_endpoint_error_call(
+        lambda: state.advanced_analytics.get_latency_quality_calendar(days=days, device_id=device_id),
+        "Failed to retrieve latency quality calendar",
+    )
+    if state.cache_service and state.cache_service.is_enabled():
+        await state.cache_service.set(cache_key, result)
+    return result
+
+
 @router.get("/analytics/rtt-trends")
 async def get_rtt_trends(
     hours: int = HoursQuery(24, 720),

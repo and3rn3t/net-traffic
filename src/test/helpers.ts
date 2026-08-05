@@ -56,6 +56,7 @@ export const API_CLIENT_METHODS = [
   'getTopDomains',
   'getDnsStats',
   'getDevicePresence',
+  'getLatencyQualityCalendar',
   'getTopDevices',
   'getBandwidthTimeline',
   'getRttTrends',

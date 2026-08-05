@@ -22,6 +22,7 @@ import { NetworkHealthScoreWidget } from '@/components/dashboard/NetworkHealthSc
 import { WeekComparisonWidget } from '@/components/dashboard/WeekComparisonWidget';
 import { DnsInsightsWidget } from '@/components/dashboard/DnsInsightsWidget';
 import { DevicePresenceWidget } from '@/components/dashboard/DevicePresenceWidget';
+import { LatencyQualityCalendarWidget } from '@/components/dashboard/LatencyQualityCalendarWidget';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -185,6 +186,12 @@ export function DashboardTab({
         return (
           <ErrorBoundary>
             <DevicePresenceWidget />
+          </ErrorBoundary>
+        );
+      case 'latency-quality-calendar':
+        return (
+          <ErrorBoundary>
+            <LatencyQualityCalendarWidget />
           </ErrorBoundary>
         );
       default:

@@ -69,6 +69,36 @@ def make_dns_flow(
     )
 
 
+def make_quality_flow(
+    flow_id: str,
+    rtt: int,
+    jitter: float,
+    device_id: str = "dev-1",
+    timestamp: int = 1_700_000_000_000,
+) -> NetworkFlow:
+    return NetworkFlow(
+        id=flow_id,
+        timestamp=timestamp,
+        sourceIp="10.0.0.1",
+        sourcePort=12345,
+        destIp="93.184.216.34",
+        destPort=443,
+        protocol="TCP",
+        bytesIn=1000,
+        bytesOut=500,
+        packetsIn=10,
+        packetsOut=5,
+        duration=1000,
+        status="closed",
+        threatLevel="safe",
+        deviceId=device_id,
+        rtt=rtt,
+        jitter=jitter,
+    )
+
+
+
+
 def make_threat(threat_id: str = "threat-1", device_id: str = "dev-1", severity: str = "high", type_: str = "anomaly") -> Threat:
     return Threat(
         id=threat_id,
@@ -197,4 +227,37 @@ async def test_aggregate_device_presence(storage):
     assert by_device_bucket[("dev-1", 2)] == 1
     assert by_device_bucket[("dev-2", 1)] == 1
     assert ("dev-1", 1) not in by_device_bucket
+
+
+@pytest.mark.asyncio
+async def test_aggregate_hourly_quality(storage):
+    await storage.upsert_device(make_device("dev-1", "10.0.0.1", "AA:BB:CC:DD:EE:01"))
+    # Two flows in hour bucket 0, one in hour bucket 2.
+    await storage.add_flow(make_quality_flow("flow-1", rtt=10, jitter=1.0, timestamp=0))
+    await storage.add_flow(make_quality_flow("flow-2", rtt=30, jitter=3.0, timestamp=0))
+    await storage.add_flow(make_quality_flow("flow-3", rtt=50, jitter=5.0, timestamp=2 * 3_600_000))
+
+    rows = await storage.aggregate_hourly_quality(0)
+
+    by_bucket = {r["hour_bucket"]: r for r in rows}
+    assert by_bucket[0]["avg_rtt"] == pytest.approx(20.0)
+    assert by_bucket[0]["avg_jitter"] == pytest.approx(2.0)
+    assert by_bucket[0]["count"] == 2
+    assert by_bucket[2]["avg_rtt"] == pytest.approx(50.0)
+    assert by_bucket[2]["count"] == 1
+    assert 1 not in by_bucket
+
+
+@pytest.mark.asyncio
+async def test_aggregate_hourly_quality_filters_by_device(storage):
+    await storage.upsert_device(make_device("dev-1", "10.0.0.1", "AA:BB:CC:DD:EE:01"))
+    await storage.upsert_device(make_device("dev-2", "10.0.0.2", "AA:BB:CC:DD:EE:02"))
+    await storage.add_flow(make_quality_flow("flow-1", rtt=10, jitter=1.0, device_id="dev-1", timestamp=0))
+    await storage.add_flow(make_quality_flow("flow-2", rtt=90, jitter=9.0, device_id="dev-2", timestamp=0))
+
+    rows = await storage.aggregate_hourly_quality(0, device_id="dev-1")
+
+    assert len(rows) == 1
+    assert rows[0]["avg_rtt"] == pytest.approx(10.0)
+
 
