@@ -16,6 +16,7 @@ import { ThreatAlert } from '@/components/ThreatAlert';
 import { TrafficChart } from '@/components/TrafficChart';
 import { ConnectionsTable } from '@/components/ConnectionsTable';
 import { ActivityTicker } from '@/components/dashboard/ActivityTicker';
+import { TopTalkersWidget } from '@/components/dashboard/TopTalkersWidget';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -143,6 +144,12 @@ export function DashboardTab({
         return (
           <ErrorBoundary>
             <ActivityTicker />
+          </ErrorBoundary>
+        );
+      case 'top-talkers':
+        return (
+          <ErrorBoundary>
+            <TopTalkersWidget />
           </ErrorBoundary>
         );
       default:

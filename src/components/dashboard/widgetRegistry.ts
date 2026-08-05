@@ -42,6 +42,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'top-talkers',
+    title: 'Top talkers',
+    description: 'Devices ranked by bandwidth, with live rank-change indicators.',
+    defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {
