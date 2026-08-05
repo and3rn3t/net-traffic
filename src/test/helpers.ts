@@ -55,6 +55,7 @@ export const API_CLIENT_METHODS = [
   'getGeographicStats',
   'getTopDomains',
   'getDnsStats',
+  'getDevicePresence',
   'getTopDevices',
   'getBandwidthTimeline',
   'getRttTrends',

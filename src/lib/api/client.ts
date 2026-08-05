@@ -202,6 +202,10 @@ export class ApiClient {
     return this.analyticsApi.getDnsStats(limit, hours);
   }
 
+  getDevicePresence(days: number = 7, limit: number = 15) {
+    return this.analyticsApi.getDevicePresence(days, limit);
+  }
+
   getTopDevices(
     limit: number = 10,
     hours: number = 24,

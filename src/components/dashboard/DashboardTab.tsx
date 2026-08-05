@@ -21,6 +21,7 @@ import { ThroughputGaugeWidget } from '@/components/dashboard/ThroughputGaugeWid
 import { NetworkHealthScoreWidget } from '@/components/dashboard/NetworkHealthScoreWidget';
 import { WeekComparisonWidget } from '@/components/dashboard/WeekComparisonWidget';
 import { DnsInsightsWidget } from '@/components/dashboard/DnsInsightsWidget';
+import { DevicePresenceWidget } from '@/components/dashboard/DevicePresenceWidget';
 import { DashboardGrid } from '@/components/dashboard/DashboardGrid';
 import { WidgetShell } from '@/components/dashboard/WidgetShell';
 import { AddWidgetDialog } from '@/components/dashboard/AddWidgetDialog';
@@ -178,6 +179,12 @@ export function DashboardTab({
         return (
           <ErrorBoundary>
             <DnsInsightsWidget />
+          </ErrorBoundary>
+        );
+      case 'device-presence':
+        return (
+          <ErrorBoundary>
+            <DevicePresenceWidget />
           </ErrorBoundary>
         );
       default:

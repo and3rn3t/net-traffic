@@ -177,6 +177,25 @@ async def get_bandwidth_timeline(hours: int = HoursQuery(24, 720), interval_minu
     return result
 
 
+@router.get("/stats/device-presence")
+async def get_device_presence(days: int = Query(7, ge=1, le=30), limit: int = LimitQuery(15, 50)):
+    """Get per-device, per-hour presence (online/offline heatmap) over the last N days."""
+    if not state.advanced_analytics:
+        raise HTTPException(status_code=503, detail=ErrorMessages.ADV_ANALYTICS_NOT_INIT)
+    if state.cache_service and state.cache_service.is_enabled():
+        cache_key = f"analytics:device_presence:{days}d:{limit}"
+        cached = await state.cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+    result = await handle_endpoint_error_call(
+        lambda: state.advanced_analytics.get_device_presence(days=days, limit=limit),
+        "Failed to retrieve device presence",
+    )
+    if state.cache_service and state.cache_service.is_enabled():
+        await state.cache_service.set(cache_key, result)
+    return result
+
+
 @router.get("/analytics/rtt-trends")
 async def get_rtt_trends(
     hours: int = HoursQuery(24, 720),

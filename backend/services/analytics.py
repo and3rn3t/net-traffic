@@ -193,10 +193,54 @@ class AnalyticsService:
                 "connections": stats["connections"],
                 "threats": stats["threats"]
             })
-
         sort_key = sort_by if sort_by in ["bytes", "connections", "threats"] else "bytes"
         result.sort(key=lambda x: x[sort_key], reverse=True)
         return result[:limit]
+
+    async def get_device_presence(self, days: int = 7, limit: int = 15) -> Dict:
+        """Get per-device, per-hour presence (any flow activity that hour)
+        over the last `days` days, for the top `limit` devices by activity."""
+        hours = days * 24
+        start_time = self._start_time_ms(hours)
+        rows = await self.storage.aggregate_device_presence(start_time)
+
+        now_hour_bucket = int(datetime.now().timestamp() // 3600)
+        oldest_hour_bucket = now_hour_bucket - hours + 1
+
+        buckets_by_device: Dict[str, Dict[int, int]] = defaultdict(dict)
+        totals_by_device: Dict[str, int] = defaultdict(int)
+        for row in rows:
+            buckets_by_device[row["device_id"]][row["hour_bucket"]] = row["connections"]
+            totals_by_device[row["device_id"]] += row["connections"]
+
+        top_device_ids = sorted(
+            totals_by_device, key=lambda device_id: totals_by_device[device_id], reverse=True
+        )[:limit]
+
+        devices = await self.storage.get_devices()
+        device_map = {d.id: d for d in devices}
+
+        result_devices = []
+        for device_id in top_device_ids:
+            device = device_map.get(device_id)
+            device_buckets = buckets_by_device[device_id]
+            presence = [
+                1 if (oldest_hour_bucket + offset) in device_buckets else 0
+                for offset in range(hours)
+            ]
+            result_devices.append({
+                "device_id": device_id,
+                "device_name": device.name if device else "Unknown",
+                "device_ip": device.ip if device else "Unknown",
+                "presence": presence,
+            })
+
+        return {
+            "days": days,
+            "hours": hours,
+            "start_timestamp": oldest_hour_bucket * 3600 * 1000,
+            "devices": result_devices,
+        }
 
     async def get_bandwidth_timeline(self, hours_back: int = 24, interval_minutes: int = 5) -> List[Dict]:
         """Get bandwidth usage timeline with configurable interval"""

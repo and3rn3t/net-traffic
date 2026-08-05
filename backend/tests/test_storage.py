@@ -180,3 +180,21 @@ async def test_aggregate_dns_stats_ignores_non_dns_flows(storage):
     assert stats["failure_count"] == 0
     assert stats["top_domains"] == []
 
+
+@pytest.mark.asyncio
+async def test_aggregate_device_presence(storage):
+    await storage.upsert_device(make_device("dev-1", "10.0.0.1", "AA:BB:CC:DD:EE:01"))
+    await storage.upsert_device(make_device("dev-2", "10.0.0.2", "AA:BB:CC:DD:EE:02"))
+    # dev-1 active in hour buckets 0 and 2; dev-2 active only in hour bucket 1.
+    await storage.add_flow(make_flow("flow-1", "dev-1", timestamp=0))
+    await storage.add_flow(make_flow("flow-2", "dev-1", timestamp=2 * 3_600_000))
+    await storage.add_flow(make_flow("flow-3", "dev-2", timestamp=3_600_000))
+
+    rows = await storage.aggregate_device_presence(0)
+
+    by_device_bucket = {(r["device_id"], r["hour_bucket"]): r["connections"] for r in rows}
+    assert by_device_bucket[("dev-1", 0)] == 1
+    assert by_device_bucket[("dev-1", 2)] == 1
+    assert by_device_bucket[("dev-2", 1)] == 1
+    assert ("dev-1", 1) not in by_device_bucket
+

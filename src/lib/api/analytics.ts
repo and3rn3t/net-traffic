@@ -71,6 +71,24 @@ export class AnalyticsApi {
     return this.http.request(`/api/stats/dns?limit=${limit}&hours=${hours}`);
   }
 
+  // Device Presence: per-device, per-hour activity heatmap
+  async getDevicePresence(
+    days: number = 7,
+    limit: number = 15
+  ): Promise<{
+    days: number;
+    hours: number;
+    start_timestamp: number;
+    devices: Array<{
+      device_id: string;
+      device_name: string;
+      device_ip: string;
+      presence: number[];
+    }>;
+  }> {
+    return this.http.request(`/api/stats/device-presence?days=${days}&limit=${limit}`);
+  }
+
   // Top Devices
   async getTopDevices(
     limit: number = 10,

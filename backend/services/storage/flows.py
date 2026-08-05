@@ -302,6 +302,30 @@ class FlowRepository(Repository):
             ],
         }
 
+    @log_slow_query("aggregate_device_presence")
+    async def aggregate_device_presence(self, start_time: int) -> List[dict]:
+        """Aggregate per-device, per-hour-bucket flow counts in SQL (the raw
+        material for an online/offline-by-hour presence heatmap)."""
+        rows = await self.base._aggregate_fetchall(
+            """
+            SELECT device_id,
+                   CAST(timestamp / 3600000 AS INTEGER) AS hour_bucket,
+                   COUNT(*) AS connections
+            FROM flows
+            WHERE timestamp >= ? AND device_id IS NOT NULL AND device_id <> ''
+            GROUP BY device_id, hour_bucket
+            """,
+            (start_time,),
+        )
+        return [
+            {
+                "device_id": r["device_id"],
+                "hour_bucket": r["hour_bucket"],
+                "connections": r["connections"],
+            }
+            for r in rows
+        ]
+
     @log_slow_query("aggregate_top_devices")
     async def aggregate_top_devices(self, start_time: int) -> List[dict]:
         """Aggregate per-device traffic in SQL. Enrichment done by caller."""

@@ -77,6 +77,13 @@ export const WIDGET_DEFINITIONS: WidgetDefinition[] = [
     defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
     defaultEnabled: false,
   },
+  {
+    id: 'device-presence',
+    title: 'Device presence heatmap',
+    description: "Online/offline grid by device x hour over the last week - who's home.",
+    defaultLayout: { w: 8, h: 4, minW: 5, minH: 3 },
+    defaultEnabled: false,
+  },
 ];
 
 export function getWidgetDefinition(id: string): WidgetDefinition | undefined {
