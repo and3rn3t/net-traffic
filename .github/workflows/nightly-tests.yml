@@ -145,9 +145,11 @@ jobs:
 
       - name: Generate test summary
         run: |
-          echo "## 🧪 Nightly Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Unit Tests:** ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "**E2E Tests:** ${{ needs.e2e-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Results are available as artifacts." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## 🧪 Nightly Test Summary"
+            echo ""
+            echo "**Unit Tests:** ${{ needs.unit-tests.result }}"
+            echo "**E2E Tests:** ${{ needs.e2e-tests.result }}"
+            echo ""
+            echo "Results are available as artifacts."
+          } >> "$GITHUB_STEP_SUMMARY"
