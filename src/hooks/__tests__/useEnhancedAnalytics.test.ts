@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { useEnhancedAnalytics } from '@/hooks/useEnhancedAnalytics';
 import { apiClient } from '@/lib/api';
 
@@ -336,13 +336,16 @@ describe('useEnhancedAnalytics', () => {
 
       const { result } = renderHook(() => useEnhancedAnalytics({ autoFetch: false, hours: 24 }));
 
-      await result.current.refresh();
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
+      await act(async () => {
+        await result.current.refresh();
       });
 
-      expect(result.current.summaryStats).toEqual(mockSummaryStats);
+      // isLoading starts false with autoFetch off, so waiting on it alone can pass
+      // before the fetched state renders — wait on the data itself.
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.summaryStats).toEqual(mockSummaryStats);
+      });
       expect(result.current.topDomains).toEqual(mockTopDomains);
       expect(result.current.topDevices).toEqual(mockTopDevices);
       expect(result.current.geographicStats).toEqual(mockGeographicStats);
