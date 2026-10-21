@@ -304,7 +304,6 @@ class AnalyticsService:
 
         month_start_ms = int(month_start.timestamp() * 1000)
         prev_month_start_ms = int(prev_month_start.timestamp() * 1000)
-        now_ms = int(now.timestamp() * 1000)
 
         current = await self.storage.aggregate_bytes_total(month_start_ms, None)
         prior = await self.storage.aggregate_bytes_total(prev_month_start_ms, month_start_ms)
