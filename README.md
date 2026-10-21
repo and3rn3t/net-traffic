@@ -1,15 +1,11 @@
 # NetInsight - Deep Network Analysis
 
-A comprehensive network traffic analysis dashboard built with React, TypeScript, and Vite.
+**A network traffic analysis dashboard for your home network — packet capture on a Raspberry Pi 5, UI on Cloudflare Pages.**
 
-## 🏗️ Architecture
+[![CI/CD](https://github.com/and3rn3t/net-traffic/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/and3rn3t/net-traffic/actions/workflows/ci-cd.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Frontend**: Deployed to Cloudflare Pages (CDN, global distribution)  
-**Backend**: Runs on Raspberry Pi 5 (packet capture, database, API)
-
-This architecture simplifies deployment and improves performance by serving the frontend from Cloudflare's edge network while keeping the backend on your local Raspberry Pi for packet capture and data processing.
-
-> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions.
+![NetInsight dashboard (mock data)](docs/screenshot.png)
 
 ## 🚀 Features
 
@@ -20,11 +16,20 @@ This architecture simplifies deployment and improves performance by serving the 
 - Security posture monitoring
 - Anomaly detection
 
-## 🛠️ Development
+## 🏗️ Architecture
+
+**Frontend**: Deployed to Cloudflare Pages (CDN, global distribution)  
+**Backend**: Runs on Raspberry Pi 5 (packet capture, database, API)
+
+This architecture simplifies deployment and improves performance by serving the frontend from Cloudflare's edge network while keeping the backend on your local Raspberry Pi for packet capture and data processing.
+
+> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions.
+
+## 🛠️ Getting started
 
 ### Prerequisites
 
-- Node.js 20 or higher
+- Node.js 24.13 or higher (see `.nvmrc`)
 - npm or yarn
 
 ### Setup
@@ -233,6 +238,12 @@ Comprehensive documentation is available in the project:
 
 See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of all documentation files.
 
+## 🧰 Tech stack
+
+- **Frontend**: React 19 + TypeScript + Vite, Tailwind CSS 4, shadcn/ui, TanStack Query, Recharts — deployed to Cloudflare Pages
+- **Backend** (`backend/`): Python, FastAPI, aiosqlite, Scapy — runs on a Raspberry Pi 5
+- **Tests**: Vitest + Testing Library, Playwright, pytest
+
 ## 📁 Project Structure
 
 ```text
@@ -259,4 +270,4 @@ See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of a
 
 ## 📄 License
 
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+[MIT](LICENSE). The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
