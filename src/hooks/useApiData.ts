@@ -13,7 +13,6 @@ import { toast } from 'sonner';
 import { API_CONFIG } from '@/hooks/useApiConfig';
 import { loadSnapshot, saveSnapshot } from '@/lib/snapshotCache';
 
-const USE_REAL_API = API_CONFIG.USE_REAL_API;
 const SNAPSHOT_KEY = 'netinsight_snapshot_core';
 const SNAPSHOT_SAVE_DEBOUNCE_MS = 10000;
 
@@ -42,6 +41,9 @@ const QUERY_KEYS = {
 export function useApiData(options: UseApiDataOptions = {}) {
   const { pollingInterval = 5000, useWebSocket = true } = options;
   const queryClient = useQueryClient();
+  // Read per-call (not module scope) so it stays live for test env stubbing
+  // (`vi.stubEnv`) instead of being frozen at first import.
+  const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   const snapshot = USE_REAL_API ? loadSnapshot<CoreSnapshot>(SNAPSHOT_KEY) : null;
   // initialDataUpdatedAt: 0 marks the hydrated snapshot as already-stale, so
