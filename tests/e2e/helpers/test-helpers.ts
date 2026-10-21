@@ -3,7 +3,7 @@
  * Shared utilities for E2E tests
  */
 
-import { Locator, Page, expect } from '@playwright/test';
+import { Locator, Page, Route, expect } from '@playwright/test';
 
 /**
  * Wait for the application to be ready
@@ -207,6 +207,22 @@ export async function mockApiResponse(page: Page, url: string, response: unknown
       body: JSON.stringify(response),
     });
   });
+}
+
+/**
+ * Wraps a `page.route('**\/api/**', ...)` handler so it only intercepts real
+ * backend calls (path starting with /api/) and not Vite dev-server module
+ * requests like /src/lib/api/*.ts, which also match the "**\/api/**" glob and
+ * would otherwise break the app's JS module graph when mocked/aborted.
+ */
+export function guardApiRoute(handler: (route: Route) => void | Promise<void>) {
+  return (route: Route) => {
+    const { pathname } = new URL(route.request().url());
+    if (!pathname.startsWith('/api/')) {
+      return route.continue();
+    }
+    return handler(route);
+  };
 }
 
 /**

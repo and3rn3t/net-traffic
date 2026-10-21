@@ -9,6 +9,7 @@ import {
   waitForDataLoad,
   mockApiResponse,
   navigateToView,
+  guardApiRoute,
 } from './helpers/test-helpers';
 
 test.describe('API Integration', () => {
@@ -45,13 +46,16 @@ test.describe('API Integration', () => {
 
   test('should display error when backend is unavailable', async ({ page, context }) => {
     // Intercept API calls and return error
-    await page.route('**/api/**', route => {
-      route.fulfill({
-        status: 503,
-        contentType: 'application/json',
-        body: JSON.stringify({ detail: 'Service unavailable' }),
-      });
-    });
+    await page.route(
+      '**/api/**',
+      guardApiRoute(route => {
+        route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Service unavailable' }),
+        });
+      })
+    );
 
     // Reload to trigger API call
     await page.reload();
@@ -125,10 +129,13 @@ test.describe('API Integration', () => {
 
   test('should handle API timeout gracefully', async ({ page }) => {
     // Intercept and delay API calls to simulate timeout
-    await page.route('**/api/**', route => {
-      // Abort immediately to simulate timeout
-      route.abort('timedout');
-    });
+    await page.route(
+      '**/api/**',
+      guardApiRoute(route => {
+        // Abort immediately to simulate timeout
+        route.abort('timedout');
+      })
+    );
 
     await page.reload();
     await waitForAppReady(page);
