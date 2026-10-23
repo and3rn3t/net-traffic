@@ -45,19 +45,24 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-// Mock ResizeObserver
-globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-})) as any;
+// Mock ResizeObserver (a class, not an arrow: Vitest 4+ mocks keep arrow
+// semantics, so `new` on an arrow implementation throws)
+globalThis.ResizeObserver = vi.fn(
+  class {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+) as any;
 
 // Mock IntersectionObserver
-globalThis.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-})) as any;
+globalThis.IntersectionObserver = vi.fn(
+  class {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+) as any;
 
 // Mock URL.createObjectURL and revokeObjectURL (not available in jsdom)
 globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url') as any;
