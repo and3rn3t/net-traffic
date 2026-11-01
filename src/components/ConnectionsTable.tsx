@@ -5,7 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { NetworkFlow, Device } from '@/lib/types';
 import { formatBytes, formatTimestamp, getThreatColor, getThreatBgColor } from '@/lib/formatters';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { FlowFiltersComponent } from './FlowFilters';
 import { useFlowFilters } from '@/hooks/useFlowFilters';
 import { Download } from 'lucide-react';

@@ -1,7 +1,7 @@
 /**
  * Live activity ticker widget: recent device/threat/alert events, newest first.
  */
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 import { Bell, Cpu, Radio, ShieldAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {

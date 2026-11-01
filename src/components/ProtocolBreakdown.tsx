@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { ProtocolStats } from '@/lib/types';
 import { formatBytes } from '@/lib/formatters';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 interface ProtocolBreakdownProps {
   data: ProtocolStats[];

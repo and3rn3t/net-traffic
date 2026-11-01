@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { X, ShieldCheck } from 'lucide-react';
 import { Threat } from '@/lib/types';
 import { formatTimestamp } from '@/lib/formatters';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 interface ThreatAlertProps {
   threat: Threat;
