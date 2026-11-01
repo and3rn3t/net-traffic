@@ -31,7 +31,6 @@ pids
 .file-manifest
 .devcontainer/
 
-.spark-workbench-id
 
 # Cloudflare
 .wrangler/
