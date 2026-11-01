@@ -37,7 +37,7 @@ class EnhancedIdentificationService:
     ):
         """
         Initialize enhanced identification service
-        
+
         Args:
             enable_dns_tracking: Track DNS queries to map IPs to domains
             enable_reverse_dns: Perform reverse DNS lookups

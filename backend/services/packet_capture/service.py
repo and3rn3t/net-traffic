@@ -188,7 +188,7 @@ class PacketCaptureService:
 
     async def start(self, bpf_filter: str | None = None, sampling_rate: float = 1.0):
         """Start packet capture
-        
+
         Args:
             bpf_filter: BPF filter string (e.g., "tcp or udp" to skip ICMP/ARP)
             sampling_rate: Packet sampling rate (1.0 = all, 0.5 = 50%, etc.)

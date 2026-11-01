@@ -87,7 +87,7 @@ async def health_storage():
             "database": {"connected": True, "path": state.storage.db_path, "stats": db_stats},
         }
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Storage service unhealthy: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Storage service unhealthy: {str(e)}") from e
 
 
 @router.get("/capture")

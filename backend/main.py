@@ -388,8 +388,8 @@ async def root():
     }
 
 
-# Register routers
-from routers import (
+# Register routers (imported after app setup)
+from routers import (  # noqa: E402
     alerts,
     analytics,
     auth,
@@ -402,7 +402,7 @@ from routers import (
     maintenance,
     threats,
     websocket,
-)  # noqa: E402
+)
 
 app.include_router(health.router)
 app.include_router(auth.router)

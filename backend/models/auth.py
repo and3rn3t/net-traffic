@@ -2,12 +2,12 @@
 Authentication and authorization models
 """
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, EmailStr, Field, validator
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     """User role enumeration"""
     ADMIN = "admin"  # Full access - manage users, settings, devices
     OPERATOR = "operator"  # Can manage devices, threats, capture

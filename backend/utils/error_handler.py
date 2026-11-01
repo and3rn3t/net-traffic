@@ -2,6 +2,9 @@
 Error handling utilities for API endpoints
 """
 import logging
+from collections.abc import Callable
+from functools import wraps
+from typing import Any
 
 import aiosqlite
 from fastapi import HTTPException
@@ -24,31 +27,31 @@ class ErrorHandler:
                 raise HTTPException(
                     status_code=503,
                     detail="Database is currently locked. Please try again later."
-                )
+                ) from e
             elif 'no such table' in error_str:
                 logger.error(f"Database table missing: {e}")
                 raise HTTPException(
                     status_code=500,
                     detail="Database schema error. Please contact administrator."
-                )
+                ) from e
             else:
                 logger.error(f"Database operational error: {e}")
                 raise HTTPException(
                     status_code=500,
                     detail=f"{error_message}: {str(e)}"
-                )
+                ) from e
         except aiosqlite.DatabaseError as e:
             logger.error(f"Database error: {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"{error_message}: Database error occurred"
-            )
+            ) from e
         except Exception as e:
             logger.error(f"Unexpected error in database operation: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"{error_message}: Unexpected error"
-            )
+            ) from e
 
     @staticmethod
     async def handle_service_operation(operation, service_name: str = "Service"):
@@ -60,13 +63,13 @@ class ErrorHandler:
             raise HTTPException(
                 status_code=500,
                 detail=f"{service_name} method not available"
-            )
+            ) from e
         except Exception as e:
             logger.error(f"{service_name} error: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"{service_name} operation failed: {str(e)}"
-            )
+            ) from e
 
     @staticmethod
     def handle_validation_error(error: Exception) -> HTTPException:
@@ -101,9 +104,6 @@ class ErrorHandler:
 
 
 # Decorator and function wrapper for error handling
-from collections.abc import Callable
-from functools import wraps
-from typing import Any
 
 
 # Simple decorator for use with @handle_endpoint_error
@@ -127,21 +127,21 @@ def handle_endpoint_error(func: Callable) -> Callable:
         except ValueError as e:
             # Validation errors
             logger.warning(f"Validation error: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         except aiosqlite.Error as e:
             # Database errors
             logger.error(f"Database error: {e}")
             raise HTTPException(
                 status_code=500,
                 detail="Database error occurred. Please try again later."
-            )
+            ) from e
         except Exception as e:
             # Unexpected errors
             logger.error(f"Unexpected error: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail="Operation failed: An unexpected error occurred"
-            )
+            ) from e
     return wrapper
 
 
@@ -154,16 +154,16 @@ async def handle_endpoint_error_call(operation, error_message: str = "Operation 
         raise
     except ValueError as e:
         logger.warning(f"Validation error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except aiosqlite.Error as e:
         logger.error(f"Database error: {e}")
         raise HTTPException(
             status_code=500,
             detail="Database error occurred. Please try again later."
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"{error_message}: An unexpected error occurred"
-        )
+        ) from e

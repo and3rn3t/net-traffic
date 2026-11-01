@@ -174,7 +174,7 @@ async def get_current_user_optional(
                 user = await auth_service.get_user_without_password(token_data.username)
                 if user and not user.disabled:
                     return user
-        except:
+        except Exception:
             pass
 
     # Try API key
@@ -183,7 +183,7 @@ async def get_current_user_optional(
             user = await auth_service.verify_api_key(x_api_key)
             if user and not user.disabled:
                 return user
-        except:
+        except Exception:
             pass
 
     return None
