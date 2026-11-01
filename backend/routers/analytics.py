@@ -1,5 +1,4 @@
 """Analytics and statistics endpoints."""
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -13,7 +12,7 @@ from utils.validators import HoursQuery, LimitQuery
 router = APIRouter(prefix="/api", tags=["analytics"])
 
 
-@router.get("/analytics", response_model=List[AnalyticsData])
+@router.get("/analytics", response_model=list[AnalyticsData])
 async def get_analytics(hours: int = HoursQuery(24, 720)):
     """Get analytics data for specified time range."""
     if not state.analytics:
@@ -31,7 +30,7 @@ async def get_analytics(hours: int = HoursQuery(24, 720)):
     return result
 
 
-@router.get("/protocols", response_model=List[ProtocolStats])
+@router.get("/protocols", response_model=list[ProtocolStats])
 async def get_protocol_stats():
     """Get protocol breakdown statistics."""
     if not state.analytics:
@@ -59,7 +58,7 @@ async def get_summary_stats():
     )
 
 
-@router.get("/baselines", response_model=List[DeviceBaseline])
+@router.get("/baselines", response_model=list[DeviceBaseline])
 async def get_device_baselines():
     """Get learned per-device behavioral baselines (predictive anomaly detection)."""
     if not state.baseline_learning_service:
@@ -198,7 +197,7 @@ async def get_device_presence(days: int = Query(7, ge=1, le=30), limit: int = Li
 
 @router.get("/stats/latency-calendar")
 async def get_latency_quality_calendar(
-    days: int = Query(14, ge=1, le=30), device_id: Optional[str] = Query(None)
+    days: int = Query(14, ge=1, le=30), device_id: str | None = Query(None)
 ):
     """Get an RTT/jitter heatmap by hour-of-day x day-of-week over the last N days."""
     if not state.advanced_analytics:
@@ -240,8 +239,8 @@ async def get_monthly_usage():
 @router.get("/analytics/rtt-trends")
 async def get_rtt_trends(
     hours: int = HoursQuery(24, 720),
-    device_id: Optional[str] = Query(None),
-    country: Optional[str] = Query(None),
+    device_id: str | None = Query(None),
+    country: str | None = Query(None),
     interval_minutes: int = Query(15, ge=1, le=1440),
 ):
     """Get RTT trends over time."""
@@ -254,7 +253,7 @@ async def get_rtt_trends(
 
 
 @router.get("/analytics/jitter")
-async def get_jitter_analysis(hours: int = HoursQuery(24, 720), device_id: Optional[str] = Query(None)):
+async def get_jitter_analysis(hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)):
     """Get jitter analysis statistics."""
     if not state.network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
@@ -265,7 +264,7 @@ async def get_jitter_analysis(hours: int = HoursQuery(24, 720), device_id: Optio
 
 
 @router.get("/analytics/retransmissions")
-async def get_retransmission_report(hours: int = HoursQuery(24, 720), device_id: Optional[str] = Query(None)):
+async def get_retransmission_report(hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)):
     """Get retransmission statistics report."""
     if not state.network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
@@ -276,7 +275,7 @@ async def get_retransmission_report(hours: int = HoursQuery(24, 720), device_id:
 
 
 @router.get("/analytics/connection-quality")
-async def get_connection_quality_summary(hours: int = HoursQuery(24, 720), device_id: Optional[str] = Query(None)):
+async def get_connection_quality_summary(hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)):
     """Get overall connection quality summary."""
     if not state.network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
@@ -289,7 +288,7 @@ async def get_connection_quality_summary(hours: int = HoursQuery(24, 720), devic
 @router.get("/analytics/applications")
 async def get_application_breakdown(
     hours: int = HoursQuery(24, 720),
-    device_id: Optional[str] = Query(None),
+    device_id: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
 ):
     """Get top applications by traffic."""
@@ -304,7 +303,7 @@ async def get_application_breakdown(
 @router.get("/analytics/applications/trends")
 async def get_application_trends(
     hours: int = HoursQuery(24, 720),
-    application: Optional[str] = Query(None),
+    application: str | None = Query(None),
     interval_minutes: int = Query(15, ge=1, le=1440),
 ):
     """Get application usage trends over time."""

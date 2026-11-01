@@ -2,9 +2,10 @@
 FastAPI authentication dependencies
 Provides dependency injection for authentication and authorization
 """
-from typing import Optional
-from fastapi import Depends, HTTPException, status, Header
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
+
+from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
+
 from models.auth import User, UserRole
 from services.auth_service import AuthService
 from utils.constants import ErrorMessages
@@ -14,7 +15,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 bearer_scheme = HTTPBearer(auto_error=False)
 
 # Global auth service instance (will be initialized in main.py)
-auth_service: Optional[AuthService] = None
+auth_service: AuthService | None = None
 
 
 def set_auth_service(service: AuthService):
@@ -57,7 +58,7 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> Us
     return user
 
 
-async def get_current_user_from_api_key(x_api_key: Optional[str] = Header(None)) -> Optional[User]:
+async def get_current_user_from_api_key(x_api_key: str | None = Header(None)) -> User | None:
     """
     Get current user from API key header
     Returns None if no API key provided or invalid
@@ -76,8 +77,8 @@ async def get_current_user_from_api_key(x_api_key: Optional[str] = Header(None))
 
 
 async def get_current_user(
-    token_user: Optional[User] = Depends(get_current_user_from_token),
-    api_key_user: Optional[User] = Depends(get_current_user_from_api_key)
+    token_user: User | None = Depends(get_current_user_from_token),
+    api_key_user: User | None = Depends(get_current_user_from_api_key)
 ) -> User:
     """
     Get current user from either JWT token or API key
@@ -155,9 +156,9 @@ async def require_operator_or_admin(current_user: User = Depends(get_current_act
 
 # Optional authentication (for endpoints that work with or without auth)
 async def get_current_user_optional(
-    authorization: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    x_api_key: Optional[str] = Header(None)
-) -> Optional[User]:
+    authorization: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    x_api_key: str | None = Header(None)
+) -> User | None:
     """
     Get current user if authenticated, None otherwise
     Useful for endpoints that provide additional features for authenticated users

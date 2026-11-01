@@ -4,9 +4,9 @@ Provides JSON-formatted logging for better analysis and monitoring
 """
 import logging
 import sys
+from datetime import UTC, datetime
+
 from pythonjsonlogger import jsonlogger
-from typing import Optional
-from datetime import datetime, timezone
 
 
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
@@ -20,11 +20,11 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
         if 'levelname' not in log_record and hasattr(record, 'levelname'):
             log_record['levelname'] = record.levelname
 
-        super(CustomJsonFormatter, self).add_fields(log_record, record, message_dict)
+        super().add_fields(log_record, record, message_dict)
 
         # Add timestamp in ISO format
         if not log_record.get('timestamp'):
-            log_record['timestamp'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+            log_record['timestamp'] = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
 
         # Add log level (use renamed 'level' if available, otherwise use levelname)
         if log_record.get('level'):
@@ -53,7 +53,7 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
 def setup_logging(
     level: str = "INFO",
     use_json: bool = True,
-    log_file: Optional[str] = None
+    log_file: str | None = None
 ):
     """
     Setup application-wide logging configuration

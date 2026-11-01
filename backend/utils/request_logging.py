@@ -1,11 +1,11 @@
 """
 Request logging middleware for API observability
 """
+import json
+import logging
 import time
 import uuid
-import logging
-import json
-from typing import Optional
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -75,7 +75,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             )
 
         # Process request and capture response
-        response: Optional[Response] = None
+        response: Response | None = None
         status_code = 500
         error_occurred = False
         error_message = None
@@ -151,7 +151,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     def _log_request(
         self, request: Request, request_id: str,
-        client_ip: str, client_port: Optional[int]
+        client_ip: str, client_port: int | None
     ):
         """Log incoming request details"""
         query_params = dict(request.query_params)
@@ -205,8 +205,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
     def _log_structured(
         self, request: Request, request_id: str, status_code: int,
-        duration_ms: float, client_ip: str, client_port: Optional[int],
-        error_occurred: bool, error_message: Optional[str]
+        duration_ms: float, client_ip: str, client_port: int | None,
+        error_occurred: bool, error_message: str | None
     ):
         """Log structured data (JSON format) for better parsing"""
         # Only log structured data at INFO level or above

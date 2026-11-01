@@ -1,5 +1,4 @@
 """Device endpoints."""
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -10,13 +9,12 @@ from models.types import Device
 from utils.auth_dependencies import require_operator_or_admin
 from utils.constants import ErrorMessages
 from utils.error_handler import handle_endpoint_error_call
-from utils.validators import DeviceIdPath, HoursQuery
-from utils.validators import validate_string_param
+from utils.validators import DeviceIdPath, HoursQuery, validate_string_param
 
 router = APIRouter(prefix="/api", tags=["devices"])
 
 
-@router.get("/devices", response_model=List[Device])
+@router.get("/devices", response_model=list[Device])
 async def get_devices():
     """Get all discovered devices."""
     if not state.storage:

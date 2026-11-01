@@ -1,6 +1,5 @@
 """Filter preset repository: saved flow-filter presets per user."""
 import json
-from typing import List
 
 from models.types import FilterPreset
 from services.storage.base import Repository
@@ -18,7 +17,7 @@ class FilterPresetRepository(Repository):
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def get_filter_presets(self, user_id: str) -> List[FilterPreset]:
+    async def get_filter_presets(self, user_id: str) -> list[FilterPreset]:
         """List a user's saved filter presets"""
         query = "SELECT * FROM filter_presets WHERE user_id = ? ORDER BY created_at DESC"
         if self.base.pool:

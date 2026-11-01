@@ -2,9 +2,9 @@
 Error handling utilities for API endpoints
 """
 import logging
-from typing import Optional
-from fastapi import HTTPException
+
 import aiosqlite
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ class ErrorHandler:
     @staticmethod
     def handle_not_found_error(
         resource_type: str,
-        resource_id: Optional[str] = None
+        resource_id: str | None = None
     ) -> HTTPException:
         """Handle resource not found errors"""
         if resource_id:
@@ -101,8 +101,9 @@ class ErrorHandler:
 
 
 # Decorator and function wrapper for error handling
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Any
+from typing import Any
 
 
 # Simple decorator for use with @handle_endpoint_error

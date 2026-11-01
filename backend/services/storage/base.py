@@ -1,18 +1,18 @@
 """
 Core connection/pool infrastructure shared by all per-domain storage repositories.
 """
-import aiosqlite
-import logging
 import asyncio
+import logging
 import os
 import time
+from datetime import UTC, datetime, timedelta
 from functools import wraps
-from typing import Optional
-from datetime import datetime, timedelta, timezone
 
+import aiosqlite
+
+from services.db_pool import DatabasePool
 from utils.config import config
 from utils.migrations import run_migrations
-from services.db_pool import DatabasePool
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +51,13 @@ class StorageBase:
         }
 
         # Legacy single connection (for backward compatibility)
-        self.db: Optional[aiosqlite.Connection] = None
+        self.db: aiosqlite.Connection | None = None
         self._connection_lock = asyncio.Lock()
         self._max_retries = 3
         self._retry_delay = 1.0  # seconds
 
         # Connection pool (new approach)
-        self.pool: Optional[DatabasePool] = None
+        self.pool: DatabasePool | None = None
 
     async def initialize(self):
         """Initialize database and create tables"""
@@ -598,7 +598,7 @@ class StorageBase:
         wal_path = f"{self.db_path}-wal"
         return os.path.getsize(wal_path) if os.path.exists(wal_path) else 0
 
-    async def checkpoint_wal_if_needed(self, threshold_bytes: int) -> Optional[dict]:
+    async def checkpoint_wal_if_needed(self, threshold_bytes: int) -> dict | None:
         """Run a non-blocking PASSIVE WAL checkpoint if the -wal file exceeds threshold_bytes.
 
         PASSIVE (unlike the TRUNCATE checkpoint cleanup_old_data uses) never blocks
@@ -615,7 +615,7 @@ class StorageBase:
         after = self.get_wal_size_bytes()
         return {"before_bytes": before, "after_bytes": after}
 
-    def _record_query_timing(self, label: str, duration_ms: float, row_count: Optional[int] = None) -> None:
+    def _record_query_timing(self, label: str, duration_ms: float, row_count: int | None = None) -> None:
         """Track slow/large query occurrences and log a WARN for either."""
         is_slow = duration_ms > config.slow_query_ms
         is_large = row_count is not None and row_count > config.large_result_warn_rows
@@ -627,7 +627,7 @@ class StorageBase:
             "label": label,
             "duration_ms": round(duration_ms, 1),
             "row_count": row_count,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         logger.warning(
             f"Slow/large query '{label}': {duration_ms:.1f}ms"
@@ -670,5 +670,5 @@ class Repository:
     def __init__(self, base: StorageBase):
         self.base = base
 
-    def _record_query_timing(self, label: str, duration_ms: float, row_count: Optional[int] = None) -> None:
+    def _record_query_timing(self, label: str, duration_ms: float, row_count: int | None = None) -> None:
         self.base._record_query_timing(label, duration_ms, row_count)

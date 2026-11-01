@@ -1,6 +1,5 @@
 """WebSocket endpoint for real-time updates."""
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
@@ -13,7 +12,7 @@ router = APIRouter(tags=["websocket"])
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    topics: Optional[str] = Query(
+    topics: str | None = Query(
         None, description="Comma-separated event types to receive (e.g. 'threat_update,new_device'). Omit for all events."
     ),
 ):

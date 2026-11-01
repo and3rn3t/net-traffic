@@ -1,5 +1,4 @@
 """Baseline repository: learned per-device behavioral baselines (predictive anomaly detection)."""
-from typing import List, Optional
 
 from models.baseline import DeviceBaseline
 from services.storage.base import Repository
@@ -25,7 +24,7 @@ class BaselineRepository(Repository):
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def get_device_baseline(self, device_id: str) -> Optional[DeviceBaseline]:
+    async def get_device_baseline(self, device_id: str) -> DeviceBaseline | None:
         """Get a single device's learned baseline"""
         query = "SELECT * FROM device_baselines WHERE device_id = ?"
         if self.base.pool:
@@ -39,7 +38,7 @@ class BaselineRepository(Repository):
                 row = await cursor.fetchone()
                 return self._row_to_device_baseline(row) if row else None
 
-    async def get_all_device_baselines(self) -> List[DeviceBaseline]:
+    async def get_all_device_baselines(self) -> list[DeviceBaseline]:
         """Get all learned device baselines"""
         query = "SELECT * FROM device_baselines"
         if self.base.pool:

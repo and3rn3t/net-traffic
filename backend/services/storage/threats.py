@@ -1,9 +1,8 @@
 """Threat repository: CRUD, dedup, search, and hourly aggregates over the `threats` table."""
-from typing import List, Optional
 
 from models.types import Threat
-from utils.constants import THREAT_DEDUP_WINDOW_MINUTES
 from services.storage.base import Repository, log_slow_query
+from utils.constants import THREAT_DEDUP_WINDOW_MINUTES
 
 
 class ThreatRepository(Repository):
@@ -49,7 +48,7 @@ class ThreatRepository(Repository):
         await self.base.db.commit()
 
     @log_slow_query("get_threats")
-    async def get_threats(self, active_only: bool = True, limit: int = 200) -> List[Threat]:
+    async def get_threats(self, active_only: bool = True, limit: int = 200) -> list[Threat]:
         """Get threats, most recent first"""
         query = "SELECT * FROM threats"
         if active_only:
@@ -104,7 +103,7 @@ class ThreatRepository(Repository):
 
     async def search_threats(
         self, query_text: str, limit: int = 50, active_only: bool = False
-    ) -> List[Threat]:
+    ) -> list[Threat]:
         """Search threats by type, description, or severity using database queries"""
         search_pattern = f"%{query_text}%"
 
@@ -140,7 +139,7 @@ class ThreatRepository(Repository):
                 rows = await cursor.fetchall()
                 return [self._row_to_threat(row) for row in rows]
 
-    async def get_threat(self, threat_id: str) -> Optional[Threat]:
+    async def get_threat(self, threat_id: str) -> Threat | None:
         """Get a specific threat by ID"""
         query = "SELECT * FROM threats WHERE id = ?"
         if self.base.pool:

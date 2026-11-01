@@ -4,9 +4,11 @@ Provides connection pooling, health checks, and query queuing for SQLite
 """
 import asyncio
 import logging
-import aiosqlite
-from typing import Callable, Any
+from collections.abc import Callable
 from contextlib import asynccontextmanager
+from typing import Any
+
+import aiosqlite
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +127,7 @@ class DatabasePool:
                 )
                 self._stats["pool_hits"] += 1
                 self._stats["connections_reused"] += 1
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # No connection available, create new if under limit
                 self._stats["pool_misses"] += 1
 

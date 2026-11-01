@@ -15,8 +15,8 @@ import logging
 import math
 import time
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable, Dict, List, Optional
 
 from models.baseline import DeviceBaseline
 from models.types import Threat
@@ -42,11 +42,11 @@ _METRICS = (
 
 
 class BaselineLearningService:
-    def __init__(self, storage: StorageService, on_threat_update: Optional[Callable] = None):
+    def __init__(self, storage: StorageService, on_threat_update: Callable | None = None):
         self.storage = storage
         self.on_threat_update = on_threat_update
-        self._baselines: Dict[str, DeviceBaseline] = {}
-        self._last_anomaly_notified: Dict[str, float] = {}
+        self._baselines: dict[str, DeviceBaseline] = {}
+        self._last_anomaly_notified: dict[str, float] = {}
 
     async def load_baselines(self) -> None:
         """Load persisted baselines into the in-memory cache (call at startup)."""
@@ -54,11 +54,11 @@ class BaselineLearningService:
         self._baselines = {b.deviceId: b for b in baselines}
         logger.info(f"Loaded {len(self._baselines)} device baselines")
 
-    def get_baselines(self) -> List[DeviceBaseline]:
+    def get_baselines(self) -> list[DeviceBaseline]:
         """Return all currently known device baselines."""
         return list(self._baselines.values())
 
-    def get_baseline(self, device_id: str) -> Optional[DeviceBaseline]:
+    def get_baseline(self, device_id: str) -> DeviceBaseline | None:
         return self._baselines.get(device_id)
 
     async def run_cycle(self, window_hours: int = 1) -> None:
@@ -98,7 +98,7 @@ class BaselineLearningService:
             logger.exception(f"Failed to persist baseline for device {device_id}")
 
     @staticmethod
-    def _extract_current_values(row: dict) -> Dict[str, float]:
+    def _extract_current_values(row: dict) -> dict[str, float]:
         total_packets = row.get("total_packets") or 0
         total_retransmissions = row.get("total_retransmissions") or 0
         return {
@@ -111,7 +111,7 @@ class BaselineLearningService:
             ),
         }
 
-    def _update_baseline(self, baseline: DeviceBaseline, current_values: Dict[str, float]) -> None:
+    def _update_baseline(self, baseline: DeviceBaseline, current_values: dict[str, float]) -> None:
         """Update mean/stddev in place via exponential moving average."""
         for metric, mean_attr, stddev_attr, _label in _METRICS:
             current = current_values[metric]
@@ -130,7 +130,7 @@ class BaselineLearningService:
         baseline.sampleCount += 1
 
     async def _detect_anomalies(
-        self, device_id: str, baseline: DeviceBaseline, current_values: Dict[str, float]
+        self, device_id: str, baseline: DeviceBaseline, current_values: dict[str, float]
     ) -> None:
         for metric, mean_attr, stddev_attr, label in _METRICS:
             current = current_values[metric]

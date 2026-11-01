@@ -3,7 +3,6 @@ import csv
 import logging
 from datetime import datetime
 from io import StringIO
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -43,7 +42,7 @@ async def set_log_level(
 
 
 @router.post("/maintenance/cleanup")
-async def trigger_cleanup(days: Optional[int] = Query(None, ge=1, le=365)):
+async def trigger_cleanup(days: int | None = Query(None, ge=1, le=365)):
     """Manually trigger data cleanup."""
     if not state.storage:
         raise HTTPException(status_code=503, detail="Storage service not initialized")
@@ -90,9 +89,9 @@ async def search(
 @router.get("/export/flows")
 async def export_flows(
     format: str = Query("json", pattern="^(json|csv)$"),
-    start_time: Optional[int] = Query(None, ge=0),
-    end_time: Optional[int] = Query(None, ge=0),
-    device_id: Optional[str] = Query(None, min_length=1, max_length=100),
+    start_time: int | None = Query(None, ge=0),
+    end_time: int | None = Query(None, ge=0),
+    device_id: str | None = Query(None, min_length=1, max_length=100),
 ):
     """Export flows as JSON or CSV."""
     if not state.storage:

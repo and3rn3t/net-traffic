@@ -6,7 +6,7 @@ import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,13 +15,13 @@ from fastapi.responses import JSONResponse
 
 import state
 from models.types import Threat
+from services.auth_service import AuthService
+from services.cache_service import CacheService
 from utils.config import config
 from utils.constants import CLEANUP_INTERVAL_HOURS, SECONDS_PER_HOUR
 from utils.logging_config import StructuredLogger, setup_logging
 from utils.rate_limit import RateLimitMiddleware
 from utils.request_logging import RequestLoggingMiddleware
-from services.cache_service import CacheService
-from services.auth_service import AuthService
 from utils.service_manager import ServiceManager
 
 # Configure structured logging
@@ -150,21 +150,21 @@ async def _periodic_bandwidth_check(interval_hours: int) -> None:
             if not threshold_mb or not state.storage:
                 continue
 
-            since_ms = int((datetime.now(timezone.utc) - timedelta(hours=24)).timestamp() * 1000)
+            since_ms = int((datetime.now(UTC) - timedelta(hours=24)).timestamp() * 1000)
             total_bytes = await state.storage.get_total_bytes_since(since_ms)
             total_mb = total_bytes / (1024 * 1024)
 
             if total_mb < threshold_mb:
                 continue
 
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            today = datetime.now(UTC).strftime("%Y-%m-%d")
             if today == last_alert_date:
                 continue
             last_alert_date = today
 
             threat = Threat(
                 id=str(uuid.uuid4()),
-                timestamp=int(datetime.now(timezone.utc).timestamp() * 1000),
+                timestamp=int(datetime.now(UTC).timestamp() * 1000),
                 type="bandwidth_quota",
                 severity="medium",
                 deviceId="network",
@@ -390,7 +390,18 @@ async def root():
 
 # Register routers
 from routers import (
-    alerts, analytics, auth, cache, capture, devices, filter_presets, flows, health, maintenance, threats, websocket,
+    alerts,
+    analytics,
+    auth,
+    cache,
+    capture,
+    devices,
+    filter_presets,
+    flows,
+    health,
+    maintenance,
+    threats,
+    websocket,
 )  # noqa: E402
 
 app.include_router(health.router)

@@ -7,15 +7,15 @@ import ipaddress
 import logging
 import subprocess
 import time
-from typing import Optional, Callable, Dict, List
-from datetime import datetime
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
+from datetime import datetime
 
 try:
-    from scapy.all import sniff, get_if_list, IP, IPv6, TCP, UDP, ICMP, ARP
-    from scapy.layers.l2 import Ether
+    from scapy.all import ARP, ICMP, IP, TCP, UDP, IPv6, get_if_list, sniff
     from scapy.layers.dns import DNS
+    from scapy.layers.l2 import Ether
     from scapy.utils import PcapReader
     SCAPY_AVAILABLE = True
 except ImportError:
@@ -24,14 +24,14 @@ except ImportError:
     PcapReader = None
     logging.warning("Scapy not available. Packet capture will be disabled.")
 
-from models.types import NetworkFlow
-from services.device_fingerprinting import DeviceFingerprintingService
-from services.threat_detection import ThreatDetectionService
-from services.storage import StorageService
-from services.geolocation import GeolocationService
-from services.enhanced_identification import EnhancedIdentificationService
-from services.alerting import AlertingService
 import services.packet_capture.protocol_decoders as protocol_decoders
+from models.types import NetworkFlow
+from services.alerting import AlertingService
+from services.device_fingerprinting import DeviceFingerprintingService
+from services.enhanced_identification import EnhancedIdentificationService
+from services.geolocation import GeolocationService
+from services.storage import StorageService
+from services.threat_detection import ThreatDetectionService
 from utils.constants import MAX_PLAUSIBLE_INTERVAL_SECONDS
 from utils.tasks import create_logged_task
 
@@ -42,13 +42,13 @@ class PacketCaptureService:
     def __init__(
         self,
         interface: str = "eth0",
-        device_service: Optional[DeviceFingerprintingService] = None,
-        threat_service: Optional[ThreatDetectionService] = None,
-        storage: Optional[StorageService] = None,
-        geolocation_service: Optional[GeolocationService] = None,
-        on_flow_update: Optional[Callable] = None,
-        enhanced_identification: Optional[EnhancedIdentificationService] = None,
-        alerting_service: Optional[AlertingService] = None,
+        device_service: DeviceFingerprintingService | None = None,
+        threat_service: ThreatDetectionService | None = None,
+        storage: StorageService | None = None,
+        geolocation_service: GeolocationService | None = None,
+        on_flow_update: Callable | None = None,
+        enhanced_identification: EnhancedIdentificationService | None = None,
+        alerting_service: AlertingService | None = None,
         capture_mode: str = "local",
         remote_host: str = "",
         remote_user: str = "root",
@@ -81,8 +81,8 @@ class PacketCaptureService:
         self.alerting_service = alerting_service
 
         self._running = False
-        self._capture_task: Optional[asyncio.Task] = None
-        self._remote_capture_proc: Optional[subprocess.Popen] = None
+        self._capture_task: asyncio.Task | None = None
+        self._remote_capture_proc: subprocess.Popen | None = None
         self.packets_captured = 0
         self.flows_detected = 0
         # Timestamp of the last packet actually seen (as opposed to
@@ -90,35 +90,35 @@ class PacketCaptureService:
         # started/stopped). Used to detect a "running but not actually
         # receiving anything" state, e.g. a stuck remote_ssh connection -
         # see is_stale().
-        self._last_packet_at: Optional[float] = None
+        self._last_packet_at: float | None = None
 
         # Active flows tracking:
         # (src_ip, src_port, dst_ip, dst_port, protocol) -> flow_data
-        self._active_flows: Dict[str, dict] = {}
+        self._active_flows: dict[str, dict] = {}
 
         # Lock for thread-safe access to _active_flows
         self._flows_lock = asyncio.Lock()
 
         # DNS resolution cache: IP -> domain
-        self._dns_cache: Dict[str, str] = {}
+        self._dns_cache: dict[str, str] = {}
 
         # Lock for thread-safe access to _dns_cache
         self._dns_cache_lock = asyncio.Lock()
 
         # RTT tracking: flow_key -> list of timestamps for RTT calculation
-        self._rtt_tracking: Dict[str, List[float]] = defaultdict(list)
+        self._rtt_tracking: dict[str, list[float]] = defaultdict(list)
 
         # Packet timestamps for jitter calculation
-        self._packet_timestamps: Dict[str, List[float]] = defaultdict(list)
+        self._packet_timestamps: dict[str, list[float]] = defaultdict(list)
 
         # Retransmission tracking: (src_ip, src_port, dst_ip, dst_port, seq) -> count
-        self._retransmissions: Dict[str, int] = defaultdict(int)
+        self._retransmissions: dict[str, int] = defaultdict(int)
 
         # Connection state tracking: flow_key -> state
-        self._connection_states: Dict[str, str] = {}
+        self._connection_states: dict[str, str] = {}
 
         # Batch write queue for database operations (Pi optimization)
-        self._write_queue: List[NetworkFlow] = []
+        self._write_queue: list[NetworkFlow] = []
         self._write_queue_lock = asyncio.Lock()
         self._batch_size = 50  # Write in batches of 50 flows
         self._batch_interval = 5.0  # Or every 5 seconds, whichever comes first
@@ -138,10 +138,10 @@ class PacketCaptureService:
         self._skip_local_traffic = False  # Skip localhost traffic
 
         # Packet processing queue for batching (reduces async overhead)
-        self._packet_queue: List = []
+        self._packet_queue: list = []
         self._packet_queue_lock = asyncio.Lock()
         self._packet_batch_size = 100  # Process packets in batches
-        self._packet_queue_task: Optional[asyncio.Task] = None
+        self._packet_queue_task: asyncio.Task | None = None
         self._pending_batch_tasks: set = set()  # Untracked fire-and-forget batch tasks, so stop() can cancel them
         # Backpressure limits: if packet processing can't keep up, drop new
         # packets instead of letting the queue / concurrent batch tasks grow
@@ -151,21 +151,21 @@ class PacketCaptureService:
         self._packets_dropped_backpressure = 0
 
         # Device lookup cache (reduce async database calls)
-        self._device_cache: Dict[str, str] = {}  # IP -> device_id
-        self._device_cache_ttl: Dict[str, float] = {}  # IP -> timestamp
+        self._device_cache: dict[str, str] = {}  # IP -> device_id
+        self._device_cache_ttl: dict[str, float] = {}  # IP -> timestamp
         self._device_cache_max_age = 300.0  # 5 minutes
 
         # Flow key cache (avoid string concatenation overhead)
-        self._flow_key_cache: Dict[tuple, str] = {}
+        self._flow_key_cache: dict[tuple, str] = {}
         self._flow_key_cache_size = 5000
 
         # Packet deduplication (skip duplicate packets)
-        self._packet_hash_cache: Dict[int, float] = {}  # hash -> timestamp
+        self._packet_hash_cache: dict[int, float] = {}  # hash -> timestamp
         self._packet_hash_cache_size = 10000
         self._packet_dedup_window = 0.001  # 1ms window for duplicates
 
         # Performance metrics
-        self._processing_times: List[float] = []
+        self._processing_times: list[float] = []
         self._packets_dropped = 0
         self._packets_duplicate = 0
 
@@ -186,7 +186,7 @@ class PacketCaptureService:
             return True  # never received a single packet since start
         return (datetime.now().timestamp() - self._last_packet_at) > threshold_seconds
 
-    async def start(self, bpf_filter: Optional[str] = None, sampling_rate: float = 1.0):
+    async def start(self, bpf_filter: str | None = None, sampling_rate: float = 1.0):
         """Start packet capture
         
         Args:
@@ -223,7 +223,7 @@ class PacketCaptureService:
         # Set capture optimizations
         self._bpf_filter = bpf_filter or "ip or ip6"  # Default: capture IP/IPv6
         self._packet_sampling_rate = max(0.01, min(1.0, sampling_rate))  # Clamp 0.01-1.0
-        
+
         self._running = True
         self._capture_task = asyncio.create_task(self._capture_loop())
         self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
@@ -421,7 +421,7 @@ class PacketCaptureService:
         consecutive_failures = 0
 
         while self._running:
-            proc: Optional[subprocess.Popen] = None
+            proc: subprocess.Popen | None = None
             connect_time = time.monotonic()
             try:
                 cmd = [
@@ -494,7 +494,7 @@ class PacketCaptureService:
                 await asyncio.sleep(reconnect_delay)
                 reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
 
-    def _calculate_rtt(self, flow_key: str, timestamp: float) -> Optional[int]:
+    def _calculate_rtt(self, flow_key: str, timestamp: float) -> int | None:
         """Calculate round-trip time from packet timestamps"""
         self._rtt_tracking[flow_key].append(timestamp)
 
@@ -521,7 +521,7 @@ class PacketCaptureService:
 
         return None
 
-    def _calculate_jitter(self, flow_key: str, timestamp: float) -> Optional[float]:
+    def _calculate_jitter(self, flow_key: str, timestamp: float) -> float | None:
         """Calculate jitter (packet delay variation)"""
         self._packet_timestamps[flow_key].append(timestamp)
 
@@ -633,13 +633,13 @@ class PacketCaptureService:
             # Early exit: Skip if packet is too small (likely malformed)
             if len(packet) < 20:  # Minimum IP header size
                 return
-            
+
             # Extract IP layer (support both IPv4 and IPv6)
             ip_layer = None
             src_ip = None
             dst_ip = None
             ttl = None
-            
+
             # Check IPv4 first (most common)
             if protocol_decoders.has_layer_cached(packet, IP):
                 ip_layer = packet[IP]
@@ -654,7 +654,7 @@ class PacketCaptureService:
                 ttl = ip_layer.hlim  # IPv6 uses hop limit instead of TTL
             else:
                 return  # Not an IP packet we care about
-            
+
             # Skip localhost traffic if configured
             if self._skip_local_traffic and (src_ip.startswith("127.") or dst_ip.startswith("127.")):
                 return
@@ -705,7 +705,7 @@ class PacketCaptureService:
             # Create flow key (optimized with caching)
             flow_tuple = (src_ip, src_port, dst_ip, dst_port, protocol)
             reverse_tuple = (dst_ip, dst_port, src_ip, src_port, protocol)
-            
+
             # Use cached flow keys to avoid string concatenation
             if flow_tuple in self._flow_key_cache:
                 flow_key = self._flow_key_cache[flow_tuple]
@@ -713,7 +713,7 @@ class PacketCaptureService:
                 flow_key = f"{src_ip}:{src_port}-{dst_ip}:{dst_port}-{protocol}"
                 if len(self._flow_key_cache) < self._flow_key_cache_size:
                     self._flow_key_cache[flow_tuple] = flow_key
-            
+
             if reverse_tuple in self._flow_key_cache:
                 reverse_key = self._flow_key_cache[reverse_tuple]
             else:
@@ -933,7 +933,7 @@ class PacketCaptureService:
             try:
                 await asyncio.sleep(self._batch_interval)
                 current_time = datetime.now().timestamp()
-                
+
                 # Flush if interval elapsed
                 if current_time - self._last_batch_write >= self._batch_interval:
                     await self._flush_write_queue()
@@ -946,20 +946,20 @@ class PacketCaptureService:
         """Cleanup old flows to prevent memory exhaustion (Pi optimization)"""
         current_time = datetime.now().timestamp() * 1000
         timeout_ms = 300000  # 5 minutes
-        
+
         flows_to_remove = []
         for flow_key, flow_data in self._active_flows.items():
             last_seen = flow_data.get("last_seen", 0)
             if current_time - last_seen > timeout_ms:
                 flows_to_remove.append(flow_key)
-        
+
         # Remove old flows (limit to 20% to avoid blocking)
         remove_count = min(len(flows_to_remove), self._max_active_flows // 5)
         for flow_key in flows_to_remove[:remove_count]:
             flow_data = self._active_flows.get(flow_key)
             if flow_data:
                 await self._finalize_flow(flow_key, flow_data)
-        
+
         # Cleanup tracking data
         self._cleanup_tracking_data()
 
@@ -971,13 +971,13 @@ class PacketCaptureService:
             items_to_remove = list(self._dns_cache.keys())[:self._max_dns_cache_size // 5]
             for key in items_to_remove:
                 del self._dns_cache[key]
-        
+
         # Limit RTT tracking
         if len(self._rtt_tracking) > self._max_rtt_tracking_size:
             items_to_remove = list(self._rtt_tracking.keys())[:self._max_rtt_tracking_size // 5]
             for key in items_to_remove:
                 del self._rtt_tracking[key]
-        
+
         # Limit retransmission tracking
         if len(self._retransmissions) > self._max_retransmission_tracking:
             items_to_remove = list(self._retransmissions.keys())[:self._max_retransmission_tracking // 5]
@@ -1034,7 +1034,7 @@ class PacketCaptureService:
                     f"Slow flow finalization: {flow_key} took {round(flow_elapsed, 2)}s"
                 )
 
-    async def _extract_domain_from_packet(self, packet, ip: str) -> Optional[str]:
+    async def _extract_domain_from_packet(self, packet, ip: str) -> str | None:
         """Extract domain name from DNS packet or use cache"""
         # Check DNS cache first (thread-safe)
         async with self._dns_cache_lock:
@@ -1057,11 +1057,11 @@ class PacketCaptureService:
                             query_name = dns.qd.qname.decode('utf-8').rstrip('.')
                             async with self._dns_cache_lock:
                                 self._dns_cache[ip] = query_name
-                            
+
                             # Track DNS query for enhanced identification
                             if self.enhanced_identification:
                                 self.enhanced_identification.track_dns_query(query_name, ip)
-                            
+
                             return query_name
                 # Check for CNAME records
                 for i in range(dns.ancount):
@@ -1070,11 +1070,11 @@ class PacketCaptureService:
                             query_name = dns.qd.qname.decode('utf-8').rstrip('.')
                             async with self._dns_cache_lock:
                                 self._dns_cache[ip] = query_name
-                            
+
                             # Track DNS query for enhanced identification
                             if self.enhanced_identification:
                                 self.enhanced_identification.track_dns_query(query_name, ip)
-                            
+
                             return query_name
 
         # Try reverse DNS lookup for destination IP
@@ -1121,7 +1121,7 @@ class PacketCaptureService:
         if ip in self._device_cache:
             # Use device cache as local IP cache too (if cached, it's local)
             return True
-        
+
         return self._is_local_ip(ip)
 
     async def _get_or_create_device_cached(self, ip: str, packet) -> str:

@@ -3,11 +3,12 @@ Redis Caching Service
 Provides caching layer for expensive analytics queries
 """
 import fnmatch
-import logging
 import json
+import logging
 import time
+from typing import Any
+
 import redis.asyncio as redis
-from typing import Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class CacheService:
         host: str = "localhost",
         port: int = 6379,
         db: int = 0,
-        password: Optional[str] = None,
+        password: str | None = None,
         default_ttl: int = 300  # 5 minutes default TTL
     ):
         """Initialize cache service"""
@@ -35,7 +36,7 @@ class CacheService:
         self.db = db
         self.password = password
         self.default_ttl = default_ttl
-        self.redis: Optional[redis.Redis] = None
+        self.redis: redis.Redis | None = None
         self._enabled = True
         # Fallback used whenever Redis is unreachable: key -> (value, expire_at_monotonic)
         self._memory_cache: dict[str, tuple[Any, float]] = {}
@@ -75,7 +76,7 @@ class CacheService:
     def _uses_redis(self) -> bool:
         return self._enabled and self.redis is not None
 
-    def _memory_get(self, key: str) -> Optional[Any]:
+    def _memory_get(self, key: str) -> Any | None:
         entry = self._memory_cache.get(key)
         if entry is None:
             return None
@@ -92,7 +93,7 @@ class CacheService:
             del self._memory_cache[oldest_key]
         self._memory_cache[key] = (value, time.monotonic() + ttl)
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """
         Get value from cache
 
@@ -124,7 +125,7 @@ class CacheService:
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None
+        ttl: int | None = None
     ) -> bool:
         """
         Set value in cache

@@ -2,10 +2,9 @@
 Input validation utilities for API endpoints
 """
 import re
-from typing import Optional
-from fastapi import HTTPException, Query, Path
 from datetime import datetime
 
+from fastapi import HTTPException, Path, Query
 
 # IP address validation regex
 IP_PATTERN = re.compile(
@@ -83,7 +82,7 @@ def validate_timestamp(timestamp: int, param_name: str = "timestamp") -> int:
     return timestamp
 
 
-def validate_time_range(start_time: Optional[int], end_time: Optional[int]):
+def validate_time_range(start_time: int | None, end_time: int | None):
     """Validate time range parameters"""
     if start_time is not None:
         start_time = validate_timestamp(start_time, "start_time")
@@ -260,7 +259,7 @@ def HoursQuery(default: int = 24, max_hours: int = 720) -> int:
     )
 
 
-def IPQuery(description: str = "IP address") -> Optional[str]:
+def IPQuery(description: str = "IP address") -> str | None:
     """Query parameter for IP address with validation"""
     return Query(
         default=None,
@@ -269,7 +268,7 @@ def IPQuery(description: str = "IP address") -> Optional[str]:
     )
 
 
-def StatusQuery() -> Optional[str]:
+def StatusQuery() -> str | None:
     """Query parameter for status with validation"""
     return Query(
         default=None,
@@ -278,7 +277,7 @@ def StatusQuery() -> Optional[str]:
     )
 
 
-def ThreatLevelQuery() -> Optional[str]:
+def ThreatLevelQuery() -> str | None:
     """Query parameter for threat level with validation"""
     return Query(
         default=None,

@@ -1,6 +1,12 @@
 # Models package
-from .types import NetworkFlow, Device, Threat, AnalyticsData, ProtocolStats
-from .requests import FlowQueryParams, DeviceUpdateRequest, TimeRangeRequest, ExportRequest, SearchRequest
+from .requests import (
+    DeviceUpdateRequest,
+    ExportRequest,
+    FlowQueryParams,
+    SearchRequest,
+    TimeRangeRequest,
+)
+from .types import AnalyticsData, Device, NetworkFlow, ProtocolStats, Threat
 
 __all__ = [
     "NetworkFlow",

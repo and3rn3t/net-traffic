@@ -7,7 +7,6 @@ passed in - so they're plain module functions shared by
 `PacketCaptureService._process_packet()` rather than methods on it.
 """
 import logging
-from typing import Dict, List, Optional
 
 try:
     from scapy.all import TCP
@@ -46,7 +45,7 @@ def has_layer_cached(packet, layer_name) -> bool:
     return packet.haslayer(layer_name)
 
 
-def extract_tcp_flags(packet) -> Optional[List[str]]:
+def extract_tcp_flags(packet) -> list[str] | None:
     """Extract TCP flags from packet"""
     if not packet.haslayer(TCP):
         return None
@@ -54,7 +53,7 @@ def extract_tcp_flags(packet) -> Optional[List[str]]:
     return extract_tcp_flags_fast(tcp)
 
 
-def extract_tcp_flags_fast(tcp) -> Optional[List[str]]:
+def extract_tcp_flags_fast(tcp) -> list[str] | None:
     """Extract TCP flags from TCP layer (optimized, no packet lookup)"""
     flags = []
     flags_int = tcp.flags
@@ -74,7 +73,7 @@ def extract_tcp_flags_fast(tcp) -> Optional[List[str]]:
     return flags if flags else None
 
 
-def get_connection_state(tcp_flags: Optional[List[str]], current_state: Optional[str]) -> str:
+def get_connection_state(tcp_flags: list[str] | None, current_state: str | None) -> str:
     """Determine TCP connection state from flags"""
     if not tcp_flags:
         return current_state or "UNKNOWN"
@@ -97,7 +96,7 @@ def get_connection_state(tcp_flags: Optional[List[str]], current_state: Optional
     return current_state or "ESTABLISHED"
 
 
-def extract_tls_sni(packet) -> Optional[str]:
+def extract_tls_sni(packet) -> str | None:
     """Extract Server Name Indication (SNI) from TLS handshake (enhanced)"""
     # Method 1: Try Scapy TLS layer (most reliable)
     try:
@@ -184,7 +183,7 @@ def extract_tls_sni(packet) -> Optional[str]:
     return None
 
 
-def extract_tls_version(packet) -> Optional[str]:
+def extract_tls_version(packet) -> str | None:
     """Extract the negotiated/offered TLS version from a ClientHello.
 
     For TLS 1.3, the legacy record/handshake version stays 0x0303 (TLS
@@ -241,11 +240,11 @@ def extract_tls_version(packet) -> Optional[str]:
     return None
 
 
-def extract_http_info(packet) -> Dict[str, Optional[object]]:
+def extract_http_info(packet) -> dict[str, object | None]:
     """Extract HTTP information from packet (optimized), covering both
     the request direction (method/url/host/user-agent) and the response
     direction (status code)."""
-    result: Dict[str, Optional[object]] = {
+    result: dict[str, object | None] = {
         "method": None,
         "url": None,
         "user_agent": None,
@@ -347,7 +346,7 @@ def extract_http_info(packet) -> Dict[str, Optional[object]]:
     return result
 
 
-def detect_application(packet, protocol: str, dst_port: int) -> Optional[str]:
+def detect_application(packet, protocol: str, dst_port: int) -> str | None:
     """Detect application protocol from packet and port"""
     # Port-based detection
     port_apps = {
@@ -389,9 +388,9 @@ def detect_application(packet, protocol: str, dst_port: int) -> Optional[str]:
     return None
 
 
-def extract_dns_details(packet) -> Dict[str, Optional[object]]:
+def extract_dns_details(packet) -> dict[str, object | None]:
     """Extract detailed DNS information: query type/name, response code, and answers"""
-    result: Dict[str, Optional[object]] = {
+    result: dict[str, object | None] = {
         "query_type": None,
         "response_code": None,
         "query_name": None,
@@ -434,7 +433,7 @@ def extract_dns_details(packet) -> Dict[str, Optional[object]]:
             result["response_code"] = response_codes.get(dns.rcode, f"RCODE{dns.rcode}")
 
             if dns.an:
-                answers: List[str] = []
+                answers: list[str] = []
                 for i in range(dns.ancount):
                     record = dns.an[i]
                     try:

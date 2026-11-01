@@ -1,10 +1,10 @@
 """
 Configuration validation and management
 """
-import os
 import logging
+import os
 from pathlib import Path
-from typing import List, Optional
+
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,8 @@ class Config:
 
     def _validate(self):
         """Validate configuration values with enhanced checks"""
-        errors: List[str] = []
-        warnings: List[str] = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         # Network interface
         capture_mode = os.getenv("CAPTURE_MODE", "local").lower()
@@ -320,7 +320,7 @@ class Config:
         return os.getenv("ENABLE_ALPN_DETECTION", "true").lower() == "true"
 
     @property
-    def dns_servers(self) -> List[str]:
+    def dns_servers(self) -> list[str]:
         """Get custom DNS servers (comma-separated)"""
         servers = os.getenv("DNS_SERVERS", "")
         if servers:
@@ -340,7 +340,7 @@ class Config:
         return os.getenv("USE_JSON_LOGGING", "true").lower() == "true"
 
     @property
-    def log_file(self) -> Optional[str]:
+    def log_file(self) -> str | None:
         """Get log file path (None to disable file logging)"""
         log_file = os.getenv("LOG_FILE", "").strip()
         # Return None if empty, starts with # (comment), or is just whitespace
@@ -362,25 +362,25 @@ class Config:
             return 6379
 
     @property
-    def geoip_db_path(self) -> Optional[str]:
+    def geoip_db_path(self) -> str | None:
         """Path to the GeoIP2/DB-IP mmdb file; falls back to system paths if unset"""
         path = os.getenv("GEOIP_DB_PATH", "").strip()
         return path or None
 
     @property
-    def oui_db_path(self) -> Optional[str]:
+    def oui_db_path(self) -> str | None:
         """Path to the Wireshark/IEEE manuf OUI vendor file; falls back to system paths if unset"""
         path = os.getenv("OUI_DB_PATH", "").strip()
         return path or None
 
     @property
-    def webhook_url(self) -> Optional[str]:
+    def webhook_url(self) -> str | None:
         """Get webhook URL for outbound threat notifications (Slack/Discord/generic HTTP POST)"""
         url = os.getenv("WEBHOOK_URL", "").strip()
         return url or None
 
     @property
-    def bandwidth_alert_threshold_mb(self) -> Optional[float]:
+    def bandwidth_alert_threshold_mb(self) -> float | None:
         """Get 24h bandwidth threshold in MB that triggers an alert. None/0 disables the check."""
         try:
             value = float(os.getenv("BANDWIDTH_ALERT_THRESHOLD_MB", "0"))

@@ -1,6 +1,5 @@
 """Threat endpoints."""
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["threats"])
 
 
-@router.get("/threats", response_model=List[Threat])
+@router.get("/threats", response_model=list[Threat])
 async def get_threats(active_only: bool = True, limit: int = 200):
     """Get threat alerts."""
     if not state.storage:

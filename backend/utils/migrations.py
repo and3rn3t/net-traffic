@@ -2,9 +2,10 @@
 Database migration system
 Handles schema changes and version tracking
 """
-import aiosqlite
 import logging
 import time
+
+import aiosqlite
 
 logger = logging.getLogger(__name__)
 

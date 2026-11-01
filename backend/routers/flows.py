@@ -1,5 +1,4 @@
 """Flow endpoints."""
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -8,35 +7,41 @@ from models.types import NetworkFlow
 from utils.constants import ErrorMessages
 from utils.error_handler import handle_endpoint_error_call
 from utils.validators import (
-    FlowIdPath, IPQuery, LimitQuery, OffsetQuery,
-    StatusQuery, ThreatLevelQuery, validate_min_bytes, validate_time_range,
+    FlowIdPath,
+    IPQuery,
+    LimitQuery,
+    OffsetQuery,
+    StatusQuery,
+    ThreatLevelQuery,
+    validate_min_bytes,
+    validate_time_range,
 )
 
 router = APIRouter(prefix="/api", tags=["flows"])
 
 
-@router.get("/flows", response_model=List[NetworkFlow])
+@router.get("/flows", response_model=list[NetworkFlow])
 async def get_flows(
     limit: int = LimitQuery(100, 1000),
     offset: int = OffsetQuery(0),
-    device_id: Optional[str] = Query(None, min_length=1, max_length=100),
-    status: Optional[str] = StatusQuery(),
-    protocol: Optional[str] = Query(None, min_length=1, max_length=20),
-    start_time: Optional[int] = Query(None, ge=0),
-    end_time: Optional[int] = Query(None, ge=0),
-    source_ip: Optional[str] = IPQuery("Source IP address"),
-    dest_ip: Optional[str] = IPQuery("Destination IP address"),
-    threat_level: Optional[str] = ThreatLevelQuery(),
-    min_bytes: Optional[int] = Query(None, ge=0),
-    country: Optional[str] = Query(None, min_length=2, max_length=2),
-    city: Optional[str] = Query(None, min_length=1, max_length=100),
-    application: Optional[str] = Query(None, min_length=1, max_length=50),
-    min_rtt: Optional[int] = Query(None, ge=0),
-    max_rtt: Optional[int] = Query(None, ge=0),
-    max_jitter: Optional[float] = Query(None, ge=0),
-    max_retransmissions: Optional[int] = Query(None, ge=0),
-    sni: Optional[str] = Query(None, min_length=1, max_length=255),
-    connection_state: Optional[str] = Query(None),
+    device_id: str | None = Query(None, min_length=1, max_length=100),
+    status: str | None = StatusQuery(),
+    protocol: str | None = Query(None, min_length=1, max_length=20),
+    start_time: int | None = Query(None, ge=0),
+    end_time: int | None = Query(None, ge=0),
+    source_ip: str | None = IPQuery("Source IP address"),
+    dest_ip: str | None = IPQuery("Destination IP address"),
+    threat_level: str | None = ThreatLevelQuery(),
+    min_bytes: int | None = Query(None, ge=0),
+    country: str | None = Query(None, min_length=2, max_length=2),
+    city: str | None = Query(None, min_length=1, max_length=100),
+    application: str | None = Query(None, min_length=1, max_length=50),
+    min_rtt: int | None = Query(None, ge=0),
+    max_rtt: int | None = Query(None, ge=0),
+    max_jitter: float | None = Query(None, ge=0),
+    max_retransmissions: int | None = Query(None, ge=0),
+    sni: str | None = Query(None, min_length=1, max_length=255),
+    connection_state: str | None = Query(None),
 ):
     """Get network flows with advanced filtering options."""
     if not state.storage:

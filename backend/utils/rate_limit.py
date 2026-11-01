@@ -1,12 +1,12 @@
 """
 Simple rate limiting middleware
 """
+import logging
 import time
 from collections import defaultdict
-from typing import Dict
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         # Store request timestamps per IP: {ip: [timestamps]}
-        self.request_history: Dict[str, list] = defaultdict(list)
+        self.request_history: dict[str, list] = defaultdict(list)
         # Cleanup old entries every N requests
         self._cleanup_counter = 0
 

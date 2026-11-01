@@ -2,20 +2,27 @@
 Authentication Service
 Handles user authentication, JWT token generation, and API key management
 """
+import hashlib
 import logging
 import os
 import secrets
 import string
-import hashlib
-from datetime import datetime, timedelta, timezone
-from typing import Optional, List
+from datetime import UTC, datetime, timedelta
+
 import aiosqlite
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from models.auth import (
-    User, UserInDB, UserCreate, UserUpdate, Token, TokenData,
-    APIKey, APIKeyCreate, UserRole
+    APIKey,
+    APIKeyCreate,
+    Token,
+    TokenData,
+    User,
+    UserCreate,
+    UserInDB,
+    UserRole,
+    UserUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,7 +71,7 @@ class AuthService:
     def __init__(self, db_path: str = "net_traffic.db"):
         """Initialize authentication service"""
         self.db_path = db_path
-        self.db: Optional[aiosqlite.Connection] = None
+        self.db: aiosqlite.Connection | None = None
 
     async def initialize(self):
         """Initialize database connection and create the default admin.
@@ -122,13 +129,13 @@ class AuthService:
         return hashlib.sha256(api_key.encode()).hexdigest()
 
     # JWT token functions
-    def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> Token:
+    def create_access_token(self, data: dict, expires_delta: timedelta | None = None) -> Token:
         """Create a JWT access token"""
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.now(timezone.utc) + expires_delta
+            expire = datetime.now(UTC) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -139,7 +146,7 @@ class AuthService:
             expires_in=int(expires_delta.total_seconds()) if expires_delta else ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
 
-    def decode_access_token(self, token: str) -> Optional[TokenData]:
+    def decode_access_token(self, token: str) -> TokenData | None:
         """Decode and verify a JWT token"""
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -154,7 +161,7 @@ class AuthService:
             return None
 
     # User management
-    async def get_user(self, username: str) -> Optional[UserInDB]:
+    async def get_user(self, username: str) -> UserInDB | None:
         """Get user by username"""
         async with self.db.execute(
             "SELECT * FROM users WHERE username = ?", (username,)
@@ -179,7 +186,7 @@ class AuthService:
         """Create a new user"""
         user_id = secrets.token_urlsafe(16)
         hashed_password = self.get_password_hash(user_create.password)
-        created_at = int(datetime.now(timezone.utc).timestamp())
+        created_at = int(datetime.now(UTC).timestamp())
 
         await self.db.execute(
             """
@@ -208,7 +215,7 @@ class AuthService:
             created_at=datetime.fromtimestamp(created_at)
         )
 
-    async def authenticate_user(self, username: str, password: str) -> Optional[UserInDB]:
+    async def authenticate_user(self, username: str, password: str) -> UserInDB | None:
         """Authenticate a user with username and password"""
         user = await self.get_user(username)
         if not user:
@@ -221,13 +228,13 @@ class AuthService:
         # Update last login
         await self.db.execute(
             "UPDATE users SET last_login = ? WHERE id = ?",
-            (int(datetime.now(timezone.utc).timestamp()), user.id)
+            (int(datetime.now(UTC).timestamp()), user.id)
         )
         await self.db.commit()
 
         return user
 
-    async def update_user(self, username: str, user_update: UserUpdate) -> Optional[User]:
+    async def update_user(self, username: str, user_update: UserUpdate) -> User | None:
         """Update user information"""
         user = await self.get_user(username)
         if not user:
@@ -269,14 +276,14 @@ class AuthService:
         # Fetch updated user
         return await self.get_user_without_password(username)
 
-    async def get_user_without_password(self, username: str) -> Optional[User]:
+    async def get_user_without_password(self, username: str) -> User | None:
         """Get user without password hash"""
         user = await self.get_user(username)
         if not user:
             return None
         return User(**user.dict(exclude={"hashed_password"}))
 
-    async def list_users(self) -> List[User]:
+    async def list_users(self) -> list[User]:
         """List all users (without passwords)"""
         async with self.db.execute("SELECT * FROM users ORDER BY created_at DESC") as cursor:
             rows = await cursor.fetchall()
@@ -314,12 +321,12 @@ class AuthService:
         api_key_id = secrets.token_urlsafe(16)
         raw_key = self.generate_api_key()
         key_hash = self.hash_api_key(raw_key)
-        created_at = int(datetime.now(timezone.utc).timestamp())
+        created_at = int(datetime.now(UTC).timestamp())
         expires_at = None
 
         if api_key_create.expires_days:
             expires_at = int(
-                (datetime.now(timezone.utc) + timedelta(days=api_key_create.expires_days)).timestamp()
+                (datetime.now(UTC) + timedelta(days=api_key_create.expires_days)).timestamp()
             )
 
         await self.db.execute(
@@ -352,7 +359,7 @@ class AuthService:
 
         return api_key, raw_key  # Return the raw key only once
 
-    async def verify_api_key(self, api_key: str) -> Optional[User]:
+    async def verify_api_key(self, api_key: str) -> User | None:
         """Verify an API key and return the associated user"""
         key_hash = self.hash_api_key(api_key)
 
@@ -365,13 +372,13 @@ class AuthService:
                 return None
 
         # Check expiration
-        if key_row["expires_at"] and datetime.now(timezone.utc).timestamp() > key_row["expires_at"]:
+        if key_row["expires_at"] and datetime.now(UTC).timestamp() > key_row["expires_at"]:
             return None
 
         # Update last used
         await self.db.execute(
             "UPDATE api_keys SET last_used = ? WHERE id = ?",
-            (int(datetime.now(timezone.utc).timestamp()), key_row["id"])
+            (int(datetime.now(UTC).timestamp()), key_row["id"])
         )
         await self.db.commit()
 
@@ -394,7 +401,7 @@ class AuthService:
                 last_login=datetime.fromtimestamp(user_row["last_login"]) if user_row["last_login"] else None
             )
 
-    async def list_user_api_keys(self, user_id: str) -> List[APIKey]:
+    async def list_user_api_keys(self, user_id: str) -> list[APIKey]:
         """List all API keys for a user"""
         async with self.db.execute(
             "SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC",

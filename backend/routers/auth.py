@@ -1,16 +1,22 @@
 """Authentication endpoints."""
 from datetime import timedelta
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 import state
 from models.auth import (
-    APIKey, APIKeyCreate, PasswordChange, Token, User, UserCreate, UserUpdate,
+    APIKey,
+    APIKeyCreate,
+    PasswordChange,
+    Token,
+    User,
+    UserCreate,
+    UserUpdate,
 )
 from utils.auth_dependencies import (
-    get_current_active_user, require_admin,
+    get_current_active_user,
+    require_admin,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -51,7 +57,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_active_
     return current_user
 
 
-@router.get("/users", response_model=List[User])
+@router.get("/users", response_model=list[User])
 async def list_users(current_user: User = Depends(require_admin)):
     """List all users (admin only)."""
     if not state.auth_service:
@@ -110,7 +116,7 @@ async def create_api_key(api_key_create: APIKeyCreate, current_user: User = Depe
     }
 
 
-@router.get("/api-keys", response_model=List[APIKey])
+@router.get("/api-keys", response_model=list[APIKey])
 async def list_api_keys(current_user: User = Depends(get_current_active_user)):
     """List current user's API keys."""
     if not state.auth_service:

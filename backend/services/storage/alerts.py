@@ -1,6 +1,5 @@
 """Alert repository: configurable alert rules + their triggered-alert history."""
 import json
-from typing import List, Optional
 
 from models.alerts import AlertRule, TriggeredAlert
 from services.storage.base import Repository
@@ -23,7 +22,7 @@ class AlertRepository(Repository):
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def get_alert_rules(self, user_id: Optional[str] = None, enabled_only: bool = False) -> List[AlertRule]:
+    async def get_alert_rules(self, user_id: str | None = None, enabled_only: bool = False) -> list[AlertRule]:
         """List alert rules, optionally scoped to a user and/or filtered to enabled ones"""
         query = "SELECT * FROM alert_rules"
         clauses = []
@@ -48,7 +47,7 @@ class AlertRepository(Repository):
                 rows = await cursor.fetchall()
                 return [self._row_to_alert_rule(row) for row in rows]
 
-    async def get_alert_rule(self, rule_id: str) -> Optional[AlertRule]:
+    async def get_alert_rule(self, rule_id: str) -> AlertRule | None:
         """Get a specific alert rule by ID"""
         query = "SELECT * FROM alert_rules WHERE id = ?"
         if self.base.pool:
@@ -119,7 +118,7 @@ class AlertRepository(Repository):
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def get_triggered_alerts(self, limit: int = 100, acknowledged: Optional[bool] = None) -> List[TriggeredAlert]:
+    async def get_triggered_alerts(self, limit: int = 100, acknowledged: bool | None = None) -> list[TriggeredAlert]:
         """List triggered alerts, most recent first, optionally filtered by acknowledged state"""
         query = "SELECT * FROM triggered_alerts"
         params: list = []

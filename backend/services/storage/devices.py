@@ -1,13 +1,12 @@
 """Device repository: CRUD + search over the `devices` table."""
 import json
-from typing import List, Optional
 
 from models.types import Device
 from services.storage.base import Repository
 
 
 class DeviceRepository(Repository):
-    async def get_devices(self) -> List[Device]:
+    async def get_devices(self) -> list[Device]:
         """Get all devices"""
         if self.base.pool:
             async with self.base.pool.acquire() as conn:
@@ -20,7 +19,7 @@ class DeviceRepository(Repository):
                 rows = await cursor.fetchall()
                 return [self._row_to_device(row) for row in rows]
 
-    async def get_device(self, device_id: str) -> Optional[Device]:
+    async def get_device(self, device_id: str) -> Device | None:
         """Get device by ID"""
         if self.base.pool:
             async with self.base.pool.acquire() as conn:
@@ -33,7 +32,7 @@ class DeviceRepository(Repository):
                 row = await cursor.fetchone()
                 return self._row_to_device(row) if row else None
 
-    async def get_device_by_mac(self, mac: str) -> Optional[Device]:
+    async def get_device_by_mac(self, mac: str) -> Device | None:
         """Get device by MAC address"""
         if self.base.pool:
             async with self.base.pool.acquire() as conn:
@@ -80,7 +79,7 @@ class DeviceRepository(Repository):
                 row = await cursor.fetchone()
                 return row[0] if row else 0
 
-    async def search_devices(self, query_text: str, limit: int = 50) -> List[Device]:
+    async def search_devices(self, query_text: str, limit: int = 50) -> list[Device]:
         """Search devices by name, IP, or MAC"""
         query = """
             SELECT * FROM devices
