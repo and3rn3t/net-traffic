@@ -199,5 +199,5 @@ Tests automatically run on CI with:
 ## Related Documentation
 
 - [Playwright Documentation](https://playwright.dev/)
-- [Vitest Unit Tests](../src/test/README.md)
-- [Integration Tests](../src/test/integration/README.md)
+- [Vitest Unit Tests](../../src/test/README.md)
+- [Testing Strategy](../../docs/TESTING_STRATEGY.md)

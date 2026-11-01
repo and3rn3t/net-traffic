@@ -78,7 +78,7 @@ format:check, unit + integration tests and build; e2e runs on push only.
 ## Configuration
 
 - Frontend (`.env`, see `.env.example`): `VITE_USE_REAL_API`, `VITE_API_BASE_URL`.
-- Backend (`backend/.env`, see `backend/.env.example` and `docs/ENV_FILE_REQUIREMENTS.md`):
+- Backend (`backend/.env`, see `backend/.env.example` and `docs/DEPLOYMENT.md`):
   `NETWORK_INTERFACE`, `PORT`, `DB_PATH`, `ALLOWED_ORIGINS`, `DATA_RETENTION_DAYS`, feature
   toggles for DNS tracking / DPI / fingerprinting.
 
@@ -96,7 +96,7 @@ usually needs both, and `backend/tests/test_migrations.py` coverage.
 - **Backend:** runs on the Pi as systemd unit `netinsight-backend.service`
   (`scripts/netinsight-backend.service`, `CAP_NET_RAW`/`CAP_NET_ADMIN` instead of root),
   behind a `cloudflared` tunnel. See `docs/DEPLOYMENT_RASPBERRY_PI.md` and
-  `docs/CLOUDFLARE_TUNNEL_SETUP.md`.
+  `docs/DEPLOYMENT.md`.
 - Never deploy, restart Pi services, commit or push unless explicitly asked.
 
 ## Conventions

@@ -50,7 +50,6 @@
     "pre-install": "bash scripts/pre-install-setup.sh",
     "deploy:cloudflare": "npm run build:cloudflare && wrangler pages deploy dist --project-name=net-traffic",
     "verify:deployment": "bash scripts/verify-cloudflare-deployment.sh",
-    "setup:cloudflare-env": "bash scripts/setup-cloudflare-env.sh",
     "setup:custom-domain": "bash scripts/setup-custom-domain.sh"
   },
   "dependencies": {

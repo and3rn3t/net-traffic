@@ -96,7 +96,11 @@ NetInsight can run in two modes:
 #### Analytics Tab
 
 - **Network Quality Dashboard**: RTT, jitter, retransmission, and connection quality metrics
+  - Quality score (0–100), average RTT / jitter / retransmissions
+  - Quality distribution pie, RTT trend line, jitter histogram, retransmissions by protocol
 - **Application Usage Dashboard**: Bandwidth breakdown by application/service
+  - Summary cards (apps, connections, traffic, top app), top-apps bar chart, traffic share
+    pie, per-app details table, and usage trends over time
 - **Top Sites**: Most visited domains
 - **Historical Trends**: Network trends over time
 - **Geographic Distribution**: Connection locations by country
@@ -400,9 +404,9 @@ To connect to a Raspberry Pi 5 backend:
 ### Documentation
 
 - [README.md](../README.md) - Project overview
-- [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md) - Integration guide
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Deployment and configuration
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Detailed troubleshooting
-- [API_ENHANCEMENTS.md](./API_ENHANCEMENTS.md) - API reference
+- API reference: the backend's interactive docs at `/docs` (FastAPI Swagger UI)
 
 ### Support
 

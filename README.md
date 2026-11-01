@@ -23,7 +23,7 @@
 
 This architecture simplifies deployment and improves performance by serving the frontend from Cloudflare's edge network while keeping the backend on your local Raspberry Pi for packet capture and data processing.
 
-> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions.
+> 📖 **Deployment Guide**: See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for Cloudflare Pages, the tunnel, and configuration.
 
 ## 🛠️ Getting started
 
@@ -144,63 +144,12 @@ This architecture simplifies deployment and improves performance by serving the 
 - **Real-time Processing**: Needs low latency for immediate packet analysis
 - See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed analysis
 
-> 📖 **Deployment Guide**: See [docs/CLOUDFLARE_DEPLOYMENT.md](docs/CLOUDFLARE_DEPLOYMENT.md) for detailed Cloudflare Pages deployment instructions (includes automated CI/CD and custom domain setup).
-
 ### Cloudflare Pages Deployment
 
-This project is configured for deployment to Cloudflare Pages.
-
-### Initial Setup
-
-1. **Create a Cloudflare API Token:**
-   - Go to [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens)
-   - Click "Create Token"
-   - Use "Edit Cloudflare Workers" template or create custom token with:
-     - Account.Cloudflare Pages:Edit
-     - Zone.Zone:Read (if using custom domains)
-   - Copy the token
-
-2. **Get your Cloudflare Account ID:**
-   - Go to [Cloudflare Dashboard](https://dash.cloudflare.com/)
-   - Your Account ID is shown in the right sidebar
-
-3. **Configure GitHub Secrets:**
-   - Go to your GitHub repository
-   - Navigate to Settings → Secrets and variables → Actions
-   - Add the following secrets:
-     - `CLOUDFLARE_API_TOKEN`: Your Cloudflare API token
-     - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare Account ID
-
-### Automatic Deployment
-
-Once configured, the project will automatically deploy:
-
-- **Production:** Pushes to `main` or `master` branch
-- **Preview:** Pull requests to `main` or `master` branch
-
-The GitHub Actions workflow will:
-
-1. Build the project using `npm run build`
-2. Deploy the `dist` directory to Cloudflare Pages
-3. Create preview deployments for pull requests
-
-### Manual Deployment
-
-You can also deploy manually using Wrangler CLI:
-
-```bash
-# Install Wrangler globally (if not already installed)
-npm install -g wrangler
-
-# Login to Cloudflare
-wrangler login
-
-# Build the project
-npm run build
-
-# Deploy to Cloudflare Pages
-wrangler pages deploy dist --project-name=net-traffic
-```
+Every push to `main` runs CI, builds `dist/` with the `VITE_*` GitHub secrets, and uploads it
+to the `net-traffic` Pages project with wrangler (PRs don't get preview deployments). Manual
+deploy: `npm run deploy:cloudflare`. Setup, secrets and troubleshooting are in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## 🧪 Testing
 
@@ -216,27 +165,28 @@ See [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) for complete testing do
 
 ## 📚 Documentation
 
-Comprehensive documentation is available in the project:
+### Running it
 
-### For Users
+- **[DEPLOYMENT_RASPBERRY_PI.md](./docs/DEPLOYMENT_RASPBERRY_PI.md)** - Pi 5 install: OS prep, venv, systemd, network config
+- **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - Cloudflare Pages, Cloudflare Tunnel, frontend/backend configuration
+- **[CAPTURE.md](./docs/CAPTURE.md)** - Getting traffic to the Pi, how capture works, what's extracted
+- **[ADVANCED_IDENTIFICATION_CONFIG.md](./docs/ADVANCED_IDENTIFICATION_CONFIG.md)** - Tuning device hostname/vendor/type identification
+- **[TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md)** - Backend service and packet-capture problems
+- **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - Using the dashboard: tabs, filters, search, export
+- **[scripts/README.md](./scripts/README.md)** - What every helper script does
 
-- **[Raspberry Pi 5 Deployment Guide](./docs/DEPLOYMENT_RASPBERRY_PI.md)** - ⚡ Pre-install, setup, systemd, network config
-- **[USER_GUIDE.md](./docs/USER_GUIDE.md)** - Complete user guide with getting started, features, and troubleshooting
-
-### For Developers
+### Developing
 
 - **[AGENTS.md](./AGENTS.md)** - Architecture, commands and conventions for AI agents and developers
-- **[INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)** - Frontend-backend integration guide
-- **[PERFORMANCE_OPTIMIZATIONS.md](./docs/PERFORMANCE_OPTIMIZATIONS.md)** - Performance optimization guide
-- **[TESTING_STRATEGY.md](./docs/TESTING_STRATEGY.md)** - Complete testing strategy, workflows, and setup
+- **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Topology and why processing stays on the Pi
+- **[DATABASE_SCHEMA.md](./docs/DATABASE_SCHEMA.md)** - Tables, and the two places schema is defined
+- **[TESTING_STRATEGY.md](./docs/TESTING_STRATEGY.md)** - Test layers, workflows and setup
 - **[E2E Tests Guide](./tests/e2e/README.md)** - Playwright E2E testing guide
 
-### Project Management
+### Planning
 
 - **[ROADMAP.md](./docs/ROADMAP.md)** - Shipped features and backlog, by priority
-- **[DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md)** - Complete documentation index
-
-See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of all documentation files.
+- **[PRD.md](./docs/PRD.md)** - Product requirements
 
 ## 🧰 Tech stack
 
@@ -266,7 +216,6 @@ See [DOCUMENTATION_INDEX.md](./docs/DOCUMENTATION_INDEX.md) for a full list of a
 - `eslint.config.js`: ESLint configuration
 - `.prettierrc.json`: Prettier formatting rules
 - `.github/workflows/`: CI/CD pipelines
-- See [WORKSPACE_CONFIG.md](./docs/WORKSPACE_CONFIG.md) for detailed configuration guide
 
 ## 📄 License
 

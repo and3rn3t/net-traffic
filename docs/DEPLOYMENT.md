@@ -1,141 +1,163 @@
-# Deployment Guide
+# Deployment
 
-This guide explains how to deploy NetInsight to Cloudflare Pages using GitHub Actions.
+NetInsight deploys in two halves (see [ARCHITECTURE.md](./ARCHITECTURE.md) for why):
 
-## Prerequisites
+| Piece | Where | How it ships |
+| --- | --- | --- |
+| Frontend (React) | Cloudflare Pages project `net-traffic` → `net-traffic.andernet.dev` | GitHub Actions on push to `main` |
+| Backend (FastAPI) | Raspberry Pi 5, systemd `netinsight-backend` | `git pull` + service restart on the Pi |
+| Public API | Cloudflare Tunnel `netinsight-backend` → `net-backend.andernet.dev` | `cloudflared` systemd service on the Pi |
 
-1. A Cloudflare account
-2. A GitHub repository
-3. Node.js 20+ installed locally (for testing)
+Pi install (OS prep, venv, systemd unit, capture permissions) is in
+[DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md). This page covers the frontend, the
+tunnel, and configuration.
 
-## Step 1: Get Cloudflare Credentials
+## Frontend: Cloudflare Pages
 
-### Cloudflare API Token
+### How CI deploys
 
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens)
-2. Click **"Create Token"**
-3. Click **"Get started"** under **"Create Custom Token"**
-4. Configure the token:
-   - **Token name**: Give it a descriptive name (e.g., "GitHub Actions - Pages Deployment")
-   - **Permissions**: 
-     - **Account** → **Cloudflare Pages** → **Edit** (Required)
-     - **Zone** → **Zone** → **Read** (Optional - only needed if using custom domains)
-   - **Account Resources**: Select **"Include - All accounts"** or specify your specific account
-5. Click **"Continue to summary"** and then **"Create Token"**
-6. **Copy the token immediately** (you won't be able to see it again)
+`.github/workflows/ci-cd.yml` runs on every push and PR to `main`. On a **push to `main`**,
+after unit tests pass, it:
 
-### Cloudflare Account ID
+1. Builds `dist/` in GitHub Actions (`npm run build`) with `VITE_API_BASE_URL` and
+   `VITE_USE_REAL_API` from **GitHub repository secrets**.
+2. Uploads the prebuilt `dist/` with `wrangler pages deploy dist --project-name=net-traffic`.
 
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. Select any domain or go to the overview page
-3. Your **Account ID** is displayed in the right sidebar under "Account ID"
-4. Copy this ID
+The Pages project is a **Direct Upload** project (no Git integration), so Cloudflare never
+builds anything itself. Consequences:
 
-## Step 2: Configure GitHub Secrets
+- `VITE_*` values are baked in at CI build time. **Pages dashboard environment variables
+  have no effect** — change the GitHub secrets and re-run the deploy instead.
+- PRs don't get preview deployments; only `main` deploys.
+- Pushes that only touch `docs/**` or `*.md` skip CI entirely.
 
-1. Go to your GitHub repository
-2. Navigate to **Settings** → **Secrets and variables** → **Actions**
-3. Click **"New repository secret"**
-4. Add the following secrets:
+### One-time setup
 
-   | Secret Name | Value | Description |
-   |------------|-------|-------------|
-   | `CLOUDFLARE_API_TOKEN` | Your API token | Token for Cloudflare API access |
-   | `CLOUDFLARE_ACCOUNT_ID` | Your Account ID | Your Cloudflare account identifier |
+Already done for production; repeat only for a fresh account.
 
-## Step 3: Verify Configuration
+1. **API token** — Cloudflare dashboard → My Profile → API Tokens → Create Custom Token with
+   *Account → Cloudflare Pages → Edit*.
+2. **GitHub secrets** (Settings → Secrets and variables → Actions):
 
-The following files are already configured:
+   | Secret | Value |
+   | --- | --- |
+   | `CLOUDFLARE_API_TOKEN` | token from step 1 |
+   | `CLOUDFLARE_ACCOUNT_ID` | dashboard → account overview sidebar |
+   | `VITE_API_BASE_URL` | `https://net-backend.andernet.dev` |
+   | `VITE_USE_REAL_API` | `true` |
 
-- ✅ `.github/workflows/deploy.yml` - GitHub Actions workflow (auto-creates project if needed)
-- ✅ `public/_redirects` - SPA routing support
+3. **Create the project** — wrangler deploys to an existing project; it doesn't create one:
+   `npx wrangler pages project create net-traffic --production-branch=main`
+4. **Custom domain** — Pages → `net-traffic` → Custom domains, or
+   `./scripts/setup-custom-domain.sh net-traffic.andernet.dev` with `CLOUDFLARE_ACCOUNT_ID` /
+   `CLOUDFLARE_API_TOKEN` exported.
 
-**Note:** `wrangler.toml` is not needed for Cloudflare Pages deployments. Pages deployments work without it.
+SPA routing comes from `public/_redirects` (copied into `dist/` by Vite).
 
-**Note:** The workflow uses Wrangler CLI which will automatically create the Cloudflare Pages project on first deployment if it doesn't exist. No manual project creation needed!
-
-## Step 4: Deploy
-
-### Automatic Deployment
-
-Once the secrets are configured, deployments happen automatically:
-
-- **Production**: Every push to `main` or `master` branch
-- **Preview**: Every pull request to `main` or `master` branch
-
-### Manual Deployment (Optional)
-
-You can also deploy manually using Wrangler CLI:
+### Manual deploy
 
 ```bash
-# Install Wrangler (if not already installed)
-npm install -g wrangler
-
-# Login to Cloudflare
-wrangler login
-
-# Build the project
-npm run build
-
-# Deploy to Cloudflare Pages
-wrangler pages deploy dist --project-name=net-traffic
+npx wrangler login
+VITE_USE_REAL_API=true VITE_API_BASE_URL=https://net-backend.andernet.dev npm run deploy:cloudflare
+npm run verify:deployment   # latest deployment status via the Cloudflare API
 ```
 
-## Step 5: Verify Deployment
+### Pages troubleshooting
 
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. Navigate to **Pages** in the sidebar
-3. You should see your `net-traffic` project
-4. Click on it to see deployment history and URLs
+- **`Project not found` (404) from wrangler** — the project doesn't exist in that account
+  (step 3), or `CLOUDFLARE_ACCOUNT_ID` is wrong, or the token lacks *Pages → Edit*.
+- **Site loads but shows mock data / calls localhost** — the `VITE_*` GitHub secrets were
+  missing at build time. Fix the secrets and re-run the workflow.
+- **Deep links 404** — check `dist/_redirects` exists after `npm run build`.
 
-## Custom Domain (Optional)
+## Backend tunnel: Cloudflare Tunnel
 
-To add a custom domain:
+`cloudflared` makes an outbound-only connection from the Pi to Cloudflare, so no router ports
+are opened, and HTTPS/WSS come for free.
 
-1. Go to your Cloudflare Pages project
-2. Navigate to **Custom domains**
-3. Click **"Set up a custom domain"**
-4. Enter your domain name
-5. Follow the DNS configuration instructions
+### Setup
 
-## Troubleshooting
+Run as the `pi` user — **not** with `sudo` (see troubleshooting below).
 
-### Build Failures
+```bash
+# Install (ARM64)
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -o ~/cloudflared
+sudo install -m 755 ~/cloudflared /usr/local/bin/cloudflared && rm ~/cloudflared
 
-- Check GitHub Actions logs for specific errors
-- Verify Node.js version in workflow (currently set to 20)
-- Ensure all dependencies are listed in `package.json`
+# Authenticate, create the tunnel and its DNS route
+cloudflared tunnel login
+cloudflared tunnel create netinsight-backend
+cloudflared tunnel route dns netinsight-backend net-backend.andernet.dev
 
-### Deployment Failures
+# Write ~/.cloudflared/config.yml, then install the systemd service
+./scripts/setup-cloudflared-config.sh
+sudo ./scripts/setup-cloudflared-service.sh
+```
 
-- **404 "Project not found" error**: The workflow will auto-create the project on first run. If you see this error, ensure:
-  - Your API token has `Account → Cloudflare Pages → Edit` permission
-  - Your Account ID is correct
-  - Wait a moment and try again (project creation may take a few seconds)
-- Verify `CLOUDFLARE_API_TOKEN` has correct permissions
-- Check that `CLOUDFLARE_ACCOUNT_ID` is correct
-- Ensure the `dist` directory is being generated correctly
+The resulting `~/.cloudflared/config.yml`:
 
-### SPA Routing Issues
+```yaml
+tunnel: netinsight-backend
+credentials-file: /home/pi/.cloudflared/<tunnel-uuid>.json
 
-- Verify `public/_redirects` file exists
-- Check that it's being copied to `dist` during build
-- Ensure Cloudflare Pages is configured to use the redirects file
+ingress:
+  - hostname: net-backend.andernet.dev
+    service: http://localhost:8000
+  - service: http_status:404
+```
 
-## Environment Variables
+`tunnel route dns` creates the proxied CNAME (`→ <tunnel-id>.cfargotunnel.com`) and its
+certificate — don't edit that record by hand.
 
-If you need to set environment variables for your deployment:
+Verify: `curl https://net-backend.andernet.dev/api/health`, or run
+`./scripts/verify-deployment.sh` on the Pi. Manage with
+`sudo systemctl {status,restart} cloudflared` and `sudo journalctl -u cloudflared -f`.
 
-1. Go to your Cloudflare Pages project
-2. Navigate to **Settings** → **Environment variables**
-3. Add your variables for Production, Preview, or both
+### Tunnel troubleshooting
 
-Note: Variables prefixed with `VITE_` will be available in your React app during build time.
+- **`Unable to reach the origin service`** — the tunnel is up but the backend isn't:
+  `sudo systemctl status netinsight-backend`, `curl http://localhost:8000/api/health`, and
+  check `service:` in `config.yml`. Then `cloudflared tunnel validate` and restart.
+- **`Cannot determine default origin certificate path`** — `login`/`create`/`route` were run
+  with `sudo`, which points `~` at `/root`. Re-run them as `pi`, or use
+  `sudo -u pi cloudflared …` / `TUNNEL_ORIGIN_CERT=/home/pi/.cloudflared/cert.pem`.
+- **Hostname not resolving** — check for `net-backend-andernet.dev` (hyphen) typos;
+  `dig net-backend.andernet.dev CNAME`.
 
-## Support
+## Configuration
 
-For more information:
-- [Cloudflare Pages Documentation](https://developers.cloudflare.com/pages/)
-- [Wrangler CLI Documentation](https://developers.cloudflare.com/workers/wrangler/)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+### Frontend (`.env`, see `.env.example`)
 
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `VITE_USE_REAL_API` | `false` | `false` = built-in mock data (`src/lib/mockData.ts`). |
+| `VITE_API_BASE_URL` | `http://localhost:8000` | WebSocket URL is derived from it (`https` → `wss`). |
+
+Locally these come from `.env`; in production from GitHub secrets (above).
+`npm run validate:env` checks them.
+
+### Backend (`backend/.env`, see `backend/.env.example`)
+
+Every setting has a default in `backend/utils/config.py`, so the backend starts without a
+`.env` — but create one (`npm run ensure-env`) and set at least:
+
+| Variable | Why |
+| --- | --- |
+| `NETWORK_INTERFACE` | Interface to capture on (default `eth0`; list with `ip link show`). |
+| `ALLOWED_ORIGINS` | CORS allow-list, e.g. `https://net-traffic.andernet.dev,https://net-traffic.pages.dev,http://localhost:5001`. |
+| `DB_PATH`, `DATA_RETENTION_DAYS` | SQLite location and retention (defaults `netinsight.db`, 30). |
+| `DEFAULT_ADMIN_PASSWORD` | Optional. Password for the `admin` user created on first boot; if unset, a random one is generated and printed once in the service log (`journalctl -u netinsight-backend`). |
+
+`backend/.env.example` documents most of the rest (DNS/DPI/fingerprinting toggles, rate
+limit, logging, remote capture, slow-query thresholds); `backend/utils/config.py` is the
+complete list, including `GEOIP_DB_PATH`, `OUI_DB_PATH`, `WEBHOOK_URL` and
+`BANDWIDTH_ALERT_THRESHOLD_MB`. `net.andernet.dev` is a stale domain — drop it from
+`ALLOWED_ORIGINS` if you see it.
+
+### CORS / WebSocket problems
+
+- **CORS errors in the browser** — the page's exact origin (scheme included) must be in
+  `ALLOWED_ORIGINS`; restart the backend after editing.
+- **WebSocket fails** — confirm `VITE_API_BASE_URL` is `https://…` (so the client uses
+  `wss://`), and that the tunnel and backend are up. `./scripts/verify-api-connection.sh
+  https://net-backend.andernet.dev` checks health, CORS and WebSocket from any machine.

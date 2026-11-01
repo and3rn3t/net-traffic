@@ -28,7 +28,7 @@
 | **Baseline / predictive analytics** | Per-device EMA baseline (mean + stddev) for bytes/connections/RTT/jitter/retransmissions, learned hourly from SQL aggregates. Anomalies (z-score > 3, spikes only) surface as `Threat` records; `AnomalyDetection.tsx` prefers the learned baseline once a device has ≥3 samples. |
 | **Deep protocol decoding**          | HTTP Host + status code, DNS query name + A/AAAA/CNAME answers, real TLS version detection via the `supported_versions` ClientHello extension.                                                                                                                                    |
 | **Observability pass**              | Slow/large-query logging, global exception handler + `X-Request-ID` propagation, periodic health heartbeat, task exception logging, SQL aggregates replacing unbounded queries — see [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md#known-incidents-context-for-future-debugging).     |
-| **Capture architecture**            | Remote SSH packet capture (`capture_mode=remote_ssh`) as the primary method after UDM Pro port mirroring proved unworkable — see [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md).                                                                        |
+| **Capture architecture**            | Remote SSH packet capture (`capture_mode=remote_ssh`) as the primary method after UDM Pro port mirroring proved unworkable — see [CAPTURE.md](./CAPTURE.md#getting-traffic-to-the-pi).                                                                        |
 
 ---
 
@@ -38,7 +38,7 @@
 
 - [ ] **Cross-browser / performance testing** — unit + E2E infra exists ([TESTING_STRATEGY.md](./TESTING_STRATEGY.md)); load/stress testing and explicit cross-browser coverage don't.
 - [ ] **Setup wizard for first-time users** — currently requires hand-editing `.env` / following [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md).
-- [ ] **Threat intelligence feed integration** — no external IP/domain reputation lookups yet ([NETWORK_TRAFFIC_ANALYSIS.md](./NETWORK_TRAFFIC_ANALYSIS.md#genuine-remaining-gaps)).
+- [ ] **Threat intelligence feed integration** — no external IP/domain reputation lookups yet ([CAPTURE.md](./CAPTURE.md#known-gaps)).
 
 ### Frontend refactor
 
@@ -89,7 +89,7 @@ Composable widgets for the customizable dashboard (each also viable standalone):
 - [x] **Path filters** — `paths-ignore: ['docs/**', '**/*.md']` added to `ci-cd.yml`. Full frontend/backend mutual exclusion would need per-job path filtering (`dorny/paths-filter`) since a single workflow's `paths-ignore` applies to every job in it — left as a future refinement, not done here.
 - [x] **Cache Playwright browsers** — `actions/cache` on `~/.cache/ms-playwright` keyed on the installed `@playwright/test` version from `package-lock.json`.
 - [x] **Stop masking failures with `continue-on-error`** — removed from E2E (verified 47/47 passing locally, `retries: 2` already set in CI). Integration tests (`npm run test:integration`) are NOT unmasked: verified via `git stash` on unmodified main that 16/71 tests fail consistently (not flaky), a real pre-existing gap much bigger than assumed — tracked as a new item below instead of silently masking it forever.
-- [x] **Replace deploy curl scripting with `cloudflare/wrangler-action`** — one-time project/custom-domain setup moved to [CLOUDFLARE_DEPLOYMENT.md](./CLOUDFLARE_DEPLOYMENT.md); the deploy job now just calls `wrangler-action@v3`.
+- [x] **Replace deploy curl scripting with `cloudflare/wrangler-action`** — one-time project/custom-domain setup moved to [DEPLOYMENT.md](./DEPLOYMENT.md#one-time-setup); the deploy job now just calls `wrangler-action@v3`.
 - [x] **Build once, deploy the artifact** — `unit-tests` builds and uploads `dist/`; `deploy` downloads it instead of re-running `npm ci` + build.
 - [x] **Backend CI job** — `backend-checks` job runs `ruff check` (minimal `E9,F` gate via `backend/pyproject.toml` — the full default rule set surfaced ~788 findings, opt into more incrementally) + `python -m compileall` + `pytest` (see [Backend refactor](#backend-refactor) for the test infra). Fixed the 22 real ruff findings this surfaced, including a genuine bug: dead/unreachable duplicate decorator code in `utils/error_handler.py` referencing an undefined `func`. Line endings now come from `.gitattributes` (already existed) — removed the redundant `sed` step from `ci-cd.yml`/`nightly-tests.yml`.
 - [ ] **Fix the integration test suite** — 16/71 tests fail consistently on unmodified main (`useApiData.integration.test.tsx` almost entirely, plus `api.integration.test.tsx`'s "API Enabled Mode"/"Error Scenarios" blocks); currently masked by `continue-on-error` rather than fixed. Needed before that step can be unmasked.
