@@ -37,8 +37,12 @@ jobs:
         run: pip install -q -r requirements-dev.txt
         working-directory: backend
 
-      - name: Run ruff (syntax errors + pyflakes)
+      - name: Run ruff (lint)
         run: ruff check .
+        working-directory: backend
+
+      - name: Check ruff formatting
+        run: ruff format --check .
         working-directory: backend
 
       - name: Byte-compile backend sources

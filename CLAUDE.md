@@ -7,7 +7,7 @@ React dashboard on Cloudflare Pages + FastAPI/Scapy backend on a Raspberry Pi 5.
 
 ## Claude-specific notes
 
-- Frontend done gate: `npm run validate && npm run test:run`. Backend: `cd backend && ruff check . && python -m pytest`.
+- Frontend done gate: `npm run validate && npm run test:run`. Backend: `cd backend && ruff check . && ruff format --check . && python -m pytest`.
 - Schema changes touch both `services/storage/base.py` and `utils/migrations.py`.
 - Pushing to `main` deploys the frontend — don't commit or push unless asked; never SSH to
   the Pi or restart its services unprompted.
