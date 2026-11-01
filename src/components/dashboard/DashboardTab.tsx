@@ -68,6 +68,11 @@ export function DashboardTab({
   devices,
 }: DashboardTabProps) {
   const [editMode, setEditMode] = useState(false);
+  // Mock-mode trend labels are picked once, not re-rolled on every render.
+  const [mockTrends] = useState(() => ({
+    connections: Math.floor(Math.random() * 20),
+    throughput: Math.floor(Math.random() * 30),
+  }));
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const { widgetIds, layout, onLayoutChange, addWidget, removeWidget, resetToDefault } =
     useDashboardLayout();
@@ -88,7 +93,7 @@ export function DashboardTab({
                   ? summaryStats
                     ? `${summaryStats.capture_duration_hours.toFixed(1)}h captured`
                     : undefined
-                  : `${Math.floor(Math.random() * 20)}% from last hour`
+                  : `${mockTrends.connections}% from last hour`
               }
             />
             <MetricCard
@@ -106,7 +111,7 @@ export function DashboardTab({
                   ? summaryStats
                     ? `${formatBytesShort(totalBytes / Math.max(summaryStats.capture_duration_hours, 1))}/hr`
                     : undefined
-                  : `${Math.floor(Math.random() * 30)}% increase`
+                  : `${mockTrends.throughput}% increase`
               }
             />
             <MetricCard

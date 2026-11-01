@@ -21,6 +21,16 @@ interface SavedPreset {
 
 const PRESET_STORAGE_KEY = 'netinsight_flow_filter_presets';
 
+function loadLocalPresets(): SavedPreset[] {
+  try {
+    const stored = localStorage.getItem(PRESET_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as SavedPreset[]) : [];
+  } catch (e) {
+    console.error('Failed to load saved presets:', e);
+    return [];
+  }
+}
+
 export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
   const { autoFetch = true, limit = 100 } = options;
 
@@ -47,9 +57,17 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
     connectionStates: [],
   });
 
-  const [savedPresets, setSavedPresets] = useState<SavedPreset[]>([]);
-  const [shouldFetch, setShouldFetch] = useState(false);
   const { isAuthenticated } = useAuth();
+  const [savedPresets, setSavedPresets] = useState<SavedPreset[]>(() =>
+    isAuthenticated ? [] : loadLocalPresets()
+  );
+
+  // Signed out: presets come from this browser's localStorage.
+  const [presetsSource, setPresetsSource] = useState(isAuthenticated);
+  if (presetsSource !== isAuthenticated) {
+    setPresetsSource(isAuthenticated);
+    if (!isAuthenticated) setSavedPresets(loadLocalPresets());
+  }
 
   // Debounce filters to avoid excessive API calls
   // Debounce text inputs (IP addresses) more aggressively
@@ -67,31 +85,21 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
 
   // Load saved presets: from the backend when signed in (synced across devices),
   // otherwise fall back to this browser's localStorage.
+  // Signed in: presets are synced from the backend.
   useEffect(() => {
-    if (isAuthenticated) {
-      apiClient
-        .listFilterPresets()
-        .then(presets =>
-          setSavedPresets(
-            presets.map(p => ({
-              id: p.id,
-              name: p.name,
-              filters: p.filters as unknown as FlowFilters,
-            }))
-          )
+    if (!isAuthenticated) return;
+    apiClient
+      .listFilterPresets()
+      .then(presets =>
+        setSavedPresets(
+          presets.map(p => ({
+            id: p.id,
+            name: p.name,
+            filters: p.filters as unknown as FlowFilters,
+          }))
         )
-        .catch(e => console.error('Failed to load filter presets:', e));
-      return;
-    }
-    try {
-      const stored = localStorage.getItem(PRESET_STORAGE_KEY);
-      if (stored) {
-        const presets = JSON.parse(stored) as SavedPreset[];
-        setSavedPresets(presets);
-      }
-    } catch (e) {
-      console.error('Failed to load saved presets:', e);
-    }
+      )
+      .catch(e => console.error('Failed to load filter presets:', e));
   }, [isAuthenticated]);
 
   // Save presets to localStorage
@@ -285,7 +293,7 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
   } = useQuery({
     queryKey: ['flows', 'filtered', debouncedFilters, limit],
     queryFn: fetchFilteredFlows,
-    enabled: (autoFetch && shouldFetch && USE_REAL_API) || false,
+    enabled: autoFetch && USE_REAL_API,
     staleTime: 30 * 1000, // Cache for 30 seconds
     gcTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
   });
@@ -295,13 +303,6 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
   if (queryError) {
     error = queryError instanceof Error ? queryError.message : 'Failed to fetch filtered flows';
   }
-
-  // Auto-fetch when debounced filters change (if autoFetch is enabled)
-  useEffect(() => {
-    if (autoFetch && USE_REAL_API) {
-      setShouldFetch(true);
-    }
-  }, [autoFetch, USE_REAL_API]);
 
   // Update filters
   const updateFilters = useCallback((newFilters: Partial<FlowFilters>) => {
@@ -337,7 +338,6 @@ export function useFlowFilters(options: UseFlowFiltersOptions = {}) {
 
   // Apply filters (manual trigger)
   const applyFilters = useCallback(() => {
-    setShouldFetch(true);
     refetch();
   }, [refetch]);
 

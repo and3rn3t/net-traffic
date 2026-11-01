@@ -9,7 +9,17 @@ export default [
   {
     files: ['**/*.{ts,tsx}'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
+    // shadcn/ui primitives export cva variants next to the component, and each
+    // context module exports its provider plus its useX() hook. Splitting them
+    // only to satisfy Fast Refresh isn't worth the churn; these files just do
+    // a full reload on edit.
+    files: ['src/components/ui/**/*.tsx', 'src/contexts/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ];

@@ -102,6 +102,9 @@ usually needs both, and `backend/tests/test_migrations.py` coverage.
 ## Conventions
 
 - TypeScript strict, no `any`; functional components; reusable logic in hooks; `@/` alias.
+- Lint is ratcheted: `npm run lint` allows at most 5 warnings (the remaining
+  fetch-on-mount `react-hooks/set-state-in-effect` sites, pending a move to TanStack Query).
+  Lower `--max-warnings` in `package.json` as they're fixed; never raise it.
 - Frontend data: TanStack Query over the typed client in `src/lib/api/`; render failures with
   `ErrorDisplay`; debounce search/filter input with `useDebounce`; lazy-load heavy views via
   `src/components/lazy.tsx`.

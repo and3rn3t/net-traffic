@@ -57,11 +57,12 @@ vi.mock('@/lib/api', async () => {
 
 // Mock toast
 vi.mock('sonner', () => {
-  const mockToast = vi.fn().mockReturnValue('toast-id') as any;
-  mockToast.success = vi.fn().mockReturnValue('toast-id');
-  mockToast.error = vi.fn().mockReturnValue('toast-id');
-  mockToast.warning = vi.fn().mockReturnValue('toast-id');
-  mockToast.info = vi.fn().mockReturnValue('toast-id');
+  const mockToast = Object.assign(vi.fn().mockReturnValue('toast-id'), {
+    success: vi.fn().mockReturnValue('toast-id'),
+    error: vi.fn().mockReturnValue('toast-id'),
+    warning: vi.fn().mockReturnValue('toast-id'),
+    info: vi.fn().mockReturnValue('toast-id'),
+  });
   return {
     toast: mockToast,
   };

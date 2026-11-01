@@ -53,7 +53,7 @@ globalThis.ResizeObserver = vi.fn(
     unobserve = vi.fn();
     disconnect = vi.fn();
   }
-) as any;
+) as unknown as typeof ResizeObserver;
 
 // Mock IntersectionObserver
 globalThis.IntersectionObserver = vi.fn(
@@ -62,11 +62,11 @@ globalThis.IntersectionObserver = vi.fn(
     unobserve = vi.fn();
     disconnect = vi.fn();
   }
-) as any;
+) as unknown as typeof IntersectionObserver;
 
 // Mock URL.createObjectURL and revokeObjectURL (not available in jsdom)
-globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url') as any;
-globalThis.URL.revokeObjectURL = vi.fn() as any;
+globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+globalThis.URL.revokeObjectURL = vi.fn();
 
 // Mock scrollIntoView (not implemented in jsdom; cmdk calls it on selection change)
 Element.prototype.scrollIntoView = vi.fn();

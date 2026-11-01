@@ -44,7 +44,7 @@ test.describe('API Integration', () => {
     expect(statusFound || appLoaded).toBeTruthy();
   });
 
-  test('should display error when backend is unavailable', async ({ page, context }) => {
+  test('should display error when backend is unavailable', async ({ page }) => {
     // Intercept API calls and return error
     await page.route(
       '**/api/**',

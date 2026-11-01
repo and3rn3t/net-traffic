@@ -10,7 +10,6 @@ import { queryClient } from '@/lib/queryClient';
 import { useApiData } from '@/hooks/useApiData';
 import { apiClient } from '@/lib/api';
 import { createMockDevice, createMockNetworkFlow, createMockThreat } from '@/lib/testHelpers';
-import { Device, NetworkFlow, Threat } from '@/lib/types';
 
 // Mock the API client
 vi.mock('@/lib/api', async () => {

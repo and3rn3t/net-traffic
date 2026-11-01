@@ -119,10 +119,7 @@ export function DevicesList({
           name: editForm.name,
           type: editForm.type as Device['type'],
           tags: editForm.tags,
-          behavioral: {
-            ...editingDevice.behavioral,
-            notes: editForm.notes,
-          } as any,
+          notes: editForm.notes,
         };
         if (onDeviceUpdate) {
           onDeviceUpdate(updated);

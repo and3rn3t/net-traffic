@@ -347,6 +347,30 @@ describe('SearchBar', () => {
       });
     });
 
+    it('should re-open results when the same search is repeated from cache', async () => {
+      vi.mocked(apiClient.search).mockResolvedValue({
+        query: 'test',
+        type: 'all',
+        devices: [createMockDevice({ id: '1', name: 'Device 1' })],
+        flows: [],
+        threats: [],
+      });
+
+      renderSearchBar();
+      const input = screen.getByPlaceholderText(/search devices, flows, ip addresses/i);
+
+      fireEvent.change(input, { target: { value: 'test' } });
+      await waitFor(() => expect(screen.getByText(/search results/i)).toBeInTheDocument());
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByText(/search results/i)).not.toBeInTheDocument());
+
+      // Same term again: served from the query cache, so data is the same object.
+      fireEvent.change(input, { target: { value: 'test' } });
+      await waitFor(() => expect(screen.getByText(/search results/i)).toBeInTheDocument());
+      expect(apiClient.search).toHaveBeenCalledTimes(1);
+    });
+
     it('should display "no results" when API returns empty results', async () => {
       // Create a promise that we can control
       let resolvePromise:

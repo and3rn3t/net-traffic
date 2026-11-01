@@ -21,7 +21,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Only loading while a token persisted from a previous session is validated.
+  const [isLoading, setIsLoading] = useState(() => apiClient.getAuthToken() !== null);
 
   const logout = useCallback(() => {
     apiClient.setAuthToken(null);
@@ -41,8 +42,6 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
         .then(setUser)
         .catch(() => apiClient.setAuthToken(null))
         .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
     }
 
     return () => apiClient.setUnauthorizedHandler(null);

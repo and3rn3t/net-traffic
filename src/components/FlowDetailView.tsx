@@ -58,7 +58,7 @@ export const FlowDetailView = memo(function FlowDetailView({
     const fetchFlow = async () => {
       setIsLoading(true);
       try {
-        const freshFlow = await apiClient.getFlow(currentFlow.id);
+        const freshFlow = await apiClient.getFlow(flow.id);
         setFetchedFlow(freshFlow);
       } catch (error) {
         console.error('Failed to fetch flow details:', error);

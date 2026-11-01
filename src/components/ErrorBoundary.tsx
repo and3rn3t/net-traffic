@@ -56,8 +56,8 @@ export class ErrorBoundary extends Component<Props, State> {
     this.props.onError?.(error, errorInfo);
 
     // Log to error tracking service (if available)
-    if (typeof window !== 'undefined' && (window as any).errorTracker) {
-      (window as any).errorTracker.captureException(error, {
+    if (typeof window !== 'undefined' && window.errorTracker) {
+      window.errorTracker.captureException(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack,

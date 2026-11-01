@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,10 +78,26 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
     useWebSocket: false,
   });
 
+  const refreshStats = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const stats = await apiClient.getMaintenanceStats();
+      setMaintenanceStats(stats);
+      if (stats.retention_days) {
+        setCustomRetentionDays(stats.retention_days.toString());
+      }
+    } catch (error) {
+      console.error('Failed to fetch maintenance stats:', error);
+      toast.error('Failed to refresh stats');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!USE_REAL_API) return;
     refreshStats();
-  }, [USE_REAL_API]);
+  }, [USE_REAL_API, refreshStats]);
 
   const handleCleanup = async () => {
     setIsCleaning(true);
@@ -149,22 +165,6 @@ export function MaintenancePanel({ className }: MaintenancePanelProps) {
       toast.error('Failed to stop capture', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
-    }
-  };
-
-  const refreshStats = async () => {
-    setIsLoading(true);
-    try {
-      const stats = await apiClient.getMaintenanceStats();
-      setMaintenanceStats(stats);
-      if (stats.retention_days) {
-        setCustomRetentionDays(stats.retention_days.toString());
-      }
-    } catch (error) {
-      console.error('Failed to fetch maintenance stats:', error);
-      toast.error('Failed to refresh stats');
-    } finally {
-      setIsLoading(false);
     }
   };
 

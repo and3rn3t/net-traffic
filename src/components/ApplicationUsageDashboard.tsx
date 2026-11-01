@@ -45,22 +45,22 @@ const COLORS = [
   '#84cc16',
 ];
 
+type ApplicationBreakdown = Awaited<ReturnType<typeof apiClient.getApplicationBreakdown>>;
+type ApplicationTrends = Awaited<ReturnType<typeof apiClient.getApplicationTrends>>;
+
 export function ApplicationUsageDashboard({
   hours = 24,
   deviceId,
 }: ApplicationUsageDashboardProps) {
-  const [applicationBreakdown, setApplicationBreakdown] = useState<any[]>([]);
-  const [applicationTrends, setApplicationTrends] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [applicationBreakdown, setApplicationBreakdown] = useState<ApplicationBreakdown>([]);
+  const [applicationTrends, setApplicationTrends] = useState<ApplicationTrends>([]);
+  const [isLoading, setIsLoading] = useState(API_CONFIG.USE_REAL_API);
   const [selectedHours, setSelectedHours] = useState(hours);
   const [selectedApplication, setSelectedApplication] = useState<string>('all');
   const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   useEffect(() => {
-    if (!USE_REAL_API) {
-      setIsLoading(false);
-      return;
-    }
+    if (!USE_REAL_API) return;
 
     const fetchData = async () => {
       setIsLoading(true);
@@ -351,9 +351,9 @@ export function ApplicationUsageDashboard({
                     <Line
                       key={app.application}
                       type="monotone"
-                      dataKey={data => {
+                      dataKey={(data: ApplicationTrends[number]) => {
                         const appData = data.applications.find(
-                          (a: any) => a.application === app.application
+                          a => a.application === app.application
                         );
                         return appData?.bytes || 0;
                       }}
@@ -366,9 +366,9 @@ export function ApplicationUsageDashboard({
                 ) : (
                   <Line
                     type="monotone"
-                    dataKey={data => {
+                    dataKey={(data: ApplicationTrends[number]) => {
                       const appData = data.applications.find(
-                        (a: any) => a.application === selectedApplication
+                        a => a.application === selectedApplication
                       );
                       return appData?.bytes || 0;
                     }}

@@ -26,23 +26,19 @@ export function useDataSource() {
     hours: 24,
   });
 
-  const [mockDevices, setMockDevices] = useState<Device[]>([]);
-  const [mockFlows, setMockFlows] = useState<NetworkFlow[]>([]);
-  const [mockThreats, setMockThreats] = useState<Threat[]>([]);
+  // Mock data is generated once on mount when the API is disabled.
+  const [initialMock] = useState(() => {
+    if (API_CONFIG.USE_REAL_API) return { devices: [], flows: [], threats: [] };
+    const devices = generateInitialDevices(8);
+    const flows = generateInitialFlows(devices, 30);
+    return { devices, flows, threats: generateInitialThreats(devices, flows, 3) };
+  });
+  const [mockDevices, setMockDevices] = useState<Device[]>(initialMock.devices);
+  const [mockFlows, setMockFlows] = useState<NetworkFlow[]>(initialMock.flows);
+  const [mockThreats, setMockThreats] = useState<Threat[]>(initialMock.threats);
   const [mockAnalyticsData] = useState<AnalyticsData[]>(() => generateAnalyticsData(24));
   const [mockProtocolStats] = useState<ProtocolStats[]>(() => generateProtocolStats());
   const [mockIsCapturing, setMockIsCapturing] = useState(true);
-
-  // Initialize mock data once on mount when API is disabled
-  useEffect(() => {
-    if (API_CONFIG.USE_REAL_API || mockDevices.length > 0) return;
-    const initialDevices = generateInitialDevices(8);
-    const initialFlows = generateInitialFlows(initialDevices, 30);
-    const initialThreats = generateInitialThreats(initialDevices, initialFlows, 3);
-    setMockDevices(initialDevices);
-    setMockFlows(initialFlows);
-    setMockThreats(initialThreats);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mock data generation interval (only when API is disabled and capturing)
   useEffect(() => {
