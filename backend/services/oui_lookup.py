@@ -6,6 +6,7 @@ where `<block>` is a MAC prefix optionally suffixed with a CIDR-style bit
 length for non-standard allocation sizes, e.g. `AC:DE:48:00:00:00/28`.
 Download a copy via `scripts/update-oui-db.sh`.
 """
+
 import logging
 import os
 import re

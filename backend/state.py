@@ -2,6 +2,7 @@
 Global application state shared across all routers.
 Service references are None until initialized in main.py lifespan.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -78,7 +79,8 @@ async def notify_clients(data: dict) -> None:
 
     topic = data.get("type")
     recipients = [
-        c for c in active_connections
+        c
+        for c in active_connections
         if (topics := connection_topics.get(c)) is None or topic in topics
     ]
     if not recipients:
@@ -104,14 +106,23 @@ async def notify_clients(data: dict) -> None:
 
     results = await asyncio.gather(*(_send(c) for c in recipients))
 
-    disconnected = [conn for outcome in results if outcome and outcome[0] == "disconnect" for conn in [outcome[1]]]
-    failed_connections = [conn for outcome in results if outcome and outcome[0] == "retry" for conn in [outcome[1]]]
+    disconnected = [
+        conn
+        for outcome in results
+        if outcome and outcome[0] == "disconnect"
+        for conn in [outcome[1]]
+    ]
+    failed_connections = [
+        conn for outcome in results if outcome and outcome[0] == "retry" for conn in [outcome[1]]
+    ]
 
     for conn in disconnected:
         if conn in active_connections:
             active_connections.remove(conn)
             connection_topics.pop(conn, None)
-            logger.info(f"Removed disconnected WebSocket client. Remaining: {len(active_connections)}")
+            logger.info(
+                f"Removed disconnected WebSocket client. Remaining: {len(active_connections)}"
+            )
 
     if failed_connections:
         await asyncio.sleep(0.1)
@@ -129,7 +140,9 @@ async def notify_clients(data: dict) -> None:
             if connection is not None and connection in active_connections:
                 active_connections.remove(connection)
                 connection_topics.pop(connection, None)
-                logger.info(f"Removed WebSocket client after failed retry. Remaining: {len(active_connections)}")
+                logger.info(
+                    f"Removed WebSocket client after failed retry. Remaining: {len(active_connections)}"
+                )
 
 
 async def close_all_connections() -> None:
@@ -213,7 +226,9 @@ async def drain_webhook_tasks(timeout: float = 5.0) -> None:
             asyncio.gather(*pending_webhook_tasks, return_exceptions=True), timeout=timeout
         )
     except TimeoutError:
-        logger.warning(f"Timed out waiting for {len(pending_webhook_tasks)} webhook task(s) to finish")
+        logger.warning(
+            f"Timed out waiting for {len(pending_webhook_tasks)} webhook task(s) to finish"
+        )
 
 
 async def on_flow_update(data: dict) -> None:

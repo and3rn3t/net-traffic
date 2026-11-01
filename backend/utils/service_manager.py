@@ -2,6 +2,7 @@
 Service initialization and management utilities
 Consolidates service initialization patterns
 """
+
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -94,13 +95,11 @@ class ServiceManager:
             enable_deep_packet_inspection=config.enable_deep_packet_inspection,
             enable_http_host_extraction=config.enable_http_host_extraction,
             enable_alpn_detection=config.enable_alpn_detection,
-            dns_servers=config.dns_servers if config.dns_servers else None
+            dns_servers=config.dns_servers if config.dns_servers else None,
         )
 
         # Initialize configurable alert rule engine
-        self.alerting_service = AlertingService(
-            self.storage, on_alert_triggered=on_alert_triggered
-        )
+        self.alerting_service = AlertingService(self.storage, on_alert_triggered=on_alert_triggered)
 
         # Initialize packet capture
         self.packet_capture = PacketCaptureService(
@@ -130,4 +129,3 @@ class ServiceManager:
         if self.geolocation_service:
             self.geolocation_service.close()
         logger.info("All services cleaned up")
-

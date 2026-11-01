@@ -1,4 +1,5 @@
 """Configurable alert rule and triggered-alert endpoints."""
+
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -105,7 +106,9 @@ async def update_alert_rule(
     updated = rule.model_copy(
         update={k: v for k, v in rule_update.model_dump(exclude_unset=True).items()}
     )
-    error = validate_rule_fields(updated.metric, updated.operator, updated.threshold, updated.values)
+    error = validate_rule_fields(
+        updated.metric, updated.operator, updated.threshold, updated.values
+    )
     if error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
@@ -166,5 +169,7 @@ async def acknowledge_triggered_alert(
         f"Failed to acknowledge alert {alert_id}",
     )
     if not acknowledged:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Triggered alert not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Triggered alert not found"
+        )
     return {"status": "acknowledged", "alert_id": alert_id}

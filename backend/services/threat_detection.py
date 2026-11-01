@@ -1,6 +1,7 @@
 """
 Threat detection and analysis service
 """
+
 import logging
 import uuid
 from collections.abc import Callable
@@ -91,9 +92,7 @@ class ThreatDetectionService:
 
         # 5. High retransmission rate (NEW) - indicates network attack
         retransmissions = flow_data.get("retransmissions", 0)
-        total_packets = (
-            flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
-        )
+        total_packets = flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
         if total_packets > 0:
             retransmission_rate = (retransmissions / total_packets) * 100
             if retransmission_rate > HIGH_RETRANSMISSION_RATE:
@@ -168,7 +167,7 @@ class ThreatDetectionService:
                 "low": "low",
                 "medium": "medium",
                 "high": "high",
-                "critical": "critical"
+                "critical": "critical",
             }
             severity = severity_map.get(threat_level, "low")
 
@@ -181,7 +180,7 @@ class ThreatDetectionService:
                 flowId=flow_data.get("id", "unknown"),
                 description=self._generate_threat_description(flow_data, threat_type),
                 recommendation=self._generate_recommendation(threat_type),
-                dismissed=False
+                dismissed=False,
             )
 
             await self.storage.add_threat(threat)
@@ -253,7 +252,7 @@ class ThreatDetectionService:
             "anomaly": (
                 f"Behavioral anomaly: {flow_data.get('application', 'unknown protocol')} "
                 f"connection to {sni or dest_ip}"
-            )
+            ),
         }
         return descriptions.get(threat_type, "Suspicious activity detected")
 
@@ -262,7 +261,6 @@ class ThreatDetectionService:
         recommendations = {
             "exfiltration": "Review device for unauthorized applications and check for data breaches",
             "scan": "Investigate device for compromise and check for malware",
-            "anomaly": "Monitor device closely and investigate if behavior continues"
+            "anomaly": "Monitor device closely and investigate if behavior continues",
         }
         return recommendations.get(threat_type, "Monitor device and review network activity")
-

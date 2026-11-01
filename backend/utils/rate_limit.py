@@ -1,6 +1,7 @@
 """
 Simple rate limiting middleware
 """
+
 import logging
 import time
 from collections import defaultdict
@@ -41,8 +42,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Remove old timestamps
         self.request_history[client_ip] = [
-            ts for ts in self.request_history[client_ip]
-            if ts > minute_ago
+            ts for ts in self.request_history[client_ip] if ts > minute_ago
         ]
 
         # Check if limit exceeded
@@ -54,9 +54,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             raise HTTPException(
                 status_code=429,
                 detail=(
-                    f"Rate limit exceeded. "
-                    f"Maximum {self.requests_per_minute} requests per minute."
-                )
+                    f"Rate limit exceeded. Maximum {self.requests_per_minute} requests per minute."
+                ),
             )
 
         # Record this request
@@ -74,12 +73,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Remove old IP entries
         ips_to_remove = []
         for ip, timestamps in self.request_history.items():
-            self.request_history[ip] = [
-                ts for ts in timestamps if ts > minute_ago
-            ]
+            self.request_history[ip] = [ts for ts in timestamps if ts > minute_ago]
             if not self.request_history[ip]:
                 ips_to_remove.append(ip)
 
         for ip in ips_to_remove:
             del self.request_history[ip]
-

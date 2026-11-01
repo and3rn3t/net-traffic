@@ -1,4 +1,5 @@
 """Device repository: CRUD + search over the `devices` table."""
+
 import json
 
 from models.types import Device
@@ -15,7 +16,9 @@ class DeviceRepository(Repository):
                     return [self._row_to_device(row) for row in rows]
         else:
             await self.base._ensure_connection()
-            async with self.base.db.execute("SELECT * FROM devices ORDER BY last_seen DESC") as cursor:
+            async with self.base.db.execute(
+                "SELECT * FROM devices ORDER BY last_seen DESC"
+            ) as cursor:
                 rows = await cursor.fetchall()
                 return [self._row_to_device(row) for row in rows]
 
@@ -23,12 +26,16 @@ class DeviceRepository(Repository):
         """Get device by ID"""
         if self.base.pool:
             async with self.base.pool.acquire() as conn:
-                async with conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)) as cursor:
+                async with conn.execute(
+                    "SELECT * FROM devices WHERE id = ?", (device_id,)
+                ) as cursor:
                     row = await cursor.fetchone()
                     return self._row_to_device(row) if row else None
         else:
             await self.base._ensure_connection()
-            async with self.base.db.execute("SELECT * FROM devices WHERE id = ?", (device_id,)) as cursor:
+            async with self.base.db.execute(
+                "SELECT * FROM devices WHERE id = ?", (device_id,)
+            ) as cursor:
                 row = await cursor.fetchone()
                 return self._row_to_device(row) if row else None
 
@@ -41,7 +48,9 @@ class DeviceRepository(Repository):
                     return self._row_to_device(row) if row else None
         else:
             await self.base._ensure_connection()
-            async with self.base.db.execute("SELECT * FROM devices WHERE mac = ?", (mac,)) as cursor:
+            async with self.base.db.execute(
+                "SELECT * FROM devices WHERE mac = ?", (mac,)
+            ) as cursor:
                 row = await cursor.fetchone()
                 return self._row_to_device(row) if row else None
 
@@ -51,18 +60,36 @@ class DeviceRepository(Repository):
         applications_str = ",".join(device.applications) if device.applications else None
         tags_str = json.dumps(device.tags) if device.tags else None
 
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT OR REPLACE INTO devices
             (id, name, ip, mac, type, vendor, os, first_seen, last_seen, bytes_total,
              connections_count, threat_score, behavioral, notes, ipv6_support, avg_rtt,
              connection_quality, applications, tags)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            device.id, device.name, device.ip, device.mac, device.type, device.vendor,
-            device.os, device.firstSeen, device.lastSeen, device.bytesTotal, device.connectionsCount,
-            device.threatScore, json.dumps(device.behavioral), device.notes,
-            1 if device.ipv6Support else 0, device.avgRtt, device.connectionQuality, applications_str, tags_str
-        ))
+        """,
+            (
+                device.id,
+                device.name,
+                device.ip,
+                device.mac,
+                device.type,
+                device.vendor,
+                device.os,
+                device.firstSeen,
+                device.lastSeen,
+                device.bytesTotal,
+                device.connectionsCount,
+                device.threatScore,
+                json.dumps(device.behavioral),
+                device.notes,
+                1 if device.ipv6Support else 0,
+                device.avgRtt,
+                device.connectionQuality,
+                applications_str,
+                tags_str,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
@@ -135,5 +162,5 @@ class DeviceRepository(Repository):
             avgRtt=row["avg_rtt"],
             connectionQuality=row["connection_quality"],
             applications=applications,
-            tags=tags
+            tags=tags,
         )

@@ -7,20 +7,31 @@ from services.storage.base import Repository
 class BaselineRepository(Repository):
     async def upsert_device_baseline(self, baseline: DeviceBaseline):
         """Insert or update a device's learned behavioral baseline"""
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT OR REPLACE INTO device_baselines
             (device_id, bytes_total_mean, bytes_total_stddev, connections_mean,
              connections_stddev, avg_rtt_mean, avg_rtt_stddev, avg_jitter_mean,
              avg_jitter_stddev, retransmission_rate_mean, retransmission_rate_stddev,
              sample_count, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            baseline.deviceId, baseline.bytesTotalMean, baseline.bytesTotalStdDev,
-            baseline.connectionsMean, baseline.connectionsStdDev, baseline.avgRttMean,
-            baseline.avgRttStdDev, baseline.avgJitterMean, baseline.avgJitterStdDev,
-            baseline.retransmissionRateMean, baseline.retransmissionRateStdDev,
-            baseline.sampleCount, baseline.updatedAt
-        ))
+        """,
+            (
+                baseline.deviceId,
+                baseline.bytesTotalMean,
+                baseline.bytesTotalStdDev,
+                baseline.connectionsMean,
+                baseline.connectionsStdDev,
+                baseline.avgRttMean,
+                baseline.avgRttStdDev,
+                baseline.avgJitterMean,
+                baseline.avgJitterStdDev,
+                baseline.retransmissionRateMean,
+                baseline.retransmissionRateStdDev,
+                baseline.sampleCount,
+                baseline.updatedAt,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 

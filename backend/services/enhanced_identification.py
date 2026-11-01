@@ -2,6 +2,7 @@
 Enhanced hostname, server name, and application identification service
 Provides advanced configurations for better flow identification
 """
+
 import asyncio
 import logging
 import re
@@ -11,6 +12,7 @@ from datetime import datetime
 
 try:
     import dns.resolver  # noqa: F401 - import itself is the availability check
+
     DNS_AVAILABLE = True
 except ImportError:
     DNS_AVAILABLE = False
@@ -155,8 +157,7 @@ class EnhancedIdentificationService:
             try:
                 # Use asyncio timeout
                 hostname = await asyncio.wait_for(
-                    asyncio.to_thread(socket.gethostbyaddr, ip),
-                    timeout=self.reverse_dns_timeout
+                    asyncio.to_thread(socket.gethostbyaddr, ip), timeout=self.reverse_dns_timeout
                 )
 
                 if hostname and len(hostname) > 0:
@@ -185,20 +186,21 @@ class EnhancedIdentificationService:
         try:
             # Try Scapy HTTP layer
             from scapy.layers.http import HTTPRequest
+
             if packet.haslayer(HTTPRequest):
                 http = packet[HTTPRequest]
-                if hasattr(http, 'Host'):
+                if hasattr(http, "Host"):
                     host = http.Host
                     if isinstance(host, bytes):
-                        host = host.decode('utf-8', errors='ignore')
+                        host = host.decode("utf-8", errors="ignore")
                     return host
 
             # Try raw packet inspection
-            raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
-            if b'Host:' in raw:
-                for line in raw.split(b'\r\n'):
-                    if line.startswith(b'Host:'):
-                        host = line.split(b':', 1)[1].strip().decode('utf-8', errors='ignore')
+            raw = packet.raw if hasattr(packet, "raw") else bytes(packet)
+            if b"Host:" in raw:
+                for line in raw.split(b"\r\n"):
+                    if line.startswith(b"Host:"):
+                        host = line.split(b":", 1)[1].strip().decode("utf-8", errors="ignore")
                         return host
         except Exception as e:
             logger.debug(f"Error extracting HTTP Host: {e}")
@@ -211,20 +213,20 @@ class EnhancedIdentificationService:
             return None
 
         try:
-            raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
+            raw = packet.raw if hasattr(packet, "raw") else bytes(packet)
 
             # Look for ALPN extension (0x0010)
-            alpn_start = raw.find(b'\x00\x10')
+            alpn_start = raw.find(b"\x00\x10")
             if alpn_start == -1:
                 return None
 
             # ALPN structure: extension type (2) + length (2) + protocol list length (2) + protocols
             try:
-                ext_len = int.from_bytes(raw[alpn_start+2:alpn_start+4], 'big')
+                ext_len = int.from_bytes(raw[alpn_start + 2 : alpn_start + 4], "big")
                 if ext_len < 2:
                     return None
 
-                list_len = int.from_bytes(raw[alpn_start+4:alpn_start+6], 'big')
+                list_len = int.from_bytes(raw[alpn_start + 4 : alpn_start + 6], "big")
                 if list_len < 1:
                     return None
 
@@ -238,7 +240,9 @@ class EnhancedIdentificationService:
                     proto_len = raw[offset]
                     if offset + 1 + proto_len > len(raw):
                         break
-                    proto = raw[offset+1:offset+1+proto_len].decode('utf-8', errors='ignore')
+                    proto = raw[offset + 1 : offset + 1 + proto_len].decode(
+                        "utf-8", errors="ignore"
+                    )
                     protocols.append(proto)
                     offset += 1 + proto_len
                     remaining -= 1 + proto_len
@@ -257,7 +261,7 @@ class EnhancedIdentificationService:
             return None
 
         try:
-            raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
+            raw = packet.raw if hasattr(packet, "raw") else bytes(packet)
 
             # Check first 200 bytes for patterns
             payload = raw[:200] if len(raw) > 200 else raw
@@ -269,7 +273,7 @@ class EnhancedIdentificationService:
                         return app_name
 
             # HTTP/2 detection (magic string)
-            if payload.startswith(b'PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n'):
+            if payload.startswith(b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"):
                 return "HTTP/2"
 
             # QUIC detection
@@ -287,19 +291,19 @@ class EnhancedIdentificationService:
             return None
 
         try:
-            raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
+            raw = packet.raw if hasattr(packet, "raw") else bytes(packet)
             payload = raw[:500] if len(raw) > 500 else raw
 
             # Extract printable strings
-            printable = re.findall(rb'[\x20-\x7E]{4,}', payload)
+            printable = re.findall(rb"[\x20-\x7E]{4,}", payload)
 
             if printable:
-                banner = printable[0].decode('utf-8', errors='ignore')[:100]
+                banner = printable[0].decode("utf-8", errors="ignore")[:100]
 
                 fingerprint = {
                     "banner": banner,
                     "port": port,
-                    "timestamp": datetime.now().timestamp()
+                    "timestamp": datetime.now().timestamp(),
                 }
 
                 # Cache fingerprint
@@ -318,7 +322,7 @@ class EnhancedIdentificationService:
             return True
         if ip.startswith("172."):
             try:
-                parts = ip.split('.')
+                parts = ip.split(".")
                 if len(parts) >= 2:
                     second_octet = int(parts[1])
                     if 16 <= second_octet <= 31:
@@ -340,4 +344,3 @@ class EnhancedIdentificationService:
             del self._dns_query_cache[domain]
             if domain in self._dns_query_timestamps:
                 del self._dns_query_timestamps[domain]
-

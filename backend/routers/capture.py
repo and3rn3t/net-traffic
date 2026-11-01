@@ -30,7 +30,9 @@ async def stop_capture(current_user: User | None = Depends(get_current_user_opti
         await state.packet_capture.stop()
         return {"status": "stopped"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to stop packet capture: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Failed to stop packet capture: {str(e)}"
+        ) from e
 
 
 @router.get("/status")

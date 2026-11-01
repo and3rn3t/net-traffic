@@ -23,7 +23,8 @@ async def get_analytics(hours: int = HoursQuery(24, 720)):
         if cached is not None:
             return cached
     result = await handle_endpoint_error_call(
-        lambda: state.analytics.get_analytics_data(hours_back=hours), "Failed to retrieve analytics data"
+        lambda: state.analytics.get_analytics_data(hours_back=hours),
+        "Failed to retrieve analytics data",
     )
     if state.cache_service and state.cache_service.is_enabled():
         await state.cache_service.set(cache_key, result)
@@ -54,7 +55,8 @@ async def get_summary_stats():
     if not state.advanced_analytics:
         raise HTTPException(status_code=503, detail=ErrorMessages.ADV_ANALYTICS_NOT_INIT)
     return await handle_endpoint_error_call(
-        lambda: state.advanced_analytics.get_summary_stats(), "Failed to retrieve summary statistics"
+        lambda: state.advanced_analytics.get_summary_stats(),
+        "Failed to retrieve summary statistics",
     )
 
 
@@ -149,7 +151,9 @@ async def get_top_devices(
         if cached is not None:
             return cached
     result = await handle_endpoint_error_call(
-        lambda: state.advanced_analytics.get_top_devices(limit=limit, hours_back=hours, sort_by=sort_by),
+        lambda: state.advanced_analytics.get_top_devices(
+            limit=limit, hours_back=hours, sort_by=sort_by
+        ),
         "Failed to retrieve top devices",
     )
     if state.cache_service and state.cache_service.is_enabled():
@@ -158,7 +162,9 @@ async def get_top_devices(
 
 
 @router.get("/stats/bandwidth")
-async def get_bandwidth_timeline(hours: int = HoursQuery(24, 720), interval_minutes: int = Query(5, ge=1, le=1440)):
+async def get_bandwidth_timeline(
+    hours: int = HoursQuery(24, 720), interval_minutes: int = Query(5, ge=1, le=1440)
+):
     """Get bandwidth usage timeline."""
     if not state.advanced_analytics:
         raise HTTPException(status_code=503, detail=ErrorMessages.ADV_ANALYTICS_NOT_INIT)
@@ -168,7 +174,9 @@ async def get_bandwidth_timeline(hours: int = HoursQuery(24, 720), interval_minu
         if cached is not None:
             return cached
     result = await handle_endpoint_error_call(
-        lambda: state.advanced_analytics.get_bandwidth_timeline(hours_back=hours, interval_minutes=interval_minutes),
+        lambda: state.advanced_analytics.get_bandwidth_timeline(
+            hours_back=hours, interval_minutes=interval_minutes
+        ),
         "Failed to retrieve bandwidth timeline",
     )
     if state.cache_service and state.cache_service.is_enabled():
@@ -208,7 +216,9 @@ async def get_latency_quality_calendar(
         if cached is not None:
             return cached
     result = await handle_endpoint_error_call(
-        lambda: state.advanced_analytics.get_latency_quality_calendar(days=days, device_id=device_id),
+        lambda: state.advanced_analytics.get_latency_quality_calendar(
+            days=days, device_id=device_id
+        ),
         "Failed to retrieve latency quality calendar",
     )
     if state.cache_service and state.cache_service.is_enabled():
@@ -247,13 +257,17 @@ async def get_rtt_trends(
     if not state.network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
     return await handle_endpoint_error_call(
-        lambda: state.network_quality_analytics.get_rtt_trends(hours, device_id, country, interval_minutes),
+        lambda: state.network_quality_analytics.get_rtt_trends(
+            hours, device_id, country, interval_minutes
+        ),
         "Failed to retrieve RTT trends",
     )
 
 
 @router.get("/analytics/jitter")
-async def get_jitter_analysis(hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)):
+async def get_jitter_analysis(
+    hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)
+):
     """Get jitter analysis statistics."""
     if not state.network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
@@ -264,7 +278,9 @@ async def get_jitter_analysis(hours: int = HoursQuery(24, 720), device_id: str |
 
 
 @router.get("/analytics/retransmissions")
-async def get_retransmission_report(hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)):
+async def get_retransmission_report(
+    hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)
+):
     """Get retransmission statistics report."""
     if not state.network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
@@ -275,7 +291,9 @@ async def get_retransmission_report(hours: int = HoursQuery(24, 720), device_id:
 
 
 @router.get("/analytics/connection-quality")
-async def get_connection_quality_summary(hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)):
+async def get_connection_quality_summary(
+    hours: int = HoursQuery(24, 720), device_id: str | None = Query(None)
+):
     """Get overall connection quality summary."""
     if not state.network_quality_analytics:
         raise HTTPException(status_code=503, detail="Network quality analytics not initialized")
@@ -310,6 +328,8 @@ async def get_application_trends(
     if not state.application_analytics:
         raise HTTPException(status_code=503, detail="Application analytics not initialized")
     return await handle_endpoint_error_call(
-        lambda: state.application_analytics.get_application_trends(hours, application, interval_minutes),
+        lambda: state.application_analytics.get_application_trends(
+            hours, application, interval_minutes
+        ),
         "Failed to retrieve application trends",
     )

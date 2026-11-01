@@ -11,6 +11,7 @@ packet-capture hot path - this only aggregates flow activity over the last
 learning window (SQL-side, via storage.get_device_flow_aggregates), so it
 adds no per-packet overhead.
 """
+
 import logging
 import math
 import time
@@ -37,7 +38,12 @@ _METRICS = (
     ("connections", "connectionsMean", "connectionsStdDev", "connection count"),
     ("avgRtt", "avgRttMean", "avgRttStdDev", "average RTT"),
     ("avgJitter", "avgJitterMean", "avgJitterStdDev", "average jitter"),
-    ("retransmissionRate", "retransmissionRateMean", "retransmissionRateStdDev", "retransmission rate"),
+    (
+        "retransmissionRate",
+        "retransmissionRateMean",
+        "retransmissionRateStdDev",
+        "retransmission rate",
+    ),
 )
 
 
@@ -121,7 +127,7 @@ class BaselineLearningService:
             new_mean = BASELINE_EMA_ALPHA * current + (1 - BASELINE_EMA_ALPHA) * old_mean
             variance = (
                 BASELINE_EMA_ALPHA * (current - new_mean) ** 2
-                + (1 - BASELINE_EMA_ALPHA) * old_stddev ** 2
+                + (1 - BASELINE_EMA_ALPHA) * old_stddev**2
             )
 
             setattr(baseline, mean_attr, new_mean)

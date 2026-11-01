@@ -1,6 +1,7 @@
 """
 Request logging middleware for API observability
 """
+
 import json
 import logging
 import time
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 # Try to import structured logging helpers
 try:
     from utils.logging_config import log_request as log_structured_request
+
     HAS_STRUCTURED_LOGGING = True
 except ImportError:
     HAS_STRUCTURED_LOGGING = False
@@ -58,9 +60,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         # Determine if we should log this request
         should_log = request.url.path not in self.EXCLUDED_PATHS
-        should_log_debug = (
-            not should_log and self.log_excluded_paths
-        )
+        should_log_debug = not should_log and self.log_excluded_paths
 
         # Start timing
         start_time = time.time()
@@ -69,10 +69,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         if should_log:
             self._log_request(request, request_id, client_ip, client_port)
         elif should_log_debug:
-            logger.debug(
-                f"[{request_id}] {request.method} {request.url.path} "
-                f"from {client_ip}"
-            )
+            logger.debug(f"[{request_id}] {request.method} {request.url.path} from {client_ip}")
 
         # Process request and capture response
         response: Response | None = None
@@ -100,10 +97,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
             # Log response
             if should_log:
-                self._log_response(
-                    request, request_id, status_code, duration_ms,
-                    client_ip
-                )
+                self._log_response(request, request_id, status_code, duration_ms, client_ip)
                 # Use structured logging if available
                 if HAS_STRUCTURED_LOGGING:
                     log_structured_request(
@@ -113,7 +107,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                         duration_ms=duration_ms,
                         request_id=request_id,
                         client_ip=client_ip,
-                        user_agent=request.headers.get("user-agent", "unknown")
+                        user_agent=request.headers.get("user-agent", "unknown"),
                     )
             elif should_log_debug:
                 logger.debug(
@@ -135,7 +129,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             logger.error(
                 f"[{request_id}] ERROR {request.method} {request.url.path} "
                 f"from {client_ip} - {error_message} ({duration_ms:.2f}ms)",
-                exc_info=True
+                exc_info=True,
             )
 
             # Re-raise the exception so FastAPI can handle it
@@ -145,26 +139,28 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             # Log structured data if enabled (for JSON logging)
             if should_log and logger.isEnabledFor(logging.INFO):
                 self._log_structured(
-                    request, request_id, status_code, duration_ms,
-                    client_ip, client_port, error_occurred, error_message
+                    request,
+                    request_id,
+                    status_code,
+                    duration_ms,
+                    client_ip,
+                    client_port,
+                    error_occurred,
+                    error_message,
                 )
 
     def _log_request(
-        self, request: Request, request_id: str,
-        client_ip: str, client_port: int | None
+        self, request: Request, request_id: str, client_ip: str, client_port: int | None
     ):
         """Log incoming request details"""
         query_params = dict(request.query_params)
 
         # Don't log full query strings for very long requests
         query_str = "&".join(
-            f"{k}={v[:50]}" if len(str(v)) > 50 else f"{k}={v}"
-            for k, v in query_params.items()
+            f"{k}={v[:50]}" if len(str(v)) > 50 else f"{k}={v}" for k, v in query_params.items()
         )[:200]  # Limit total length
 
-        log_msg = (
-            f"[{request_id}] {request.method} {request.url.path}"
-        )
+        log_msg = f"[{request_id}] {request.method} {request.url.path}"
 
         if query_str:
             log_msg += f"?{query_str}"
@@ -176,8 +172,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         logger.info(log_msg)
 
     def _log_response(
-        self, request: Request, request_id: str,
-        status_code: int, duration_ms: float, client_ip: str
+        self,
+        request: Request,
+        request_id: str,
+        status_code: int,
+        duration_ms: float,
+        client_ip: str,
     ):
         """Log response details"""
         # Determine log level based on status code
@@ -194,7 +194,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         elif duration_ms < 1000:
             duration_str = f"{duration_ms:.0f}ms"
         else:
-            duration_str = f"{duration_ms/1000:.2f}s"
+            duration_str = f"{duration_ms / 1000:.2f}s"
 
         log_msg = (
             f"[{request_id}] {request.method} {request.url.path} "
@@ -204,9 +204,15 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         logger.log(log_level, log_msg)
 
     def _log_structured(
-        self, request: Request, request_id: str, status_code: int,
-        duration_ms: float, client_ip: str, client_port: int | None,
-        error_occurred: bool, error_message: str | None
+        self,
+        request: Request,
+        request_id: str,
+        status_code: int,
+        duration_ms: float,
+        client_ip: str,
+        client_port: int | None,
+        error_occurred: bool,
+        error_message: str | None,
     ):
         """Log structured data (JSON format) for better parsing"""
         # Only log structured data at INFO level or above

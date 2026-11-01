@@ -6,6 +6,7 @@ NetworkFlow objects on the packet-capture hot path. Rules are cached in
 memory (refreshed on every CRUD operation) so per-flow evaluation never
 needs a database round trip.
 """
+
 import logging
 import time
 import uuid

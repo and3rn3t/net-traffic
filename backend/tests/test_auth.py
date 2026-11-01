@@ -31,9 +31,7 @@ def test_me_with_valid_token_returns_user(api_client):
     )
     token = login.json()["access_token"]
 
-    response = api_client.get(
-        "/api/auth/me", headers={"Authorization": f"Bearer {token}"}
-    )
+    response = api_client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 200
     assert response.json()["username"] == "admin"

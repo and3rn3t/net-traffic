@@ -1,12 +1,14 @@
 """
 Geolocation service using GeoIP2
 """
+
 import ipaddress
 import logging
 
 try:
     import geoip2.database
     import geoip2.errors
+
     GEOIP_AVAILABLE = True
 except ImportError:
     GEOIP_AVAILABLE = False
@@ -102,11 +104,7 @@ class GeolocationService:
             # This would require a separate ASN database - not implemented yet
             asn = None
 
-            result = {
-                "country": country,
-                "city": city,
-                "asn": asn
-            }
+            result = {"country": country, "city": city, "asn": asn}
         except geoip2.errors.AddressNotFoundError:
             result = {"country": None, "city": None, "asn": None}
         except Exception as e:
@@ -138,4 +136,3 @@ class GeolocationService:
             self.reader.close()
             self.reader = None
             self._initialized = False
-

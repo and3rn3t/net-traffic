@@ -10,7 +10,8 @@ class FlowRepository(Repository):
         # Convert TCP flags list to comma-separated string
         tcp_flags_str = ",".join(flow.tcpFlags) if flow.tcpFlags else None
 
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT OR REPLACE INTO flows
             (id, timestamp, source_ip, source_port, dest_ip, dest_port, protocol,
              bytes_in, bytes_out, packets_in, packets_out, duration, status,
@@ -20,16 +21,47 @@ class FlowRepository(Repository):
              http_host, http_status_code, dns_query_name, dns_answers, tls_version)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
-            flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
-            flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
-            flow.country, flow.city, flow.asn, flow.domain, flow.sni, flow.threatLevel, flow.deviceId,
-            tcp_flags_str, flow.ttl, flow.connectionState, flow.rtt, flow.retransmissions, flow.jitter,
-            flow.application, flow.userAgent, flow.httpMethod, flow.url, flow.dnsQueryType, flow.dnsResponseCode,
-            flow.httpHost, flow.httpStatusCode, flow.dnsQueryName,
-            ",".join(flow.dnsAnswers) if flow.dnsAnswers else None, flow.tlsVersion
-        ))
+        """,
+            (
+                flow.id,
+                flow.timestamp,
+                flow.sourceIp,
+                flow.sourcePort,
+                flow.destIp,
+                flow.destPort,
+                flow.protocol,
+                flow.bytesIn,
+                flow.bytesOut,
+                flow.packetsIn,
+                flow.packetsOut,
+                flow.duration,
+                flow.status,
+                flow.country,
+                flow.city,
+                flow.asn,
+                flow.domain,
+                flow.sni,
+                flow.threatLevel,
+                flow.deviceId,
+                tcp_flags_str,
+                flow.ttl,
+                flow.connectionState,
+                flow.rtt,
+                flow.retransmissions,
+                flow.jitter,
+                flow.application,
+                flow.userAgent,
+                flow.httpMethod,
+                flow.url,
+                flow.dnsQueryType,
+                flow.dnsResponseCode,
+                flow.httpHost,
+                flow.httpStatusCode,
+                flow.dnsQueryName,
+                ",".join(flow.dnsAnswers) if flow.dnsAnswers else None,
+                flow.tlsVersion,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
@@ -51,16 +83,43 @@ class FlowRepository(Repository):
         """
         params = [
             (
-                flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
-                flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
-                flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
-                flow.country, flow.city, flow.asn, flow.domain, flow.sni, flow.threatLevel, flow.deviceId,
-                ",".join(flow.tcpFlags) if flow.tcpFlags else None, flow.ttl, flow.connectionState,
-                flow.rtt, flow.retransmissions, flow.jitter,
-                flow.application, flow.userAgent, flow.httpMethod, flow.url,
-                flow.dnsQueryType, flow.dnsResponseCode,
-                flow.httpHost, flow.httpStatusCode, flow.dnsQueryName,
-                ",".join(flow.dnsAnswers) if flow.dnsAnswers else None, flow.tlsVersion
+                flow.id,
+                flow.timestamp,
+                flow.sourceIp,
+                flow.sourcePort,
+                flow.destIp,
+                flow.destPort,
+                flow.protocol,
+                flow.bytesIn,
+                flow.bytesOut,
+                flow.packetsIn,
+                flow.packetsOut,
+                flow.duration,
+                flow.status,
+                flow.country,
+                flow.city,
+                flow.asn,
+                flow.domain,
+                flow.sni,
+                flow.threatLevel,
+                flow.deviceId,
+                ",".join(flow.tcpFlags) if flow.tcpFlags else None,
+                flow.ttl,
+                flow.connectionState,
+                flow.rtt,
+                flow.retransmissions,
+                flow.jitter,
+                flow.application,
+                flow.userAgent,
+                flow.httpMethod,
+                flow.url,
+                flow.dnsQueryType,
+                flow.dnsResponseCode,
+                flow.httpHost,
+                flow.httpStatusCode,
+                flow.dnsQueryName,
+                ",".join(flow.dnsAnswers) if flow.dnsAnswers else None,
+                flow.tlsVersion,
             )
             for flow in flows
         ]
@@ -75,22 +134,30 @@ class FlowRepository(Repository):
             await self.base.db.commit()
 
     @log_slow_query("get_flows")
-    async def get_flows(self, limit: int = 100, device_id: str | None = None,
-                       status: str | None = None, protocol: str | None = None,
-                       start_time: int | None = None, end_time: int | None = None,
-                       source_ip: str | None = None, dest_ip: str | None = None,
-                       threat_level: str | None = None, min_bytes: int | None = None,
-                       offset: int = 0,
-                       # New enhanced filters
-                       country: str | None = None,
-                       city: str | None = None,
-                       application: str | None = None,
-                       min_rtt: int | None = None,
-                       max_rtt: int | None = None,
-                       max_jitter: float | None = None,
-                       max_retransmissions: int | None = None,
-                       sni: str | None = None,
-                       connection_state: str | None = None) -> list[NetworkFlow]:
+    async def get_flows(
+        self,
+        limit: int = 100,
+        device_id: str | None = None,
+        status: str | None = None,
+        protocol: str | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        source_ip: str | None = None,
+        dest_ip: str | None = None,
+        threat_level: str | None = None,
+        min_bytes: int | None = None,
+        offset: int = 0,
+        # New enhanced filters
+        country: str | None = None,
+        city: str | None = None,
+        application: str | None = None,
+        min_rtt: int | None = None,
+        max_rtt: int | None = None,
+        max_jitter: float | None = None,
+        max_retransmissions: int | None = None,
+        sni: str | None = None,
+        connection_state: str | None = None,
+    ) -> list[NetworkFlow]:
         """Get flows with advanced filters including enhanced data fields"""
         query = "SELECT * FROM flows WHERE 1=1"
         params = []
@@ -210,9 +277,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_top_domains")
-    async def aggregate_top_domains(
-        self, start_time: int, limit: int = 20
-    ) -> list[dict]:
+    async def aggregate_top_domains(self, start_time: int, limit: int = 20) -> list[dict]:
         """Aggregate top domains by traffic in SQL."""
         rows = await self.base._aggregate_fetchall(
             """
@@ -408,9 +473,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_bandwidth_timeline")
-    async def aggregate_bandwidth_timeline(
-        self, start_time: int, interval_ms: int
-    ) -> list[dict]:
+    async def aggregate_bandwidth_timeline(self, start_time: int, interval_ms: int) -> list[dict]:
         """Aggregate bandwidth into fixed time buckets in SQL."""
         rows = await self.base._aggregate_fetchall(
             """
@@ -438,9 +501,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_device_analytics")
-    async def aggregate_device_analytics(
-        self, device_id: str, start_time: int
-    ) -> dict:
+    async def aggregate_device_analytics(self, device_id: str, start_time: int) -> dict:
         """Aggregate per-device breakdowns in SQL for a single device."""
         summary_rows = await self.base._aggregate_fetchall(
             """
@@ -505,13 +566,8 @@ class FlowRepository(Repository):
                 }
                 for r in protocol_rows
             ],
-            "top_domains": [
-                {"domain": r["domain"], "bytes": r["bytes"]} for r in domain_rows
-            ],
-            "top_ports": [
-                {"port": r["port"], "connections": r["connections"]}
-                for r in port_rows
-            ],
+            "top_domains": [{"domain": r["domain"], "bytes": r["bytes"]} for r in domain_rows],
+            "top_ports": [{"port": r["port"], "connections": r["connections"]} for r in port_rows],
         }
 
     @log_slow_query("aggregate_rtt_trends")
@@ -554,9 +610,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_jitter_stats")
-    async def aggregate_jitter_stats(
-        self, start_time: int, device_id: str | None = None
-    ) -> dict:
+    async def aggregate_jitter_stats(self, start_time: int, device_id: str | None = None) -> dict:
         """Aggregate jitter summary + distribution buckets in SQL."""
         summary_query = """
             SELECT AVG(jitter) AS avg_jitter, MIN(jitter) AS min_jitter,
@@ -592,8 +646,11 @@ class FlowRepository(Repository):
         s = summary_rows[0] if summary_rows else None
         if not s or not s["count"]:
             return {
-                "avg_jitter": 0.0, "min_jitter": 0.0, "max_jitter": 0.0,
-                "count": 0, "distribution": [],
+                "avg_jitter": 0.0,
+                "min_jitter": 0.0,
+                "max_jitter": 0.0,
+                "count": 0,
+                "distribution": [],
             }
         return {
             "avg_jitter": round(s["avg_jitter"], 2),
@@ -650,12 +707,14 @@ class FlowRepository(Repository):
         protocol_stats = []
         for r in protocol_rows:
             rate = (r["retransmissions"] / r["packets"] * 100) if r["packets"] > 0 else 0
-            protocol_stats.append({
-                "protocol": r["protocol"],
-                "flows": r["flows"],
-                "retransmissions": r["retransmissions"],
-                "rate": round(rate, 2),
-            })
+            protocol_stats.append(
+                {
+                    "protocol": r["protocol"],
+                    "flows": r["flows"],
+                    "retransmissions": r["retransmissions"],
+                    "rate": round(rate, 2),
+                }
+            )
         protocol_stats.sort(key=lambda x: x["rate"], reverse=True)
 
         return {
@@ -786,9 +845,7 @@ class FlowRepository(Repository):
         }
 
     @log_slow_query("aggregate_protocol_stats")
-    async def aggregate_protocol_stats(
-        self, start_time: int | None = None
-    ) -> list[dict]:
+    async def aggregate_protocol_stats(self, start_time: int | None = None) -> list[dict]:
         """Aggregate bytes/connections by protocol in SQL (avoids loading flows)."""
         query = """
             SELECT protocol,
@@ -927,7 +984,9 @@ class FlowRepository(Repository):
                     return self._row_to_flow(row) if row else None
         else:
             await self.base._ensure_connection()
-            async with self.base.db.execute("SELECT * FROM flows WHERE id = ?", (flow_id,)) as cursor:
+            async with self.base.db.execute(
+                "SELECT * FROM flows WHERE id = ?", (flow_id,)
+            ) as cursor:
                 row = await cursor.fetchone()
                 return self._row_to_flow(row) if row else None
 
@@ -1036,7 +1095,8 @@ class FlowRepository(Repository):
             dnsQueryName=row["dns_query_name"],
             dnsAnswers=(
                 [a.strip() for a in row["dns_answers"].split(",") if a.strip()]
-                if row["dns_answers"] else None
+                if row["dns_answers"]
+                else None
             ),
-            tlsVersion=row["tls_version"]
+            tlsVersion=row["tls_version"],
         )

@@ -32,7 +32,7 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> Us
     if not auth_service:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication service not available"
+            detail="Authentication service not available",
         )
 
     credentials_exception = HTTPException(
@@ -51,8 +51,7 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> Us
 
     if user.disabled:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is disabled"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
         )
 
     return user
@@ -78,7 +77,7 @@ async def get_current_user_from_api_key(x_api_key: str | None = Header(None)) ->
 
 async def get_current_user(
     token_user: User | None = Depends(get_current_user_from_token),
-    api_key_user: User | None = Depends(get_current_user_from_api_key)
+    api_key_user: User | None = Depends(get_current_user_from_api_key),
 ) -> User:
     """
     Get current user from either JWT token or API key
@@ -100,16 +99,13 @@ async def get_current_user(
     )
 
 
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Get current active user (not disabled)
     """
     if current_user.disabled:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is disabled"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
         )
     return current_user
 
@@ -122,11 +118,11 @@ def require_role(allowed_roles: list[UserRole]):
     Usage:
         @app.get("/admin", dependencies=[Depends(require_role([UserRole.ADMIN]))])
     """
+
     async def check_role(current_user: User = Depends(get_current_active_user)):
         if current_user.role not in allowed_roles:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=ErrorMessages.FORBIDDEN
+                status_code=status.HTTP_403_FORBIDDEN, detail=ErrorMessages.FORBIDDEN
             )
         return current_user
 
@@ -137,27 +133,21 @@ def require_role(allowed_roles: list[UserRole]):
 async def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
     """Require admin role"""
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=ErrorMessages.FORBIDDEN
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorMessages.FORBIDDEN)
     return current_user
 
 
 async def require_operator_or_admin(current_user: User = Depends(get_current_active_user)) -> User:
     """Require operator or admin role"""
     if current_user.role not in [UserRole.OPERATOR, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=ErrorMessages.FORBIDDEN
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorMessages.FORBIDDEN)
     return current_user
 
 
 # Optional authentication (for endpoints that work with or without auth)
 async def get_current_user_optional(
     authorization: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    x_api_key: str | None = Header(None)
+    x_api_key: str | None = Header(None),
 ) -> User | None:
     """
     Get current user if authenticated, None otherwise

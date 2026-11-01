@@ -2,6 +2,7 @@
 Database Connection Pool Manager
 Provides connection pooling, health checks, and query queuing for SQLite
 """
+
 import asyncio
 import logging
 from collections.abc import Callable
@@ -24,7 +25,7 @@ class DatabasePool:
         db_path: str,
         max_connections: int = 5,
         connection_timeout: float = 30.0,
-        enable_wal: bool = True
+        enable_wal: bool = True,
     ):
         """
         Initialize database pool
@@ -54,7 +55,7 @@ class DatabasePool:
             "error_count": 0,
             "last_error": None,
             "pool_hits": 0,
-            "pool_misses": 0
+            "pool_misses": 0,
         }
 
     async def initialize(self):
@@ -81,7 +82,7 @@ class DatabasePool:
             conn = await aiosqlite.connect(
                 self.db_path,
                 timeout=self.connection_timeout,
-                isolation_level=None  # Autocommit mode
+                isolation_level=None,  # Autocommit mode
             )
             conn.row_factory = aiosqlite.Row
 
@@ -123,7 +124,7 @@ class DatabasePool:
             try:
                 conn = await asyncio.wait_for(
                     self._available.get(),
-                    timeout=0.1  # Quick check
+                    timeout=0.1,  # Quick check
                 )
                 self._stats["pool_hits"] += 1
                 self._stats["connections_reused"] += 1
@@ -139,8 +140,7 @@ class DatabasePool:
                         # Wait for an available connection
                         logger.debug("Pool exhausted, waiting for available connection")
                         conn = await asyncio.wait_for(
-                            self._available.get(),
-                            timeout=self.connection_timeout
+                            self._available.get(), timeout=self.connection_timeout
                         )
                         self._stats["connections_reused"] += 1
 
@@ -195,11 +195,7 @@ class DatabasePool:
             logger.error(f"Error closing connection: {e}")
 
     async def execute_query(
-        self,
-        query: str,
-        params: tuple = None,
-        fetch_one: bool = False,
-        fetch_all: bool = False
+        self, query: str, params: tuple = None, fetch_one: bool = False, fetch_all: bool = False
     ) -> Any:
         """
         Execute a query using a pooled connection
@@ -289,19 +285,17 @@ class DatabasePool:
             "statistics": {
                 **self._stats,
                 "pool_utilization": (
-                    round(
-                        (1 - self._available.qsize() / max(self._pool_size, 1)) * 100,
-                        2
-                    )
+                    round((1 - self._available.qsize() / max(self._pool_size, 1)) * 100, 2)
                 ),
                 "pool_hit_rate": (
                     round(
-                        self._stats["pool_hits"] /
-                        max(self._stats["pool_hits"] + self._stats["pool_misses"], 1) * 100,
-                        2
+                        self._stats["pool_hits"]
+                        / max(self._stats["pool_hits"] + self._stats["pool_misses"], 1)
+                        * 100,
+                        2,
                     )
-                )
-            }
+                ),
+            },
         }
 
     async def close(self):

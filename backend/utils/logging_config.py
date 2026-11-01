@@ -2,6 +2,7 @@
 Structured Logging Configuration
 Provides JSON-formatted logging for better analysis and monitoring
 """
+
 import logging
 import sys
 from datetime import UTC, datetime
@@ -17,44 +18,40 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
     def add_fields(self, log_record, record, message_dict):
         """Add custom fields to log records"""
         # Ensure levelname exists before calling super (python-json-logger may rename it)
-        if 'levelname' not in log_record and hasattr(record, 'levelname'):
-            log_record['levelname'] = record.levelname
+        if "levelname" not in log_record and hasattr(record, "levelname"):
+            log_record["levelname"] = record.levelname
 
         super().add_fields(log_record, record, message_dict)
 
         # Add timestamp in ISO format
-        if not log_record.get('timestamp'):
-            log_record['timestamp'] = datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+        if not log_record.get("timestamp"):
+            log_record["timestamp"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
         # Add log level (use renamed 'level' if available, otherwise use levelname)
-        if log_record.get('level'):
-            log_record['level'] = log_record['level'].upper()
+        if log_record.get("level"):
+            log_record["level"] = log_record["level"].upper()
         elif record.levelname:
-            log_record['level'] = record.levelname
+            log_record["level"] = record.levelname
 
         # Add application name
-        log_record['application'] = 'netinsight'
+        log_record["application"] = "netinsight"
 
         # Add module and function context
-        if not log_record.get('module'):
-            log_record['module'] = record.module
-        if not log_record.get('function'):
-            log_record['function'] = record.funcName
-        if not log_record.get('line'):
-            log_record['line'] = record.lineno
+        if not log_record.get("module"):
+            log_record["module"] = record.module
+        if not log_record.get("function"):
+            log_record["function"] = record.funcName
+        if not log_record.get("line"):
+            log_record["line"] = record.lineno
 
         # Add process and thread info for debugging
-        if not log_record.get('process'):
-            log_record['process'] = record.process
-        if not log_record.get('thread'):
-            log_record['thread'] = record.thread
+        if not log_record.get("process"):
+            log_record["process"] = record.process
+        if not log_record.get("thread"):
+            log_record["thread"] = record.thread
 
 
-def setup_logging(
-    level: str = "INFO",
-    use_json: bool = True,
-    log_file: str | None = None
-):
+def setup_logging(level: str = "INFO", use_json: bool = True, log_file: str | None = None):
     """
     Setup application-wide logging configuration
 
@@ -82,16 +79,15 @@ def setup_logging(
         # JSON formatter for structured logging
         # Note: Don't rename levelname to avoid issues with python-json-logger
         formatter = CustomJsonFormatter(
-            '%(timestamp)s %(level)s %(name)s %(message)s',
+            "%(timestamp)s %(level)s %(name)s %(message)s",
             rename_fields={
-                'name': 'logger',
-            }
+                "name": "logger",
+            },
         )
     else:
         # Plain text formatter for development
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
 
     console_handler.setFormatter(formatter)
@@ -110,11 +106,7 @@ def setup_logging(
 
     logging.info(
         "Logging configured",
-        extra={
-            'level': level,
-            'json_format': use_json,
-            'file_logging': log_file is not None
-        }
+        extra={"level": level, "json_format": use_json, "file_logging": log_file is not None},
     )
 
 
@@ -186,12 +178,7 @@ class StructuredLogger:
 
 
 # Convenience function for quick structured logging
-def log_event(
-    level: str,
-    message: str,
-    logger_name: str = "netinsight",
-    **context
-):
+def log_event(level: str, message: str, logger_name: str = "netinsight", **context):
     """
     Log an event with structured context
 
@@ -210,13 +197,7 @@ def log_event(
 
 
 # Request logging helper
-def log_request(
-    method: str,
-    path: str,
-    status_code: int,
-    duration_ms: float,
-    **extra
-):
+def log_request(method: str, path: str, status_code: int, duration_ms: float, **extra):
     """
     Log HTTP request with standard fields
 
@@ -228,22 +209,18 @@ def log_request(
         **extra: Additional context
     """
     log_event(
-        'info',
-        'HTTP request',
+        "info",
+        "HTTP request",
         http_method=method,
         http_path=path,
         http_status=status_code,
         duration_ms=duration_ms,
-        **extra
+        **extra,
     )
 
 
 # Error logging helper
-def log_error(
-    error: Exception,
-    context: str,
-    **extra
-):
+def log_error(error: Exception, context: str, **extra):
     """
     Log error with exception details
 
@@ -253,22 +230,17 @@ def log_error(
         **extra: Additional context
     """
     log_event(
-        'error',
+        "error",
         f"Error in {context}: {str(error)}",
         error_type=type(error).__name__,
         error_message=str(error),
         context=context,
-        **extra
+        **extra,
     )
 
 
 # Security event logging
-def log_security_event(
-    event_type: str,
-    severity: str,
-    description: str,
-    **extra
-):
+def log_security_event(event_type: str, severity: str, description: str, **extra):
     """
     Log security-related event
 
@@ -279,22 +251,17 @@ def log_security_event(
         **extra: Additional context
     """
     log_event(
-        'warning' if severity in ['low', 'medium'] else 'error',
+        "warning" if severity in ["low", "medium"] else "error",
         description,
-        event_type='security',
+        event_type="security",
         security_event=event_type,
         severity=severity,
-        **extra
+        **extra,
     )
 
 
 # Performance logging helper
-def log_performance(
-    operation: str,
-    duration_ms: float,
-    success: bool = True,
-    **extra
-):
+def log_performance(operation: str, duration_ms: float, success: bool = True, **extra):
     """
     Log performance metrics
 
@@ -305,11 +272,11 @@ def log_performance(
         **extra: Additional metrics
     """
     log_event(
-        'info',
+        "info",
         f"Performance: {operation}",
-        event_type='performance',
+        event_type="performance",
         operation=operation,
         duration_ms=duration_ms,
         success=success,
-        **extra
+        **extra,
     )

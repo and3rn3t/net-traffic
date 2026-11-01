@@ -1,4 +1,5 @@
 """Threat endpoints."""
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException

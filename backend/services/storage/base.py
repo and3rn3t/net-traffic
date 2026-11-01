@@ -1,6 +1,7 @@
 """
 Core connection/pool infrastructure shared by all per-domain storage repositories.
 """
+
 import asyncio
 import logging
 import os
@@ -21,6 +22,7 @@ def log_slow_query(label: str):
     """Decorator for storage async methods: logs a WARN (with duration
     and row count) when a query is slow or returns an unexpectedly large
     result set - the two symptoms behind past DB performance incidents."""
+
     def decorator(func):
         @wraps(func)
         async def wrapper(self, *args, **kwargs):
@@ -30,7 +32,9 @@ def log_slow_query(label: str):
             row_count = len(result) if isinstance(result, (list, tuple)) else None
             self._record_query_timing(label, duration_ms, row_count)
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -63,11 +67,7 @@ class StorageBase:
         """Initialize database and create tables"""
         if self.use_pool:
             # Initialize connection pool
-            self.pool = DatabasePool(
-                db_path=self.db_path,
-                max_connections=5,
-                enable_wal=True
-            )
+            self.pool = DatabasePool(db_path=self.db_path, max_connections=5, enable_wal=True)
             await self.pool.initialize()
 
             # Use first connection from pool for setup
@@ -91,10 +91,7 @@ class StorageBase:
             if self.db is not None:
                 # Check if connection is still alive
                 try:
-                    await asyncio.wait_for(
-                        self.db.execute("SELECT 1"),
-                        timeout=1.0
-                    )
+                    await asyncio.wait_for(self.db.execute("SELECT 1"), timeout=1.0)
                     return  # Connection is healthy
                 except Exception as e:
                     logger.warning(f"Database connection check failed: {e}")
@@ -114,8 +111,7 @@ class StorageBase:
         for attempt in range(self._max_retries):
             try:
                 self.db = await asyncio.wait_for(
-                    aiosqlite.connect(self.db_path, timeout=5.0),
-                    timeout=5.0
+                    aiosqlite.connect(self.db_path, timeout=5.0), timeout=5.0
                 )
                 self.db.row_factory = aiosqlite.Row
 
@@ -126,7 +122,7 @@ class StorageBase:
                 return
             except Exception as e:
                 if attempt < self._max_retries - 1:
-                    delay = self._retry_delay * (2 ** attempt)  # Exponential backoff
+                    delay = self._retry_delay * (2**attempt)  # Exponential backoff
                     logger.warning(
                         f"Database connection attempt {attempt + 1} failed: {e}. "
                         f"Retrying in {delay}s..."
@@ -134,8 +130,7 @@ class StorageBase:
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        f"Failed to connect to database after "
-                        f"{self._max_retries} attempts: {e}"
+                        f"Failed to connect to database after {self._max_retries} attempts: {e}"
                     )
                     raise
 
@@ -162,9 +157,10 @@ class StorageBase:
             except (aiosqlite.OperationalError, aiosqlite.DatabaseError) as e:
                 error_str = str(e).lower()
                 # Check if it's a connection-related error
-                if any(keyword in error_str for keyword in [
-                    'closed', 'lost', 'unable to open', 'database is locked'
-                ]):
+                if any(
+                    keyword in error_str
+                    for keyword in ["closed", "lost", "unable to open", "database is locked"]
+                ):
                     logger.warning(f"Database error (attempt {attempt + 1}): {e}")
                     # Close connection and retry
                     async with self._connection_lock:
@@ -176,7 +172,7 @@ class StorageBase:
                             self.db = None
 
                     if attempt < self._max_retries - 1:
-                        await asyncio.sleep(self._retry_delay * (2 ** attempt))
+                        await asyncio.sleep(self._retry_delay * (2**attempt))
                         continue
                     else:
                         logger.error(f"Database operation failed after retries: {e}")
@@ -500,14 +496,16 @@ class StorageBase:
         await self.db.commit()
         logger.debug("SQLite optimized for Raspberry Pi 5")
 
-    async def _batched_delete(self, table: str, where_clause: str, params: tuple, batch_size: int = 50000) -> int:
+    async def _batched_delete(
+        self, table: str, where_clause: str, params: tuple, batch_size: int = 50000
+    ) -> int:
         """Delete matching rows in bounded batches to avoid one long write transaction."""
         total_deleted = 0
         while True:
             cursor = await self._execute_with_retry(
                 f"DELETE FROM {table} WHERE rowid IN "
                 f"(SELECT rowid FROM {table} WHERE {where_clause} LIMIT ?)",
-                params + (batch_size,)
+                params + (batch_size,),
             )
             deleted = cursor.rowcount
             total_deleted += deleted
@@ -520,16 +518,16 @@ class StorageBase:
     @log_slow_query("cleanup_old_data")
     async def cleanup_old_data(self, days: int = 30):
         """Clean up old flows, threats, and triggered alerts older than specified days"""
-        cutoff_time = int(
-            (datetime.now() - timedelta(days=days)).timestamp() * 1000
-        )
+        cutoff_time = int((datetime.now() - timedelta(days=days)).timestamp() * 1000)
 
         flows_deleted = await self._batched_delete("flows", "timestamp < ?", (cutoff_time,))
         # Threats are purged at the retention cutoff regardless of dismissed
         # state - undismissed threats past the window are stale noise, not
         # actionable, and were otherwise growing unbounded.
         threats_deleted = await self._batched_delete("threats", "timestamp < ?", (cutoff_time,))
-        alerts_deleted = await self._batched_delete("triggered_alerts", "timestamp < ?", (cutoff_time,))
+        alerts_deleted = await self._batched_delete(
+            "triggered_alerts", "timestamp < ?", (cutoff_time,)
+        )
 
         # Fold the WAL back into the main DB and truncate it. Repeated deletes
         # (and normal capture writes) can otherwise let the -wal file grow
@@ -554,7 +552,7 @@ class StorageBase:
             "flows_deleted": flows_deleted,
             "threats_deleted": threats_deleted,
             "triggered_alerts_deleted": alerts_deleted,
-            "cutoff_timestamp": cutoff_time
+            "cutoff_timestamp": cutoff_time,
         }
 
     @log_slow_query("get_database_stats")
@@ -585,8 +583,7 @@ class StorageBase:
         stats["newest_flow"] = row[1] if row and row[1] else None
 
         row = await _fetchone(
-            "SELECT page_count * page_size as size FROM pragma_page_count(), "
-            "pragma_page_size()"
+            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
         )
         stats["database_size_bytes"] = row[0] if row else 0
         stats["wal_size_bytes"] = self.get_wal_size_bytes()
@@ -615,7 +612,9 @@ class StorageBase:
         after = self.get_wal_size_bytes()
         return {"before_bytes": before, "after_bytes": after}
 
-    def _record_query_timing(self, label: str, duration_ms: float, row_count: int | None = None) -> None:
+    def _record_query_timing(
+        self, label: str, duration_ms: float, row_count: int | None = None
+    ) -> None:
         """Track slow/large query occurrences and log a WARN for either."""
         is_slow = duration_ms > config.slow_query_ms
         is_large = row_count is not None and row_count > config.large_result_warn_rows
@@ -632,7 +631,11 @@ class StorageBase:
         logger.warning(
             f"Slow/large query '{label}': {duration_ms:.1f}ms"
             + (f", {row_count} rows" if row_count is not None else ""),
-            extra={"query_label": label, "duration_ms": round(duration_ms, 1), "row_count": row_count},
+            extra={
+                "query_label": label,
+                "duration_ms": round(duration_ms, 1),
+                "row_count": row_count,
+            },
         )
 
     async def close(self):
@@ -653,10 +656,7 @@ class StorageBase:
         if self.pool:
             stats = self.pool.get_stats()
         else:
-            stats = {
-                "pool_enabled": False,
-                "message": "Connection pooling not enabled"
-            }
+            stats = {"pool_enabled": False, "message": "Connection pooling not enabled"}
         stats["query_stats"] = self._query_stats
         return stats
 
@@ -670,5 +670,7 @@ class Repository:
     def __init__(self, base: StorageBase):
         self.base = base
 
-    def _record_query_timing(self, label: str, duration_ms: float, row_count: int | None = None) -> None:
+    def _record_query_timing(
+        self, label: str, duration_ms: float, row_count: int | None = None
+    ) -> None:
         self.base._record_query_timing(label, duration_ms, row_count)

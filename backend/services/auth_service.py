@@ -2,6 +2,7 @@
 Authentication Service
 Handles user authentication, JWT token generation, and API key management
 """
+
 import hashlib
 import logging
 import os
@@ -56,7 +57,9 @@ def _generate_strong_password(length: int = 16) -> str:
         secrets.choice(string.ascii_lowercase),
         secrets.choice(string.digits),
     ]
-    rest = [secrets.choice(string.ascii_letters + string.digits) for _ in range(length - len(required))]
+    rest = [
+        secrets.choice(string.ascii_letters + string.digits) for _ in range(length - len(required))
+    ]
     chars = required + rest
     secrets.SystemRandom().shuffle(chars)
     return "".join(chars)
@@ -107,13 +110,17 @@ class AuthService:
                     email="admin@netinsight.com",
                     password=admin_password,
                     full_name="Administrator",
-                    role=UserRole.ADMIN
+                    role=UserRole.ADMIN,
                 )
                 await self.create_user(admin_user)
                 if os.getenv("DEFAULT_ADMIN_PASSWORD"):
-                    logger.warning("Default admin user created - username: admin (password from DEFAULT_ADMIN_PASSWORD env var) - CHANGE THIS after first login!")
+                    logger.warning(
+                        "Default admin user created - username: admin (password from DEFAULT_ADMIN_PASSWORD env var) - CHANGE THIS after first login!"
+                    )
                 else:
-                    logger.warning(f"Default admin user created - username: admin, password: {admin_password} - CHANGE THIS after first login! (This password is only shown once, in this log line.)")
+                    logger.warning(
+                        f"Default admin user created - username: admin, password: {admin_password} - CHANGE THIS after first login! (This password is only shown once, in this log line.)"
+                    )
 
     # Password hashing functions
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
@@ -143,7 +150,9 @@ class AuthService:
         return Token(
             access_token=encoded_jwt,
             token_type="bearer",
-            expires_in=int(expires_delta.total_seconds()) if expires_delta else ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            expires_in=int(expires_delta.total_seconds())
+            if expires_delta
+            else ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
 
     def decode_access_token(self, token: str) -> TokenData | None:
@@ -163,9 +172,7 @@ class AuthService:
     # User management
     async def get_user(self, username: str) -> UserInDB | None:
         """Get user by username"""
-        async with self.db.execute(
-            "SELECT * FROM users WHERE username = ?", (username,)
-        ) as cursor:
+        async with self.db.execute("SELECT * FROM users WHERE username = ?", (username,)) as cursor:
             row = await cursor.fetchone()
             if not row:
                 return None
@@ -179,7 +186,7 @@ class AuthService:
                 role=UserRole(row["role"]),
                 disabled=bool(row["disabled"]),
                 created_at=datetime.fromtimestamp(row["created_at"]),
-                last_login=datetime.fromtimestamp(row["last_login"]) if row["last_login"] else None
+                last_login=datetime.fromtimestamp(row["last_login"]) if row["last_login"] else None,
             )
 
     async def create_user(self, user_create: UserCreate) -> User:
@@ -200,8 +207,8 @@ class AuthService:
                 user_create.full_name,
                 hashed_password,
                 user_create.role.value,
-                created_at
-            )
+                created_at,
+            ),
         )
         await self.db.commit()
 
@@ -212,7 +219,7 @@ class AuthService:
             full_name=user_create.full_name,
             role=user_create.role,
             disabled=False,
-            created_at=datetime.fromtimestamp(created_at)
+            created_at=datetime.fromtimestamp(created_at),
         )
 
     async def authenticate_user(self, username: str, password: str) -> UserInDB | None:
@@ -228,7 +235,7 @@ class AuthService:
         # Update last login
         await self.db.execute(
             "UPDATE users SET last_login = ? WHERE id = ?",
-            (int(datetime.now(UTC).timestamp()), user.id)
+            (int(datetime.now(UTC).timestamp()), user.id),
         )
         await self.db.commit()
 
@@ -268,8 +275,7 @@ class AuthService:
 
         update_values.append(user.id)
         await self.db.execute(
-            f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?",
-            tuple(update_values)
+            f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?", tuple(update_values)
         )
         await self.db.commit()
 
@@ -296,7 +302,9 @@ class AuthService:
                     role=UserRole(row["role"]),
                     disabled=bool(row["disabled"]),
                     created_at=datetime.fromtimestamp(row["created_at"]),
-                    last_login=datetime.fromtimestamp(row["last_login"]) if row["last_login"] else None
+                    last_login=datetime.fromtimestamp(row["last_login"])
+                    if row["last_login"]
+                    else None,
                 )
                 for row in rows
             ]
@@ -316,7 +324,9 @@ class AuthService:
         """Generate a new API key"""
         return f"nti_{secrets.token_urlsafe(32)}"
 
-    async def create_api_key(self, user_id: str, api_key_create: APIKeyCreate) -> tuple[APIKey, str]:
+    async def create_api_key(
+        self, user_id: str, api_key_create: APIKeyCreate
+    ) -> tuple[APIKey, str]:
         """Create a new API key"""
         api_key_id = secrets.token_urlsafe(16)
         raw_key = self.generate_api_key()
@@ -341,8 +351,8 @@ class AuthService:
                 user_id,
                 created_at,
                 expires_at,
-                ",".join(api_key_create.permissions) if api_key_create.permissions else ""
-            )
+                ",".join(api_key_create.permissions) if api_key_create.permissions else "",
+            ),
         )
         await self.db.commit()
 
@@ -354,7 +364,7 @@ class AuthService:
             created_at=datetime.fromtimestamp(created_at),
             expires_at=datetime.fromtimestamp(expires_at) if expires_at else None,
             disabled=False,
-            permissions=api_key_create.permissions
+            permissions=api_key_create.permissions,
         )
 
         return api_key, raw_key  # Return the raw key only once
@@ -364,8 +374,7 @@ class AuthService:
         key_hash = self.hash_api_key(api_key)
 
         async with self.db.execute(
-            "SELECT * FROM api_keys WHERE key_hash = ? AND disabled = 0",
-            (key_hash,)
+            "SELECT * FROM api_keys WHERE key_hash = ? AND disabled = 0", (key_hash,)
         ) as cursor:
             key_row = await cursor.fetchone()
             if not key_row:
@@ -378,7 +387,7 @@ class AuthService:
         # Update last used
         await self.db.execute(
             "UPDATE api_keys SET last_used = ? WHERE id = ?",
-            (int(datetime.now(UTC).timestamp()), key_row["id"])
+            (int(datetime.now(UTC).timestamp()), key_row["id"]),
         )
         await self.db.commit()
 
@@ -398,14 +407,15 @@ class AuthService:
                 role=UserRole(user_row["role"]),
                 disabled=bool(user_row["disabled"]),
                 created_at=datetime.fromtimestamp(user_row["created_at"]),
-                last_login=datetime.fromtimestamp(user_row["last_login"]) if user_row["last_login"] else None
+                last_login=datetime.fromtimestamp(user_row["last_login"])
+                if user_row["last_login"]
+                else None,
             )
 
     async def list_user_api_keys(self, user_id: str) -> list[APIKey]:
         """List all API keys for a user"""
         async with self.db.execute(
-            "SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC",
-            (user_id,)
+            "SELECT * FROM api_keys WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
         ) as cursor:
             rows = await cursor.fetchall()
             return [
@@ -415,10 +425,14 @@ class AuthService:
                     name=row["name"],
                     user_id=row["user_id"],
                     created_at=datetime.fromtimestamp(row["created_at"]),
-                    last_used=datetime.fromtimestamp(row["last_used"]) if row["last_used"] else None,
-                    expires_at=datetime.fromtimestamp(row["expires_at"]) if row["expires_at"] else None,
+                    last_used=datetime.fromtimestamp(row["last_used"])
+                    if row["last_used"]
+                    else None,
+                    expires_at=datetime.fromtimestamp(row["expires_at"])
+                    if row["expires_at"]
+                    else None,
                     disabled=bool(row["disabled"]),
-                    permissions=row["permissions"].split(",") if row["permissions"] else []
+                    permissions=row["permissions"].split(",") if row["permissions"] else [],
                 )
                 for row in rows
             ]
@@ -426,8 +440,7 @@ class AuthService:
     async def revoke_api_key(self, key_id: str, user_id: str) -> bool:
         """Revoke (disable) an API key"""
         await self.db.execute(
-            "UPDATE api_keys SET disabled = 1 WHERE id = ? AND user_id = ?",
-            (key_id, user_id)
+            "UPDATE api_keys SET disabled = 1 WHERE id = ? AND user_id = ?", (key_id, user_id)
         )
         await self.db.commit()
         return True

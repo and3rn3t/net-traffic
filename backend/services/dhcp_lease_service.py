@@ -7,6 +7,7 @@ never do anything else even if it leaked) to resolve device hostnames that
 reverse DNS didn't catch. Optional - if unconfigured, get_hostname() always
 returns None and callers fall back to their existing resolution path.
 """
+
 import asyncio
 import logging
 import time
@@ -57,10 +58,14 @@ class DhcpLeaseService:
     async def _fetch_leases(self) -> None:
         cmd = [
             "ssh",
-            "-i", self.ssh_key,
-            "-o", "StrictHostKeyChecking=accept-new",
-            "-o", "BatchMode=yes",
-            "-o", "ConnectTimeout=8",
+            "-i",
+            self.ssh_key,
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=8",
             f"{self.user}@{self.host}",
         ]
         # Mark the attempt now regardless of outcome, so a persistent failure

@@ -1,6 +1,7 @@
 """
 Configuration validation and management
 """
+
 import logging
 import os
 from pathlib import Path
@@ -26,17 +27,12 @@ class Config:
         capture_mode = os.getenv("CAPTURE_MODE", "local").lower()
         if capture_mode == "remote_ssh":
             if not os.getenv("REMOTE_CAPTURE_HOST"):
-                errors.append(
-                    "REMOTE_CAPTURE_HOST is required when CAPTURE_MODE=remote_ssh"
-                )
+                errors.append("REMOTE_CAPTURE_HOST is required when CAPTURE_MODE=remote_ssh")
             if not os.getenv("REMOTE_CAPTURE_SSH_KEY"):
-                errors.append(
-                    "REMOTE_CAPTURE_SSH_KEY is required when CAPTURE_MODE=remote_ssh"
-                )
+                errors.append("REMOTE_CAPTURE_SSH_KEY is required when CAPTURE_MODE=remote_ssh")
             elif not Path(os.getenv("REMOTE_CAPTURE_SSH_KEY", "")).exists():
                 errors.append(
-                    f"REMOTE_CAPTURE_SSH_KEY "
-                    f"'{os.getenv('REMOTE_CAPTURE_SSH_KEY')}' does not exist"
+                    f"REMOTE_CAPTURE_SSH_KEY '{os.getenv('REMOTE_CAPTURE_SSH_KEY')}' does not exist"
                 )
         else:
             interface = os.getenv("NETWORK_INTERFACE", "eth0")
@@ -83,21 +79,15 @@ class Config:
             # Check if directory exists and is writable
             if db_dir.exists():
                 if not os.access(db_dir, os.W_OK):
-                    errors.append(
-                        f"Database directory '{db_dir}' is not writable"
-                    )
+                    errors.append(f"Database directory '{db_dir}' is not writable")
             else:
                 # Try to create parent directory
                 try:
                     db_dir.mkdir(parents=True, exist_ok=True)
                     if not os.access(db_dir, os.W_OK):
-                        errors.append(
-                            f"Cannot write to database directory '{db_dir}'"
-                        )
+                        errors.append(f"Cannot write to database directory '{db_dir}'")
                 except (OSError, PermissionError) as e:
-                    errors.append(
-                        f"Cannot create database directory '{db_dir}': {e}"
-                    )
+                    errors.append(f"Cannot create database directory '{db_dir}': {e}")
 
         # Data retention days
         try:
@@ -132,9 +122,7 @@ class Config:
 
         # Raise errors if any
         if errors:
-            error_msg = "Configuration errors:\n" + "\n".join(
-                f"  - {e}" for e in errors
-            )
+            error_msg = "Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors)
             logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -146,6 +134,7 @@ class Config:
             # Try to import platform-specific modules
             if os.name == "nt":  # Windows
                 import subprocess
+
                 result = subprocess.run(
                     ["netsh", "interface", "show", "interface"],
                     capture_output=True,
@@ -155,6 +144,7 @@ class Config:
                 return interface in result.stdout
             else:  # Unix-like
                 import subprocess
+
                 result = subprocess.run(
                     ["ip", "link", "show"],
                     capture_output=True,
@@ -431,4 +421,3 @@ class Config:
 
 # Global config instance
 config = Config()
-

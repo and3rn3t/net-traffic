@@ -61,28 +61,50 @@ class StorageService(StorageBase):
     async def add_flows_batch(self, flows: list[NetworkFlow]):
         return await self._flows.add_flows_batch(flows)
 
-    async def get_flows(self, limit: int = 100, device_id: str | None = None,
-                       status: str | None = None, protocol: str | None = None,
-                       start_time: int | None = None, end_time: int | None = None,
-                       source_ip: str | None = None, dest_ip: str | None = None,
-                       threat_level: str | None = None, min_bytes: int | None = None,
-                       offset: int = 0,
-                       country: str | None = None,
-                       city: str | None = None,
-                       application: str | None = None,
-                       min_rtt: int | None = None,
-                       max_rtt: int | None = None,
-                       max_jitter: float | None = None,
-                       max_retransmissions: int | None = None,
-                       sni: str | None = None,
-                       connection_state: str | None = None) -> list[NetworkFlow]:
+    async def get_flows(
+        self,
+        limit: int = 100,
+        device_id: str | None = None,
+        status: str | None = None,
+        protocol: str | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        source_ip: str | None = None,
+        dest_ip: str | None = None,
+        threat_level: str | None = None,
+        min_bytes: int | None = None,
+        offset: int = 0,
+        country: str | None = None,
+        city: str | None = None,
+        application: str | None = None,
+        min_rtt: int | None = None,
+        max_rtt: int | None = None,
+        max_jitter: float | None = None,
+        max_retransmissions: int | None = None,
+        sni: str | None = None,
+        connection_state: str | None = None,
+    ) -> list[NetworkFlow]:
         return await self._flows.get_flows(
-            limit=limit, device_id=device_id, status=status, protocol=protocol,
-            start_time=start_time, end_time=end_time, source_ip=source_ip, dest_ip=dest_ip,
-            threat_level=threat_level, min_bytes=min_bytes, offset=offset,
-            country=country, city=city, application=application,
-            min_rtt=min_rtt, max_rtt=max_rtt, max_jitter=max_jitter,
-            max_retransmissions=max_retransmissions, sni=sni, connection_state=connection_state,
+            limit=limit,
+            device_id=device_id,
+            status=status,
+            protocol=protocol,
+            start_time=start_time,
+            end_time=end_time,
+            source_ip=source_ip,
+            dest_ip=dest_ip,
+            threat_level=threat_level,
+            min_bytes=min_bytes,
+            offset=offset,
+            country=country,
+            city=city,
+            application=application,
+            min_rtt=min_rtt,
+            max_rtt=max_rtt,
+            max_jitter=max_jitter,
+            max_retransmissions=max_retransmissions,
+            sni=sni,
+            connection_state=connection_state,
         )
 
     async def aggregate_geographic(self, start_time: int) -> list[dict]:
@@ -97,10 +119,14 @@ class StorageService(StorageBase):
     async def aggregate_device_presence(self, start_time: int) -> list[dict]:
         return await self._flows.aggregate_device_presence(start_time)
 
-    async def aggregate_hourly_quality(self, start_time: int, device_id: str | None = None) -> list[dict]:
+    async def aggregate_hourly_quality(
+        self, start_time: int, device_id: str | None = None
+    ) -> list[dict]:
         return await self._flows.aggregate_hourly_quality(start_time, device_id)
 
-    async def aggregate_bytes_total(self, start_time: int, end_time: int | None = None) -> dict[str, int]:
+    async def aggregate_bytes_total(
+        self, start_time: int, end_time: int | None = None
+    ) -> dict[str, int]:
         return await self._flows.aggregate_bytes_total(start_time, end_time)
 
     async def aggregate_top_devices(self, start_time: int) -> list[dict]:
@@ -124,10 +150,14 @@ class StorageService(StorageBase):
     async def aggregate_jitter_stats(self, start_time: int, device_id: str | None = None) -> dict:
         return await self._flows.aggregate_jitter_stats(start_time, device_id=device_id)
 
-    async def aggregate_retransmission_stats(self, start_time: int, device_id: str | None = None) -> dict:
+    async def aggregate_retransmission_stats(
+        self, start_time: int, device_id: str | None = None
+    ) -> dict:
         return await self._flows.aggregate_retransmission_stats(start_time, device_id=device_id)
 
-    async def aggregate_connection_quality(self, start_time: int, device_id: str | None = None) -> dict:
+    async def aggregate_connection_quality(
+        self, start_time: int, device_id: str | None = None
+    ) -> dict:
         return await self._flows.aggregate_connection_quality(start_time, device_id=device_id)
 
     async def aggregate_analytics_hourly(self, start_time: int) -> dict[int, dict]:
@@ -136,15 +166,21 @@ class StorageService(StorageBase):
     async def aggregate_protocol_stats(self, start_time: int | None = None) -> list[dict]:
         return await self._flows.aggregate_protocol_stats(start_time)
 
-    async def aggregate_application_breakdown(self, start_time: int, device_id: str | None = None) -> list[dict]:
+    async def aggregate_application_breakdown(
+        self, start_time: int, device_id: str | None = None
+    ) -> list[dict]:
         return await self._flows.aggregate_application_breakdown(start_time, device_id=device_id)
 
     async def aggregate_application_trends(
         self, start_time: int, interval_ms: int, application: str | None = None
     ) -> list[dict]:
-        return await self._flows.aggregate_application_trends(start_time, interval_ms, application=application)
+        return await self._flows.aggregate_application_trends(
+            start_time, interval_ms, application=application
+        )
 
-    async def aggregate_device_application_profile(self, device_id: str, start_time: int) -> list[dict]:
+    async def aggregate_device_application_profile(
+        self, device_id: str, start_time: int
+    ) -> list[dict]:
         return await self._flows.aggregate_device_application_profile(device_id, start_time)
 
     async def search_flows(self, query_text: str, limit: int = 50) -> list[NetworkFlow]:
@@ -203,7 +239,9 @@ class StorageService(StorageBase):
     async def add_alert_rule(self, rule: AlertRule):
         return await self._alerts.add_alert_rule(rule)
 
-    async def get_alert_rules(self, user_id: str | None = None, enabled_only: bool = False) -> list[AlertRule]:
+    async def get_alert_rules(
+        self, user_id: str | None = None, enabled_only: bool = False
+    ) -> list[AlertRule]:
         return await self._alerts.get_alert_rules(user_id=user_id, enabled_only=enabled_only)
 
     async def get_alert_rule(self, rule_id: str) -> AlertRule | None:
@@ -219,7 +257,9 @@ class StorageService(StorageBase):
     async def add_triggered_alert(self, alert: TriggeredAlert):
         return await self._alerts.add_triggered_alert(alert)
 
-    async def get_triggered_alerts(self, limit: int = 100, acknowledged: bool | None = None) -> list[TriggeredAlert]:
+    async def get_triggered_alerts(
+        self, limit: int = 100, acknowledged: bool | None = None
+    ) -> list[TriggeredAlert]:
         return await self._alerts.get_triggered_alerts(limit=limit, acknowledged=acknowledged)
 
     async def acknowledge_triggered_alert(self, alert_id: str) -> bool:

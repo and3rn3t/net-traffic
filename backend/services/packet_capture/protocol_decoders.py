@@ -6,12 +6,14 @@ None of these hold instance state - they only read from the packet/args
 passed in - so they're plain module functions shared by
 `PacketCaptureService._process_packet()` rather than methods on it.
 """
+
 import logging
 
 try:
     from scapy.all import TCP
     from scapy.layers.dns import DNS
     from scapy.layers.tls.handshake import TLSClientHello
+
     try:
         from scapy.layers.http import HTTPRequest
     except ImportError:
@@ -104,15 +106,15 @@ def extract_tls_sni(packet) -> str | None:
             tls = packet.getlayer("TLS")
             if tls:
                 # Look for ClientHello message
-                if hasattr(tls, 'msg') and hasattr(tls.msg, 'ext'):
+                if hasattr(tls, "msg") and hasattr(tls.msg, "ext"):
                     for ext in tls.msg.ext:
-                        if hasattr(ext, 'servernames'):
+                        if hasattr(ext, "servernames"):
                             for name in ext.servernames:
-                                if hasattr(name, 'servername'):
+                                if hasattr(name, "servername"):
                                     sni = name.servername
                                     if isinstance(sni, bytes):
-                                        sni = sni.decode('utf-8', errors='ignore')
-                                    if sni and '.' in sni:
+                                        sni = sni.decode("utf-8", errors="ignore")
+                                    if sni and "." in sni:
                                         return sni
     except Exception:
         pass
@@ -121,13 +123,13 @@ def extract_tls_sni(packet) -> str | None:
     try:
         if TLSClientHello and has_layer_cached(packet, TLSClientHello):
             tls_hello = packet.getlayer(TLSClientHello)
-            if tls_hello and hasattr(tls_hello, 'servernames'):
+            if tls_hello and hasattr(tls_hello, "servernames"):
                 for name in tls_hello.servernames:
-                    if hasattr(name, 'servername'):
+                    if hasattr(name, "servername"):
                         sni = name.servername
                         if isinstance(sni, bytes):
-                            sni = sni.decode('utf-8', errors='ignore')
-                        if sni and '.' in sni:
+                            sni = sni.decode("utf-8", errors="ignore")
+                        if sni and "." in sni:
                             return sni
     except Exception:
         pass
@@ -144,36 +146,38 @@ def extract_tls_sni(packet) -> str | None:
 
         # Use raw() method if available (zero-copy), fallback to bytes()
         try:
-            raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
+            raw = packet.raw if hasattr(packet, "raw") else bytes(packet)
         except Exception:
             raw = bytes(packet)
         # Look for TLS handshake (0x16) followed by ClientHello (0x01)
         # Then look for SNI extension (0x0000)
-        tls_handshake = raw.find(b'\x16\x03')  # TLS handshake record
+        tls_handshake = raw.find(b"\x16\x03")  # TLS handshake record
         if tls_handshake == -1:
             return None
 
         # Look for SNI extension type (0x0000) after handshake
-        sni_start = raw.find(b'\x00\x00', tls_handshake)
+        sni_start = raw.find(b"\x00\x00", tls_handshake)
         if sni_start == -1 or sni_start > len(raw) - 10:
             return None
 
         # SNI structure: extension type (2) + length (2) + server name list length (2) + server name type (1) + server name length (2) + hostname
         try:
-            name_list_len = int.from_bytes(raw[sni_start+2:sni_start+4], 'big')
+            name_list_len = int.from_bytes(raw[sni_start + 2 : sni_start + 4], "big")
             if name_list_len < 3 or name_list_len > 256:
                 return None
 
-            name_type = raw[sni_start+4]
+            name_type = raw[sni_start + 4]
             if name_type != 0:  # host_name type
                 return None
 
-            name_len = int.from_bytes(raw[sni_start+5:sni_start+7], 'big')
+            name_len = int.from_bytes(raw[sni_start + 5 : sni_start + 7], "big")
             if name_len < 1 or name_len > 255:
                 return None
 
-            hostname = raw[sni_start+7:sni_start+7+name_len].decode('utf-8', errors='ignore')
-            if hostname and '.' in hostname and len(hostname) < 256:
+            hostname = raw[sni_start + 7 : sni_start + 7 + name_len].decode(
+                "utf-8", errors="ignore"
+            )
+            if hostname and "." in hostname and len(hostname) < 256:
                 return hostname
         except (IndexError, ValueError):
             pass
@@ -195,7 +199,7 @@ def extract_tls_version(packet) -> str | None:
     try:
         if TLSClientHello and has_layer_cached(packet, TLSClientHello):
             tls_hello = packet.getlayer(TLSClientHello)
-            if tls_hello and hasattr(tls_hello, 'version'):
+            if tls_hello and hasattr(tls_hello, "version"):
                 version = tls_hello.version
                 if isinstance(version, int):
                     major, minor = (version >> 8) & 0xFF, version & 0xFF
@@ -214,17 +218,17 @@ def extract_tls_version(packet) -> str | None:
             return None
 
         try:
-            raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
+            raw = packet.raw if hasattr(packet, "raw") else bytes(packet)
         except Exception:
             raw = bytes(packet)
 
-        handshake_start = raw.find(b'\x16\x03')
+        handshake_start = raw.find(b"\x16\x03")
         if handshake_start == -1 or handshake_start + 2 >= len(raw):
             return None
 
         # supported_versions extension (0x002b): if present, its first
         # listed version reflects the real (possibly TLS 1.3) version.
-        ext_start = raw.find(b'\x00\x2b', handshake_start)
+        ext_start = raw.find(b"\x00\x2b", handshake_start)
         if ext_start != -1 and ext_start + 6 < len(raw):
             major, minor = raw[ext_start + 5], raw[ext_start + 6]
             mapped = TLS_VERSION_MAP.get((major, minor))
@@ -267,25 +271,25 @@ def extract_http_info(packet) -> dict[str, object | None]:
         if HTTPRequest and has_layer_cached(packet, HTTPRequest):
             http = packet.getlayer(HTTPRequest)
             if http:
-                if hasattr(http, 'Method'):
+                if hasattr(http, "Method"):
                     method = http.Method
                     if isinstance(method, bytes):
-                        method = method.decode('utf-8', errors='ignore')
+                        method = method.decode("utf-8", errors="ignore")
                     result["method"] = method
-                if hasattr(http, 'Path'):
+                if hasattr(http, "Path"):
                     path = http.Path
                     if isinstance(path, bytes):
-                        path = path.decode('utf-8', errors='ignore')
+                        path = path.decode("utf-8", errors="ignore")
                     result["url"] = path
-                if hasattr(http, 'User_Agent'):
+                if hasattr(http, "User_Agent"):
                     ua = http.User_Agent
                     if isinstance(ua, bytes):
-                        ua = ua.decode('utf-8', errors='ignore')
+                        ua = ua.decode("utf-8", errors="ignore")
                     result["user_agent"] = ua
-                if hasattr(http, 'Host'):
+                if hasattr(http, "Host"):
                     host = http.Host
                     if isinstance(host, bytes):
-                        host = host.decode('utf-8', errors='ignore')
+                        host = host.decode("utf-8", errors="ignore")
                     result["host"] = host
                 result["application"] = "HTTP"
                 return result  # Early return if found
@@ -293,52 +297,52 @@ def extract_http_info(packet) -> dict[str, object | None]:
         # Try raw packet inspection for HTTP (fallback, optimized)
         # Use raw() method if available (zero-copy), fallback to bytes()
         try:
-            raw = packet.raw if hasattr(packet, 'raw') else bytes(packet)
+            raw = packet.raw if hasattr(packet, "raw") else bytes(packet)
         except Exception:
             raw = bytes(packet)
 
         # Response direction: status line looks like "HTTP/1.1 200 OK"
-        if raw.startswith(b'HTTP/'):
+        if raw.startswith(b"HTTP/"):
             result["application"] = "HTTP"
             try:
-                first_line = raw.split(b'\r\n', 1)[0].decode('utf-8', errors='ignore')
-                parts = first_line.split(' ')
+                first_line = raw.split(b"\r\n", 1)[0].decode("utf-8", errors="ignore")
+                parts = first_line.split(" ")
                 if len(parts) > 1 and parts[1].isdigit():
                     result["status_code"] = int(parts[1])
             except Exception:
                 pass
             return result
 
-        if b'HTTP/' in raw or b'GET ' in raw or b'POST ' in raw:
+        if b"HTTP/" in raw or b"GET " in raw or b"POST " in raw:
             result["application"] = "HTTP"
             # Extract method
-            if raw.startswith(b'GET '):
+            if raw.startswith(b"GET "):
                 result["method"] = "GET"
-            elif raw.startswith(b'POST '):
+            elif raw.startswith(b"POST "):
                 result["method"] = "POST"
-            elif raw.startswith(b'PUT '):
+            elif raw.startswith(b"PUT "):
                 result["method"] = "PUT"
-            elif raw.startswith(b'DELETE '):
+            elif raw.startswith(b"DELETE "):
                 result["method"] = "DELETE"
 
             # Extract URL
             try:
-                lines = raw.split(b'\r\n')
+                lines = raw.split(b"\r\n")
                 if lines:
-                    first_line = lines[0].decode('utf-8', errors='ignore')
-                    parts = first_line.split(' ')
+                    first_line = lines[0].decode("utf-8", errors="ignore")
+                    parts = first_line.split(" ")
                     if len(parts) > 1:
                         result["url"] = parts[1]
             except Exception:
                 pass
 
             # Extract Host and User-Agent headers
-            for line in raw.split(b'\r\n'):
-                if line.startswith(b'Host:'):
-                    host = line.split(b':', 1)[1].strip().decode('utf-8', errors='ignore')
+            for line in raw.split(b"\r\n"):
+                if line.startswith(b"Host:"):
+                    host = line.split(b":", 1)[1].strip().decode("utf-8", errors="ignore")
                     result["host"] = host
-                elif line.startswith(b'User-Agent:'):
-                    ua = line.split(b':', 1)[1].strip().decode('utf-8', errors='ignore')
+                elif line.startswith(b"User-Agent:"):
+                    ua = line.split(b":", 1)[1].strip().decode("utf-8", errors="ignore")
                     result["user_agent"] = ua
     except Exception as e:
         logger.debug(f"Error extracting HTTP info: {e}")
@@ -376,11 +380,11 @@ def detect_application(packet, protocol: str, dst_port: int) -> str | None:
     # Try to detect from packet content
     try:
         raw = bytes(packet)
-        if b'SSH-' in raw:
+        if b"SSH-" in raw:
             return "SSH"
-        elif b'FTP' in raw[:100]:
+        elif b"FTP" in raw[:100]:
             return "FTP"
-        elif b'SMTP' in raw[:100]:
+        elif b"SMTP" in raw[:100]:
             return "SMTP"
     except Exception:
         pass

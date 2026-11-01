@@ -6,6 +6,7 @@ network_quality_analytics.py) that all shared the same
 `storage: StorageService` dependency and the same "compute a start_time from
 hours_back, then delegate to a storage.aggregate_*() SQL method" pattern.
 """
+
 import calendar
 import logging
 from collections import defaultdict
@@ -18,8 +19,20 @@ logger = logging.getLogger(__name__)
 
 # TLDs common enough that flagging them as "unusual" would just be noise.
 COMMON_TLDS = {
-    "com", "net", "org", "io", "co", "gov", "edu", "us", "uk",
-    "local", "lan", "home", "arpa", "internal",
+    "com",
+    "net",
+    "org",
+    "io",
+    "co",
+    "gov",
+    "edu",
+    "us",
+    "uk",
+    "local",
+    "lan",
+    "home",
+    "arpa",
+    "internal",
 }
 
 
@@ -62,21 +75,26 @@ class AnalyticsService:
         result = []
         for i in range(hours_back, -1, -1):
             hour_timestamp = current_hour - i * hour_ms
-            data = hourly.get(hour_timestamp, {
-                "total_bytes": 0,
-                "total_connections": 0,
-                "active_devices": 0,
-                "threat_count": 0,
-            })
+            data = hourly.get(
+                hour_timestamp,
+                {
+                    "total_bytes": 0,
+                    "total_connections": 0,
+                    "active_devices": 0,
+                    "threat_count": 0,
+                },
+            )
             threat_count = data["threat_count"] + threat_counts_by_hour.get(hour_timestamp, 0)
 
-            result.append(AnalyticsData(
-                timestamp=hour_timestamp,
-                totalBytes=data["total_bytes"],
-                totalConnections=data["total_connections"],
-                threatCount=threat_count,
-                activeDevices=data["active_devices"]
-            ))
+            result.append(
+                AnalyticsData(
+                    timestamp=hour_timestamp,
+                    totalBytes=data["total_bytes"],
+                    totalConnections=data["total_connections"],
+                    threatCount=threat_count,
+                    activeDevices=data["active_devices"],
+                )
+            )
 
         return result
 
@@ -92,7 +110,7 @@ class AnalyticsService:
                 protocol=r["protocol"],
                 bytes=r["bytes"],
                 connections=r["connections"],
-                percentage=(r["bytes"] / total_bytes * 100) if total_bytes > 0 else 0
+                percentage=(r["bytes"] / total_bytes * 100) if total_bytes > 0 else 0,
             )
             for r in protocol_rows
         ]
@@ -120,7 +138,9 @@ class AnalyticsService:
 
         return {
             "total_devices": len(devices),
-            "active_devices": len([d for d in devices if (datetime.now().timestamp() * 1000) - d.lastSeen < 300000]),  # Active in last 5 min
+            "active_devices": len(
+                [d for d in devices if (datetime.now().timestamp() * 1000) - d.lastSeen < 300000]
+            ),  # Active in last 5 min
             "total_flows": len(flows),
             "active_flows": len(active_flows),
             "total_bytes": total_bytes,
@@ -129,7 +149,9 @@ class AnalyticsService:
             "critical_threats": threat_stats["critical_active"],
             "oldest_flow_timestamp": oldest_flow,
             "newest_flow_timestamp": newest_flow,
-            "capture_duration_hours": (newest_flow - oldest_flow) / (1000 * 60 * 60) if newest_flow > oldest_flow else 0
+            "capture_duration_hours": (newest_flow - oldest_flow) / (1000 * 60 * 60)
+            if newest_flow > oldest_flow
+            else 0,
         }
 
     async def get_geographic_distribution(self, hours_back: int = 24) -> list[dict]:
@@ -173,7 +195,9 @@ class AnalyticsService:
             "unusual_tlds": unusual_tlds,
         }
 
-    async def get_top_devices(self, limit: int = 10, hours_back: int = 24, sort_by: str = "bytes") -> list[dict]:
+    async def get_top_devices(
+        self, limit: int = 10, hours_back: int = 24, sort_by: str = "bytes"
+    ) -> list[dict]:
         """Get top devices by traffic"""
         start_time = self._start_time_ms(hours_back)
         devices = await self.storage.get_devices()
@@ -184,15 +208,17 @@ class AnalyticsService:
         result = []
         for stats in device_stats:
             device = device_map.get(stats["device_id"])
-            result.append({
-                "device_id": stats["device_id"],
-                "device_name": device.name if device else "Unknown",
-                "device_ip": device.ip if device else "Unknown",
-                "device_type": device.type if device else "unknown",
-                "bytes": stats["bytes"],
-                "connections": stats["connections"],
-                "threats": stats["threats"]
-            })
+            result.append(
+                {
+                    "device_id": stats["device_id"],
+                    "device_name": device.name if device else "Unknown",
+                    "device_ip": device.ip if device else "Unknown",
+                    "device_type": device.type if device else "unknown",
+                    "bytes": stats["bytes"],
+                    "connections": stats["connections"],
+                    "threats": stats["threats"],
+                }
+            )
         sort_key = sort_by if sort_by in ["bytes", "connections", "threats"] else "bytes"
         result.sort(key=lambda x: x[sort_key], reverse=True)
         return result[:limit]
@@ -228,12 +254,14 @@ class AnalyticsService:
                 1 if (oldest_hour_bucket + offset) in device_buckets else 0
                 for offset in range(hours)
             ]
-            result_devices.append({
-                "device_id": device_id,
-                "device_name": device.name if device else "Unknown",
-                "device_ip": device.ip if device else "Unknown",
-                "presence": presence,
-            })
+            result_devices.append(
+                {
+                    "device_id": device_id,
+                    "device_name": device.name if device else "Unknown",
+                    "device_ip": device.ip if device else "Unknown",
+                    "presence": presence,
+                }
+            )
 
         return {
             "days": days,
@@ -242,7 +270,9 @@ class AnalyticsService:
             "devices": result_devices,
         }
 
-    async def get_latency_quality_calendar(self, days: int = 14, device_id: str | None = None) -> dict:
+    async def get_latency_quality_calendar(
+        self, days: int = 14, device_id: str | None = None
+    ) -> dict:
         """Get an RTT/jitter heatmap by hour-of-day x day-of-week, averaged
         over the last `days` days (in local time)."""
         hours = days * 24
@@ -325,44 +355,35 @@ class AnalyticsService:
             "projected_month_bytes": projected_bytes,
         }
 
-    async def get_bandwidth_timeline(self, hours_back: int = 24, interval_minutes: int = 5) -> list[dict]:
+    async def get_bandwidth_timeline(
+        self, hours_back: int = 24, interval_minutes: int = 5
+    ) -> list[dict]:
         """Get bandwidth usage timeline with configurable interval"""
         start_time = self._start_time_ms(hours_back)
         interval_ms = interval_minutes * 60 * 1000
-        return await self.storage.aggregate_bandwidth_timeline(
-            start_time, interval_ms
-        )
+        return await self.storage.aggregate_bandwidth_timeline(start_time, interval_ms)
 
-    async def get_device_analytics(
-        self, device_id: str, hours_back: int = 24
-    ) -> dict:
+    async def get_device_analytics(self, device_id: str, hours_back: int = 24) -> dict:
         """Get detailed analytics for a specific device"""
         device = await self.storage.get_device(device_id)
         if not device:
             return {}
 
         start_time = self._start_time_ms(hours_back)
-        breakdown = await self.storage.aggregate_device_analytics(
-            device_id, start_time
-        )
+        breakdown = await self.storage.aggregate_device_analytics(device_id, start_time)
         summary = breakdown["summary"]
         return {
-            "device": {
-                "id": device.id,
-                "name": device.name,
-                "ip": device.ip,
-                "type": device.type
-            },
+            "device": {"id": device.id, "name": device.name, "ip": device.ip, "type": device.type},
             "summary": {
                 "total_bytes_in": summary["total_bytes_in"],
                 "total_bytes_out": summary["total_bytes_out"],
                 "total_bytes": summary["total_bytes_in"] + summary["total_bytes_out"],
                 "connections": summary["connections"],
-                "threats": summary["threats"]
+                "threats": summary["threats"],
             },
             "protocols": breakdown["protocols"],
             "top_domains": breakdown["top_domains"],
-            "top_ports": breakdown["top_ports"]
+            "top_ports": breakdown["top_ports"],
         }
 
     # -- Network quality analytics (formerly network_quality_analytics.py) --
@@ -372,7 +393,7 @@ class AnalyticsService:
         hours_back: int = 24,
         device_id: str | None = None,
         country: str | None = None,
-        interval_minutes: int = 15
+        interval_minutes: int = 15,
     ) -> list[dict]:
         """Get RTT trends over time"""
         start_time = self._start_time_ms(hours_back)
@@ -381,28 +402,20 @@ class AnalyticsService:
             start_time, interval_ms, device_id=device_id, country=country
         )
 
-    async def get_jitter_analysis(
-        self,
-        hours_back: int = 24,
-        device_id: str | None = None
-    ) -> dict:
+    async def get_jitter_analysis(self, hours_back: int = 24, device_id: str | None = None) -> dict:
         """Get jitter analysis statistics"""
         start_time = self._start_time_ms(hours_back)
         return await self.storage.aggregate_jitter_stats(start_time, device_id=device_id)
 
     async def get_retransmission_report(
-        self,
-        hours_back: int = 24,
-        device_id: str | None = None
+        self, hours_back: int = 24, device_id: str | None = None
     ) -> dict:
         """Get retransmission statistics"""
         start_time = self._start_time_ms(hours_back)
         return await self.storage.aggregate_retransmission_stats(start_time, device_id=device_id)
 
     async def get_connection_quality_summary(
-        self,
-        hours_back: int = 24,
-        device_id: str | None = None
+        self, hours_back: int = 24, device_id: str | None = None
     ) -> dict:
         """Get overall connection quality summary"""
         start_time = self._start_time_ms(hours_back)
@@ -432,16 +445,13 @@ class AnalyticsService:
             "avg_packet_size": round(agg["avg_packet_size"], 2),
             "avg_bandwidth_utilization": round(agg["avg_bandwidth_utilization"], 2),
             "protocol_efficiency": agg["protocol_efficiency"],
-            "quality_distribution": agg["quality_distribution"]
+            "quality_distribution": agg["quality_distribution"],
         }
 
     # -- Application usage analytics (formerly application_analytics.py) --
 
     async def get_application_breakdown(
-        self,
-        hours_back: int = 24,
-        device_id: str | None = None,
-        limit: int = 20
+        self, hours_back: int = 24, device_id: str | None = None, limit: int = 20
     ) -> list[dict]:
         """Get top applications by traffic"""
         start_time = self._start_time_ms(hours_back)
@@ -467,10 +477,7 @@ class AnalyticsService:
         return result[:limit]
 
     async def get_application_trends(
-        self,
-        hours_back: int = 24,
-        application: str | None = None,
-        interval_minutes: int = 15
+        self, hours_back: int = 24, application: str | None = None, interval_minutes: int = 15
     ) -> list[dict]:
         """Get application usage trends over time"""
         start_time = self._start_time_ms(hours_back)
@@ -485,28 +492,28 @@ class AnalyticsService:
         # every raw flow.
         timeline: dict[int, list] = defaultdict(list)
         for r in rows:
-            timeline[r["bucket"]].append({
-                "application": r["application"],
-                "connections": r["connections"],
-                "bytes": r["bytes"],
-            })
+            timeline[r["bucket"]].append(
+                {
+                    "application": r["application"],
+                    "connections": r["connections"],
+                    "bytes": r["bytes"],
+                }
+            )
 
         result = []
         for timestamp in sorted(timeline.keys()):
-            result.append({
-                "timestamp": timestamp,
-                "applications": sorted(
-                    timeline[timestamp], key=lambda x: x["bytes"], reverse=True
-                )
-            })
+            result.append(
+                {
+                    "timestamp": timestamp,
+                    "applications": sorted(
+                        timeline[timestamp], key=lambda x: x["bytes"], reverse=True
+                    ),
+                }
+            )
 
         return result
 
-    async def get_device_application_profile(
-        self,
-        device_id: str,
-        hours_back: int = 24
-    ) -> dict:
+    async def get_device_application_profile(self, device_id: str, hours_back: int = 24) -> dict:
         """Get application usage profile for a specific device"""
         start_time = self._start_time_ms(hours_back)
 
@@ -523,7 +530,7 @@ class AnalyticsService:
                 ),
                 "traffic_percentage": round(
                     (r["bytes"] / total_bytes * 100) if total_bytes > 0 else 0, 2
-                )
+                ),
             }
             for r in app_rows
         ]
@@ -534,8 +541,5 @@ class AnalyticsService:
             "total_applications": len(result),
             "total_connections": sum(r["connections"] for r in result),
             "total_bytes": total_bytes,
-            "applications": result
+            "applications": result,
         }
-
-
-

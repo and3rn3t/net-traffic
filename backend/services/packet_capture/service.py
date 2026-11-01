@@ -2,6 +2,7 @@
 Packet capture service using Scapy
 Captures network traffic and extracts flow information
 """
+
 import asyncio
 import ipaddress
 import logging
@@ -17,6 +18,7 @@ try:
     from scapy.layers.dns import DNS
     from scapy.layers.l2 import Ether
     from scapy.utils import PcapReader
+
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
@@ -142,7 +144,9 @@ class PacketCaptureService:
         self._packet_queue_lock = asyncio.Lock()
         self._packet_batch_size = 100  # Process packets in batches
         self._packet_queue_task: asyncio.Task | None = None
-        self._pending_batch_tasks: set = set()  # Untracked fire-and-forget batch tasks, so stop() can cancel them
+        self._pending_batch_tasks: set = (
+            set()
+        )  # Untracked fire-and-forget batch tasks, so stop() can cancel them
         # Backpressure limits: if packet processing can't keep up, drop new
         # packets instead of letting the queue / concurrent batch tasks grow
         # unbounded (previously undocumented latent risk).
@@ -212,10 +216,7 @@ class PacketCaptureService:
             # Verify local interface exists
             interfaces = get_if_list()
             if self.interface not in interfaces:
-                logger.warning(
-                    f"Interface {self.interface} not found. "
-                    f"Available: {interfaces}"
-                )
+                logger.warning(f"Interface {self.interface} not found. Available: {interfaces}")
                 if interfaces:
                     self.interface = interfaces[0]
                     logger.info(f"Using interface: {self.interface}")
@@ -234,12 +235,12 @@ class PacketCaptureService:
                 f"Packet capture started via remote SSH "
                 f"({self.remote_user}@{self.remote_host}, "
                 f"interface: {self.remote_interface}, "
-                f"sampling: {self._packet_sampling_rate*100:.1f}%)"
+                f"sampling: {self._packet_sampling_rate * 100:.1f}%)"
             )
         else:
             logger.info(
                 f"Packet capture started on {self.interface} "
-                f"(filter: {self._bpf_filter}, sampling: {self._packet_sampling_rate*100:.1f}%)"
+                f"(filter: {self._bpf_filter}, sampling: {self._packet_sampling_rate * 100:.1f}%)"
             )
 
     async def stop(self):
@@ -344,7 +345,9 @@ class PacketCaptureService:
             # Update deduplication cache
             if len(self._packet_hash_cache) > self._packet_hash_cache_size:
                 # Remove oldest 20%
-                keys_to_remove = list(self._packet_hash_cache.keys())[:self._packet_hash_cache_size // 5]
+                keys_to_remove = list(self._packet_hash_cache.keys())[
+                    : self._packet_hash_cache_size // 5
+                ]
                 for key in keys_to_remove:
                     del self._packet_hash_cache[key]
             self._packet_hash_cache[packet_hash] = current_time
@@ -352,10 +355,7 @@ class PacketCaptureService:
             self.packets_captured += 1
 
             # Queue packet for batch processing (reduces async overhead)
-            asyncio.run_coroutine_threadsafe(
-                self._queue_packet(packet),
-                loop
-            )
+            asyncio.run_coroutine_threadsafe(self._queue_packet(packet), loop)
         except Exception as e:
             logger.exception(f"Error handling packet: {e}")
             self._packets_dropped += 1
@@ -426,12 +426,18 @@ class PacketCaptureService:
             try:
                 cmd = [
                     "ssh",
-                    "-i", self.remote_ssh_key,
-                    "-o", "StrictHostKeyChecking=accept-new",
-                    "-o", "BatchMode=yes",
-                    "-o", "ConnectTimeout=10",
-                    "-o", "ServerAliveInterval=5",
-                    "-o", "ServerAliveCountMax=3",
+                    "-i",
+                    self.remote_ssh_key,
+                    "-o",
+                    "StrictHostKeyChecking=accept-new",
+                    "-o",
+                    "BatchMode=yes",
+                    "-o",
+                    "ConnectTimeout=10",
+                    "-o",
+                    "ServerAliveInterval=5",
+                    "-o",
+                    "ServerAliveCountMax=3",
                     f"{self.remote_user}@{self.remote_host}",
                     f"tcpdump -i {self.remote_interface} -w - -U -s0",
                 ]
@@ -488,8 +494,7 @@ class PacketCaptureService:
                             f"key/host reachability - this needs attention."
                         )
                 logger.warning(
-                    f"Remote capture disconnected; reconnecting in "
-                    f"{reconnect_delay:.0f}s"
+                    f"Remote capture disconnected; reconnecting in {reconnect_delay:.0f}s"
                 )
                 await asyncio.sleep(reconnect_delay)
                 reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
@@ -509,9 +514,7 @@ class PacketCaptureService:
             # keep-alive connection) - those reflect application-level
             # silence, not network RTT, and previously produced bogus
             # multi-second "RTT" readings.
-            intervals = [
-                timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))
-            ]
+            intervals = [timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))]
             intervals = [i for i in intervals if i <= MAX_PLAUSIBLE_INTERVAL_SECONDS]
             if intervals:
                 avg_interval = sum(intervals) / len(intervals)
@@ -533,15 +536,13 @@ class PacketCaptureService:
             timestamps = self._packet_timestamps[flow_key]
             # Calculate inter-packet delays, excluding idle gaps (see
             # _calculate_rtt for why - same reasoning applies here).
-            delays = [
-                timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))
-            ]
+            delays = [timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))]
             delays = [d for d in delays if d <= MAX_PLAUSIBLE_INTERVAL_SECONDS]
             if len(delays) >= 2:
                 # Jitter is the standard deviation of delays
                 mean_delay = sum(delays) / len(delays)
                 variance = sum((d - mean_delay) ** 2 for d in delays) / len(delays)
-                jitter = variance ** 0.5
+                jitter = variance**0.5
                 return round(jitter * 1000, 2)  # Convert to milliseconds
 
         return None
@@ -617,8 +618,8 @@ class PacketCaptureService:
             if not self._packet_queue:
                 return
             # Take up to batch_size packets
-            batch = self._packet_queue[:self._packet_batch_size]
-            self._packet_queue = self._packet_queue[self._packet_batch_size:]
+            batch = self._packet_queue[: self._packet_batch_size]
+            self._packet_queue = self._packet_queue[self._packet_batch_size :]
             packets_to_process = batch
 
         # Process packets in batch (parallel where possible)
@@ -656,7 +657,9 @@ class PacketCaptureService:
                 return  # Not an IP packet we care about
 
             # Skip localhost traffic if configured
-            if self._skip_local_traffic and (src_ip.startswith("127.") or dst_ip.startswith("127.")):
+            if self._skip_local_traffic and (
+                src_ip.startswith("127.") or dst_ip.startswith("127.")
+            ):
                 return
 
             # Skip unspecified (0.0.0.0/::) and link-local source addresses -
@@ -746,7 +749,9 @@ class PacketCaptureService:
             dns_details = protocol_decoders.extract_dns_details(packet)
 
             # Detect application
-            application = protocol_decoders.detect_application(packet, protocol, dst_port) or http_info.get("application")
+            application = protocol_decoders.detect_application(
+                packet, protocol, dst_port
+            ) or http_info.get("application")
 
             # Calculate network quality metrics
             rtt = self._calculate_rtt(flow_key, timestamp_sec)
@@ -915,8 +920,8 @@ class PacketCaptureService:
 
         flows_to_write = []
         async with self._write_queue_lock:
-            flows_to_write = self._write_queue[:self._batch_size]
-            self._write_queue = self._write_queue[self._batch_size:]
+            flows_to_write = self._write_queue[: self._batch_size]
+            self._write_queue = self._write_queue[self._batch_size :]
             self._last_batch_write = datetime.now().timestamp()
 
         # Batch write to database
@@ -968,19 +973,21 @@ class PacketCaptureService:
         # Limit DNS cache
         if len(self._dns_cache) > self._max_dns_cache_size:
             # Remove oldest 20%
-            items_to_remove = list(self._dns_cache.keys())[:self._max_dns_cache_size // 5]
+            items_to_remove = list(self._dns_cache.keys())[: self._max_dns_cache_size // 5]
             for key in items_to_remove:
                 del self._dns_cache[key]
 
         # Limit RTT tracking
         if len(self._rtt_tracking) > self._max_rtt_tracking_size:
-            items_to_remove = list(self._rtt_tracking.keys())[:self._max_rtt_tracking_size // 5]
+            items_to_remove = list(self._rtt_tracking.keys())[: self._max_rtt_tracking_size // 5]
             for key in items_to_remove:
                 del self._rtt_tracking[key]
 
         # Limit retransmission tracking
         if len(self._retransmissions) > self._max_retransmission_tracking:
-            items_to_remove = list(self._retransmissions.keys())[:self._max_retransmission_tracking // 5]
+            items_to_remove = list(self._retransmissions.keys())[
+                : self._max_retransmission_tracking // 5
+            ]
             for key in items_to_remove:
                 del self._retransmissions[key]
 
@@ -1030,9 +1037,7 @@ class PacketCaptureService:
                 logger.exception(f"Error finalizing flow {flow_key}")
             flow_elapsed = time.monotonic() - flow_start
             if flow_elapsed > 0.5:
-                logger.warning(
-                    f"Slow flow finalization: {flow_key} took {round(flow_elapsed, 2)}s"
-                )
+                logger.warning(f"Slow flow finalization: {flow_key} took {round(flow_elapsed, 2)}s")
 
     async def _extract_domain_from_packet(self, packet, ip: str) -> str | None:
         """Extract domain name from DNS packet or use cache"""
@@ -1054,7 +1059,7 @@ class PacketCaptureService:
                         response_ip = dns.an[i].rdata
                         if response_ip == ip and dns.qd:
                             # Get the queried domain name
-                            query_name = dns.qd.qname.decode('utf-8').rstrip('.')
+                            query_name = dns.qd.qname.decode("utf-8").rstrip(".")
                             async with self._dns_cache_lock:
                                 self._dns_cache[ip] = query_name
 
@@ -1067,7 +1072,7 @@ class PacketCaptureService:
                 for i in range(dns.ancount):
                     if dns.an[i].type == 5:  # CNAME record
                         if dns.qd:
-                            query_name = dns.qd.qname.decode('utf-8').rstrip('.')
+                            query_name = dns.qd.qname.decode("utf-8").rstrip(".")
                             async with self._dns_cache_lock:
                                 self._dns_cache[ip] = query_name
 
@@ -1082,6 +1087,7 @@ class PacketCaptureService:
         if ip not in self._dns_cache:
             try:
                 import socket
+
                 # Only do reverse lookup for non-local IPs
                 if not self._is_local_ip(ip):
                     # socket.gethostbyaddr() is a blocking, synchronous call with
@@ -1093,16 +1099,14 @@ class PacketCaptureService:
                     # including the shutdown coroutine itself, until systemd's
                     # TimeoutStopSec forced a SIGKILL). Run it in a thread and
                     # bound it with a hard timeout so it can never do that again.
-                    hostname = (await asyncio.wait_for(
-                        asyncio.to_thread(socket.gethostbyaddr, ip),
-                        timeout=2.0,
-                    ))[0]
-                    if hostname and hostname != ip:
-                        domain = (
-                            hostname.split('.')[0]
-                            if '.' in hostname
-                            else hostname
+                    hostname = (
+                        await asyncio.wait_for(
+                            asyncio.to_thread(socket.gethostbyaddr, ip),
+                            timeout=2.0,
                         )
+                    )[0]
+                    if hostname and hostname != ip:
+                        domain = hostname.split(".")[0] if "." in hostname else hostname
                         async with self._dns_cache_lock:
                             self._dns_cache[ip] = domain
                         return domain
@@ -1158,7 +1162,7 @@ class PacketCaptureService:
         # Limit cache size
         if len(self._device_cache) > self._max_dns_cache_size:
             # Remove oldest 20%
-            items_to_remove = list(self._device_cache.keys())[:self._max_dns_cache_size // 5]
+            items_to_remove = list(self._device_cache.keys())[: self._max_dns_cache_size // 5]
             for key in items_to_remove:
                 del self._device_cache[key]
                 if key in self._device_cache_ttl:
@@ -1214,10 +1218,7 @@ class PacketCaptureService:
                 threat_level = await self.threat_service.analyze_flow(flow_data)
 
             # Get domain from cache or flow data
-            domain = (
-                flow_data.get("domain") or
-                self._dns_cache.get(flow_data["dest_ip"])
-            )
+            domain = flow_data.get("domain") or self._dns_cache.get(flow_data["dest_ip"])
 
             # Get SNI if available
             sni = flow_data.get("sni")
@@ -1319,7 +1320,7 @@ class PacketCaptureService:
                 httpStatusCode=http_status_code,
                 dnsQueryName=dns_query_name,
                 dnsAnswers=dns_answers,
-                tlsVersion=tls_version
+                tlsVersion=tls_version,
             )
 
             # Evaluate configurable alert rules against the finalized flow.
@@ -1352,10 +1353,7 @@ class PacketCaptureService:
 
             # Notify clients
             if self.on_flow_update:
-                await self.on_flow_update({
-                    "type": "flow_update",
-                    "flow": flow.dict()
-                })
+                await self.on_flow_update({"type": "flow_update", "flow": flow.dict()})
 
             # Thread-safe removal from active flows
             async with self._flows_lock:

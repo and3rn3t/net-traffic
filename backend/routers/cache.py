@@ -27,6 +27,10 @@ async def invalidate_cache(
         raise HTTPException(status_code=503, detail="Cache service not available")
     if pattern:
         deleted = await state.cache_service.delete_pattern(pattern)
-        return {"status": "success", "message": f"Invalidated cache entries matching pattern: {pattern}", "keys_deleted": deleted}
+        return {
+            "status": "success",
+            "message": f"Invalidated cache entries matching pattern: {pattern}",
+            "keys_deleted": deleted,
+        }
     await state.cache_service.invalidate_analytics()
     return {"status": "success", "message": "Invalidated all analytics caches"}

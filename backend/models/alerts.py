@@ -72,7 +72,9 @@ class TriggeredAlert(BaseModel):
     acknowledged: bool = False
 
 
-def validate_rule_fields(metric: str, operator: str, threshold: float | None, values: list[str] | None) -> str | None:
+def validate_rule_fields(
+    metric: str, operator: str, threshold: float | None, values: list[str] | None
+) -> str | None:
     """Return an error message if the metric/operator/threshold/values combination is invalid, else None."""
     if metric not in ALL_METRICS:
         return f"Unknown metric '{metric}'. Must be one of: {', '.join(ALL_METRICS)}"
@@ -81,12 +83,16 @@ def validate_rule_fields(metric: str, operator: str, threshold: float | None, va
 
     if metric in NUMERIC_METRICS:
         if operator not in NUMERIC_OPERATORS:
-            return f"Metric '{metric}' requires one of these operators: {', '.join(NUMERIC_OPERATORS)}"
+            return (
+                f"Metric '{metric}' requires one of these operators: {', '.join(NUMERIC_OPERATORS)}"
+            )
         if threshold is None:
             return f"Metric '{metric}' requires a numeric 'threshold' value"
     else:
         if operator not in STRING_OPERATORS:
-            return f"Metric '{metric}' requires one of these operators: {', '.join(STRING_OPERATORS)}"
+            return (
+                f"Metric '{metric}' requires one of these operators: {', '.join(STRING_OPERATORS)}"
+            )
         if not values:
             return f"Metric '{metric}' requires a non-empty 'values' list"
 

@@ -1,4 +1,5 @@
 """Filter preset repository: saved flow-filter presets per user."""
+
 import json
 
 from models.types import FilterPreset
@@ -8,12 +9,13 @@ from services.storage.base import Repository
 class FilterPresetRepository(Repository):
     async def add_filter_preset(self, preset: FilterPreset):
         """Save a new flow filter preset"""
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT INTO filter_presets (id, user_id, name, filters, created_at)
             VALUES (?, ?, ?, ?, ?)
-        """, (
-            preset.id, preset.userId, preset.name, json.dumps(preset.filters), preset.createdAt
-        ))
+        """,
+            (preset.id, preset.userId, preset.name, json.dumps(preset.filters), preset.createdAt),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 

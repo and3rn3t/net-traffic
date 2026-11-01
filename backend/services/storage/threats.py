@@ -32,18 +32,28 @@ class ThreatRepository(Repository):
             await self.base._execute_with_retry(
                 "UPDATE threats SET timestamp = ?, description = ?, occurrence_count = occurrence_count + 1 "
                 "WHERE id = ?",
-                (threat.timestamp, threat.description, existing_id)
+                (threat.timestamp, threat.description, existing_id),
             )
         else:
-            await self.base._execute_with_retry("""
+            await self.base._execute_with_retry(
+                """
                 INSERT OR REPLACE INTO threats
                 (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed, occurrence_count)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                threat.id, threat.timestamp, threat.type, threat.severity,
-                threat.deviceId, threat.flowId, threat.description,
-                threat.recommendation, 1 if threat.dismissed else 0, threat.occurrenceCount
-            ))
+            """,
+                (
+                    threat.id,
+                    threat.timestamp,
+                    threat.type,
+                    threat.severity,
+                    threat.deviceId,
+                    threat.flowId,
+                    threat.description,
+                    threat.recommendation,
+                    1 if threat.dismissed else 0,
+                    threat.occurrenceCount,
+                ),
+            )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
@@ -108,11 +118,7 @@ class ThreatRepository(Repository):
         search_pattern = f"%{query_text}%"
 
         # Build query with search conditions
-        where_clauses = [
-            "type LIKE ?",
-            "description LIKE ?",
-            "severity LIKE ?"
-        ]
+        where_clauses = ["type LIKE ?", "description LIKE ?", "severity LIKE ?"]
         params = [search_pattern, search_pattern, search_pattern]
 
         # Add dismissed filter if needed
@@ -121,8 +127,8 @@ class ThreatRepository(Repository):
 
         query = f"""
             SELECT * FROM threats
-            WHERE ({' OR '.join(where_clauses[:3])})
-            {'AND dismissed = 0' if active_only else ''}
+            WHERE ({" OR ".join(where_clauses[:3])})
+            {"AND dismissed = 0" if active_only else ""}
             ORDER BY timestamp DESC
             LIMIT ?
         """
@@ -164,17 +170,20 @@ class ThreatRepository(Repository):
             (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        await self.base._execute_with_retry(query, (
-            threat.id,
-            threat.timestamp,
-            threat.type,
-            threat.severity,
-            threat.deviceId,
-            threat.flowId,
-            threat.description,
-            threat.recommendation,
-            1 if threat.dismissed else 0
-        ))
+        await self.base._execute_with_retry(
+            query,
+            (
+                threat.id,
+                threat.timestamp,
+                threat.type,
+                threat.severity,
+                threat.deviceId,
+                threat.flowId,
+                threat.description,
+                threat.recommendation,
+                1 if threat.dismissed else 0,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
@@ -198,5 +207,5 @@ class ThreatRepository(Repository):
             description=row["description"],
             recommendation=row["recommendation"],
             dismissed=bool(row["dismissed"]),
-            occurrenceCount=row["occurrence_count"] if "occurrence_count" in row.keys() else 1
+            occurrenceCount=row["occurrence_count"] if "occurrence_count" in row.keys() else 1,
         )

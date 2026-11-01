@@ -1,4 +1,5 @@
 """Saved flow filter preset endpoints."""
+
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -54,7 +55,8 @@ async def list_filter_presets(current_user: User = Depends(get_current_active_us
     if not state.storage:
         raise HTTPException(status_code=503, detail=ErrorMessages.STORAGE_NOT_INIT)
     return await handle_endpoint_error_call(
-        lambda: state.storage.get_filter_presets(current_user.id), "Failed to retrieve filter presets"
+        lambda: state.storage.get_filter_presets(current_user.id),
+        "Failed to retrieve filter presets",
     )
 
 

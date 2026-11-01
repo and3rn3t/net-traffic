@@ -2,6 +2,7 @@
 Redis Caching Service
 Provides caching layer for expensive analytics queries
 """
+
 import fnmatch
 import json
 import logging
@@ -28,7 +29,7 @@ class CacheService:
         port: int = 6379,
         db: int = 0,
         password: str | None = None,
-        default_ttl: int = 300  # 5 minutes default TTL
+        default_ttl: int = 300,  # 5 minutes default TTL
     ):
         """Initialize cache service"""
         self.host = host
@@ -53,7 +54,7 @@ class CacheService:
                 socket_connect_timeout=1,
                 socket_timeout=1,
                 retry_on_timeout=True,
-                health_check_interval=30
+                health_check_interval=30,
             )
             # Test connection
             await self.redis.ping()
@@ -121,12 +122,7 @@ class CacheService:
             logger.warning(f"Cache get error for key {key}: {e}")
             return None
 
-    async def set(
-        self,
-        key: str,
-        value: Any,
-        ttl: int | None = None
-    ) -> bool:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """
         Set value in cache
 
@@ -244,10 +240,7 @@ class CacheService:
             Dictionary with cache statistics
         """
         if not self.is_enabled():
-            return {
-                "enabled": False,
-                "message": "Cache disabled"
-            }
+            return {"enabled": False, "message": "Cache disabled"}
 
         if not self._uses_redis():
             return {
@@ -274,16 +267,12 @@ class CacheService:
                 "misses": info.get("keyspace_misses", 0),
                 "keys": keys_count,
                 "hit_rate": self._calculate_hit_rate(
-                    info.get("keyspace_hits", 0),
-                    info.get("keyspace_misses", 0)
-                )
+                    info.get("keyspace_hits", 0), info.get("keyspace_misses", 0)
+                ),
             }
         except Exception as e:
             logger.warning(f"Cache stats error: {e}")
-            return {
-                "enabled": True,
-                "error": str(e)
-            }
+            return {"enabled": True, "error": str(e)}
 
     def _calculate_hit_rate(self, hits: int, misses: int) -> float:
         """Calculate cache hit rate percentage"""

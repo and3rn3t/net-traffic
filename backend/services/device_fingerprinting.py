@@ -1,6 +1,7 @@
 """
 Device fingerprinting and identification service
 """
+
 import logging
 import socket
 import uuid
@@ -9,6 +10,7 @@ from datetime import datetime
 
 try:
     from scapy.all import ARP
+
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
@@ -86,9 +88,7 @@ class DeviceFingerprintingService:
         except Exception as e:
             logger.error(f"Error processing ARP packet: {e}")
 
-    async def get_or_create_device(
-        self, ip: str, mac: str | None = None, packet=None
-    ) -> Device:
+    async def get_or_create_device(self, ip: str, mac: str | None = None, packet=None) -> Device:
         """Get existing device or create new one"""
         # Try to find by MAC first (most reliable)
         device = None
@@ -124,12 +124,7 @@ class DeviceFingerprintingService:
             bytesTotal=0,
             connectionsCount=0,
             threatScore=0.0,
-            behavioral={
-                "peakHours": [],
-                "commonPorts": [],
-                "commonDomains": [],
-                "anomalyCount": 0
-            }
+            behavioral={"peakHours": [], "commonPorts": [], "commonDomains": [], "anomalyCount": 0},
         )
 
         await self.storage.upsert_device(device)
@@ -219,7 +214,7 @@ class DeviceFingerprintingService:
         try:
             hostname = socket.gethostbyaddr(ip)[0]
             if hostname and hostname != ip:
-                return hostname.split('.')[0]
+                return hostname.split(".")[0]
         except (socket.herror, OSError):
             # Hostname resolution failed - use fallback
             pass
@@ -244,8 +239,12 @@ class DeviceFingerprintingService:
         for device in devices:
             vendor = self._detect_vendor(device.mac)
             is_fallback_name = device.name.startswith("Device ")
-            hostname = await self.dhcp_lease_service.get_hostname(device.mac) if is_fallback_name else None
-            device_type = self._detect_device_type(device.ip, device.mac, vendor, hostname or device.name)
+            hostname = (
+                await self.dhcp_lease_service.get_hostname(device.mac) if is_fallback_name else None
+            )
+            device_type = self._detect_device_type(
+                device.ip, device.mac, vendor, hostname or device.name
+            )
             changed = vendor != device.vendor or device_type != device.type
             if hostname and is_fallback_name:
                 device.name = hostname
@@ -259,6 +258,3 @@ class DeviceFingerprintingService:
         if updated:
             logger.info(f"Backfilled vendor/type/name for {updated} existing device(s)")
         return updated
-
-
-

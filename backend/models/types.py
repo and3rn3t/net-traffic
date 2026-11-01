@@ -63,7 +63,9 @@ class Device(BaseModel):
     bytesTotal: int
     connectionsCount: int
     threatScore: float
-    behavioral: dict  # Contains peakHours, commonPorts, commonDomains, anomalyCount, applications, notes
+    behavioral: (
+        dict  # Contains peakHours, commonPorts, commonDomains, anomalyCount, applications, notes
+    )
     notes: str | None = None  # User-added notes about the device
     # Enhanced fields
     ipv6Support: bool | None = None
@@ -91,7 +93,9 @@ class Threat(BaseModel):
     description: str
     recommendation: str
     dismissed: bool = False
-    occurrenceCount: int = 1  # Repeated same type+device threats increment this instead of duplicating rows
+    occurrenceCount: int = (
+        1  # Repeated same type+device threats increment this instead of duplicating rows
+    )
 
 
 class AnalyticsData(BaseModel):
@@ -107,4 +111,3 @@ class ProtocolStats(BaseModel):
     bytes: int
     connections: int
     percentage: float
-

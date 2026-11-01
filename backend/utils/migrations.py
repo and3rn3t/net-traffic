@@ -2,6 +2,7 @@
 Database migration system
 Handles schema changes and version tracking
 """
+
 import logging
 import time
 
@@ -192,9 +193,7 @@ async def run_migrations(db: aiosqlite.Connection) -> int:
         logger.info(f"Database schema is up to date (version {current_version})")
         return current_version
 
-    logger.info(
-        f"Migrating database from version {current_version} to {target_version}"
-    )
+    logger.info(f"Migrating database from version {current_version} to {target_version}")
 
     for version in range(current_version + 1, target_version + 1):
         if version not in MIGRATIONS:
@@ -210,26 +209,26 @@ async def run_migrations(db: aiosqlite.Connection) -> int:
                 # For migration 2, check if column already exists
                 if version == 2:
                     # Check if notes column exists in devices table
-                    async with db.execute(
-                        "PRAGMA table_info(devices)"
-                    ) as cursor:
+                    async with db.execute("PRAGMA table_info(devices)") as cursor:
                         columns = await cursor.fetchall()
                         column_names = [col[1] for col in columns]
                         if "notes" in column_names:
-                            logger.info(f"Column 'notes' already exists in devices table, skipping migration {version}")
+                            logger.info(
+                                f"Column 'notes' already exists in devices table, skipping migration {version}"
+                            )
                         else:
                             await db.execute("ALTER TABLE devices ADD COLUMN notes TEXT;")
                             await db.commit()
                             logger.info(f"Migration {version} applied successfully")
                 elif version == 3:
                     # Check if tags column exists in devices table
-                    async with db.execute(
-                        "PRAGMA table_info(devices)"
-                    ) as cursor:
+                    async with db.execute("PRAGMA table_info(devices)") as cursor:
                         columns = await cursor.fetchall()
                         column_names = [col[1] for col in columns]
                         if "tags" in column_names:
-                            logger.info(f"Column 'tags' already exists in devices table, skipping migration {version}")
+                            logger.info(
+                                f"Column 'tags' already exists in devices table, skipping migration {version}"
+                            )
                         else:
                             await db.execute("ALTER TABLE devices ADD COLUMN tags TEXT;")
                             await db.commit()
@@ -256,4 +255,3 @@ async def run_migrations(db: aiosqlite.Connection) -> int:
 
     logger.info(f"Database migration complete (version {target_version})")
     return target_version
-
