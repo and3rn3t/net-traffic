@@ -1,10 +1,11 @@
 """
 Configuration validation and management
 """
-import os
+
 import logging
+import os
 from pathlib import Path
-from typing import List, Optional
+
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -19,24 +20,19 @@ class Config:
 
     def _validate(self):
         """Validate configuration values with enhanced checks"""
-        errors: List[str] = []
-        warnings: List[str] = []
+        errors: list[str] = []
+        warnings: list[str] = []
 
         # Network interface
         capture_mode = os.getenv("CAPTURE_MODE", "local").lower()
         if capture_mode == "remote_ssh":
             if not os.getenv("REMOTE_CAPTURE_HOST"):
-                errors.append(
-                    "REMOTE_CAPTURE_HOST is required when CAPTURE_MODE=remote_ssh"
-                )
+                errors.append("REMOTE_CAPTURE_HOST is required when CAPTURE_MODE=remote_ssh")
             if not os.getenv("REMOTE_CAPTURE_SSH_KEY"):
-                errors.append(
-                    "REMOTE_CAPTURE_SSH_KEY is required when CAPTURE_MODE=remote_ssh"
-                )
+                errors.append("REMOTE_CAPTURE_SSH_KEY is required when CAPTURE_MODE=remote_ssh")
             elif not Path(os.getenv("REMOTE_CAPTURE_SSH_KEY", "")).exists():
                 errors.append(
-                    f"REMOTE_CAPTURE_SSH_KEY "
-                    f"'{os.getenv('REMOTE_CAPTURE_SSH_KEY')}' does not exist"
+                    f"REMOTE_CAPTURE_SSH_KEY '{os.getenv('REMOTE_CAPTURE_SSH_KEY')}' does not exist"
                 )
         else:
             interface = os.getenv("NETWORK_INTERFACE", "eth0")
@@ -83,21 +79,15 @@ class Config:
             # Check if directory exists and is writable
             if db_dir.exists():
                 if not os.access(db_dir, os.W_OK):
-                    errors.append(
-                        f"Database directory '{db_dir}' is not writable"
-                    )
+                    errors.append(f"Database directory '{db_dir}' is not writable")
             else:
                 # Try to create parent directory
                 try:
                     db_dir.mkdir(parents=True, exist_ok=True)
                     if not os.access(db_dir, os.W_OK):
-                        errors.append(
-                            f"Cannot write to database directory '{db_dir}'"
-                        )
+                        errors.append(f"Cannot write to database directory '{db_dir}'")
                 except (OSError, PermissionError) as e:
-                    errors.append(
-                        f"Cannot create database directory '{db_dir}': {e}"
-                    )
+                    errors.append(f"Cannot create database directory '{db_dir}': {e}")
 
         # Data retention days
         try:
@@ -132,9 +122,7 @@ class Config:
 
         # Raise errors if any
         if errors:
-            error_msg = "Configuration errors:\n" + "\n".join(
-                f"  - {e}" for e in errors
-            )
+            error_msg = "Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors)
             logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -146,6 +134,7 @@ class Config:
             # Try to import platform-specific modules
             if os.name == "nt":  # Windows
                 import subprocess
+
                 result = subprocess.run(
                     ["netsh", "interface", "show", "interface"],
                     capture_output=True,
@@ -155,6 +144,7 @@ class Config:
                 return interface in result.stdout
             else:  # Unix-like
                 import subprocess
+
                 result = subprocess.run(
                     ["ip", "link", "show"],
                     capture_output=True,
@@ -320,7 +310,7 @@ class Config:
         return os.getenv("ENABLE_ALPN_DETECTION", "true").lower() == "true"
 
     @property
-    def dns_servers(self) -> List[str]:
+    def dns_servers(self) -> list[str]:
         """Get custom DNS servers (comma-separated)"""
         servers = os.getenv("DNS_SERVERS", "")
         if servers:
@@ -340,7 +330,7 @@ class Config:
         return os.getenv("USE_JSON_LOGGING", "true").lower() == "true"
 
     @property
-    def log_file(self) -> Optional[str]:
+    def log_file(self) -> str | None:
         """Get log file path (None to disable file logging)"""
         log_file = os.getenv("LOG_FILE", "").strip()
         # Return None if empty, starts with # (comment), or is just whitespace
@@ -362,25 +352,25 @@ class Config:
             return 6379
 
     @property
-    def geoip_db_path(self) -> Optional[str]:
+    def geoip_db_path(self) -> str | None:
         """Path to the GeoIP2/DB-IP mmdb file; falls back to system paths if unset"""
         path = os.getenv("GEOIP_DB_PATH", "").strip()
         return path or None
 
     @property
-    def oui_db_path(self) -> Optional[str]:
+    def oui_db_path(self) -> str | None:
         """Path to the Wireshark/IEEE manuf OUI vendor file; falls back to system paths if unset"""
         path = os.getenv("OUI_DB_PATH", "").strip()
         return path or None
 
     @property
-    def webhook_url(self) -> Optional[str]:
+    def webhook_url(self) -> str | None:
         """Get webhook URL for outbound threat notifications (Slack/Discord/generic HTTP POST)"""
         url = os.getenv("WEBHOOK_URL", "").strip()
         return url or None
 
     @property
-    def bandwidth_alert_threshold_mb(self) -> Optional[float]:
+    def bandwidth_alert_threshold_mb(self) -> float | None:
         """Get 24h bandwidth threshold in MB that triggers an alert. None/0 disables the check."""
         try:
             value = float(os.getenv("BANDWIDTH_ALERT_THRESHOLD_MB", "0"))
@@ -431,4 +421,3 @@ class Config:
 
 # Global config instance
 config = Config()
-

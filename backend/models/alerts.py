@@ -5,7 +5,6 @@ An AlertRule expresses a single condition over a finalized NetworkFlow's
 fields (e.g. "rtt gt 500"). When a flow matches an enabled rule, a
 TriggeredAlert is recorded and broadcast to WebSocket clients.
 """
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -29,8 +28,8 @@ class AlertRule(BaseModel):
     enabled: bool = True
     metric: str  # one of ALL_METRICS
     operator: str  # one of ALL_OPERATORS
-    threshold: Optional[float] = None  # required for NUMERIC_METRICS
-    values: Optional[List[str]] = None  # required for STRING_METRICS
+    threshold: float | None = None  # required for NUMERIC_METRICS
+    values: list[str] | None = None  # required for STRING_METRICS
     severity: str = "medium"  # one of SEVERITIES
     cooldownMinutes: int = 15
     createdAt: int
@@ -41,22 +40,22 @@ class AlertRuleCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     metric: str
     operator: str
-    threshold: Optional[float] = None
-    values: Optional[List[str]] = None
+    threshold: float | None = None
+    values: list[str] | None = None
     severity: str = "medium"
     cooldownMinutes: int = Field(default=15, ge=0, le=1440)
     enabled: bool = True
 
 
 class AlertRuleUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    metric: Optional[str] = None
-    operator: Optional[str] = None
-    threshold: Optional[float] = None
-    values: Optional[List[str]] = None
-    severity: Optional[str] = None
-    cooldownMinutes: Optional[int] = Field(default=None, ge=0, le=1440)
-    enabled: Optional[bool] = None
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    metric: str | None = None
+    operator: str | None = None
+    threshold: float | None = None
+    values: list[str] | None = None
+    severity: str | None = None
+    cooldownMinutes: int | None = Field(default=None, ge=0, le=1440)
+    enabled: bool | None = None
 
 
 class TriggeredAlert(BaseModel):
@@ -73,7 +72,9 @@ class TriggeredAlert(BaseModel):
     acknowledged: bool = False
 
 
-def validate_rule_fields(metric: str, operator: str, threshold: Optional[float], values: Optional[List[str]]) -> Optional[str]:
+def validate_rule_fields(
+    metric: str, operator: str, threshold: float | None, values: list[str] | None
+) -> str | None:
     """Return an error message if the metric/operator/threshold/values combination is invalid, else None."""
     if metric not in ALL_METRICS:
         return f"Unknown metric '{metric}'. Must be one of: {', '.join(ALL_METRICS)}"
@@ -82,12 +83,16 @@ def validate_rule_fields(metric: str, operator: str, threshold: Optional[float],
 
     if metric in NUMERIC_METRICS:
         if operator not in NUMERIC_OPERATORS:
-            return f"Metric '{metric}' requires one of these operators: {', '.join(NUMERIC_OPERATORS)}"
+            return (
+                f"Metric '{metric}' requires one of these operators: {', '.join(NUMERIC_OPERATORS)}"
+            )
         if threshold is None:
             return f"Metric '{metric}' requires a numeric 'threshold' value"
     else:
         if operator not in STRING_OPERATORS:
-            return f"Metric '{metric}' requires one of these operators: {', '.join(STRING_OPERATORS)}"
+            return (
+                f"Metric '{metric}' requires one of these operators: {', '.join(STRING_OPERATORS)}"
+            )
         if not values:
             return f"Metric '{metric}' requires a non-empty 'values' list"
 

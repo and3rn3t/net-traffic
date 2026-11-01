@@ -11,9 +11,11 @@ CLEANUP_INTERVAL_HOURS = 6
 # occurrence_count instead of inserting a new row
 THREAT_DEDUP_WINDOW_MINUTES = 60
 
+
 # Error messages class for consistent error handling
 class ErrorMessages:
     """Centralized error message definitions"""
+
     STORAGE_NOT_INIT = "Storage service not initialized"
     DEVICE_NOT_FOUND = "Device not found"
     FLOW_NOT_FOUND = "Flow not found"
@@ -26,6 +28,7 @@ class ErrorMessages:
     FORBIDDEN = "Insufficient permissions"
     INVALID_TOKEN = "Invalid or expired token"
     INVALID_API_KEY = "Invalid API key"
+
 
 # Data size thresholds (in bytes)
 LARGE_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB
@@ -125,4 +128,3 @@ THREAT_SCORE_DNS_ANOMALY = 10
 # Retransmission and jitter thresholds for DDoS detection
 DDoS_RETRANSMISSION_THRESHOLD = 10
 DDoS_JITTER_THRESHOLD = 100
-

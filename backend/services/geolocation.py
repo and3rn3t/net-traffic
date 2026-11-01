@@ -1,13 +1,14 @@
 """
 Geolocation service using GeoIP2
 """
+
 import ipaddress
 import logging
-from typing import Optional, Dict
 
 try:
     import geoip2.database
     import geoip2.errors
+
     GEOIP_AVAILABLE = True
 except ImportError:
     GEOIP_AVAILABLE = False
@@ -23,7 +24,7 @@ GEOIP_CACHE_MAX_ENTRIES = 2000
 class GeolocationService:
     """Service for IP geolocation using MaxMind GeoIP2 database"""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize geolocation service
 
@@ -32,10 +33,10 @@ class GeolocationService:
                      well-known system-installed database locations.
         """
         self.db_path = db_path
-        self.loaded_db_path: Optional[str] = None
-        self.reader: Optional[geoip2.database.Reader] = None
+        self.loaded_db_path: str | None = None
+        self.reader: geoip2.database.Reader | None = None
         self._initialized = False
-        self._cache: Dict[str, Dict[str, Optional[str]]] = {}
+        self._cache: dict[str, dict[str, str | None]] = {}
 
         if GEOIP_AVAILABLE:
             self._initialize()
@@ -75,7 +76,7 @@ class GeolocationService:
             logger.debug(f"Could not open GeoIP2 database at {db_path}: {e}")
             return False
 
-    def get_location(self, ip: str) -> Dict[str, Optional[str]]:
+    def get_location(self, ip: str) -> dict[str, str | None]:
         """
         Get geolocation information for an IP address
 
@@ -103,11 +104,7 @@ class GeolocationService:
             # This would require a separate ASN database - not implemented yet
             asn = None
 
-            result = {
-                "country": country,
-                "city": city,
-                "asn": asn
-            }
+            result = {"country": country, "city": city, "asn": asn}
         except geoip2.errors.AddressNotFoundError:
             result = {"country": None, "city": None, "asn": None}
         except Exception as e:
@@ -139,4 +136,3 @@ class GeolocationService:
             self.reader.close()
             self.reader = None
             self._initialized = False
-

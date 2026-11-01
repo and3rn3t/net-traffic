@@ -6,10 +6,12 @@ NetworkFlow objects on the packet-capture hot path. Rules are cached in
 memory (refreshed on every CRUD operation) so per-flow evaluation never
 needs a database round trip.
 """
+
 import logging
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from models.alerts import AlertRule, TriggeredAlert
 from models.types import NetworkFlow
@@ -19,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 class AlertingService:
-    def __init__(self, storage: StorageService, on_alert_triggered: Optional[Callable] = None):
+    def __init__(self, storage: StorageService, on_alert_triggered: Callable | None = None):
         self.storage = storage
         self.on_alert_triggered = on_alert_triggered
-        self._rules_cache: List[AlertRule] = []
+        self._rules_cache: list[AlertRule] = []
         # f"{rule_id}:{device_id}" -> monotonic seconds of last trigger, used
         # to enforce each rule's cooldown before re-alerting for the same device.
-        self._last_triggered: Dict[str, float] = {}
+        self._last_triggered: dict[str, float] = {}
 
     async def refresh_cache(self) -> None:
         """Reload enabled rules from storage. Call after any rule CRUD operation."""

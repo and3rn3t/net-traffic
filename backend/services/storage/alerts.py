@@ -1,6 +1,6 @@
 """Alert repository: configurable alert rules + their triggered-alert history."""
+
 import json
-from typing import List, Optional
 
 from models.alerts import AlertRule, TriggeredAlert
 from services.storage.base import Repository
@@ -10,20 +10,34 @@ class AlertRepository(Repository):
     # Alert rule methods
     async def add_alert_rule(self, rule: AlertRule):
         """Save a new configurable alert rule"""
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT INTO alert_rules
             (id, user_id, name, enabled, metric, operator, threshold, values_json,
              severity, cooldown_minutes, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            rule.id, rule.userId, rule.name, 1 if rule.enabled else 0, rule.metric,
-            rule.operator, rule.threshold, json.dumps(rule.values) if rule.values else None,
-            rule.severity, rule.cooldownMinutes, rule.createdAt, rule.updatedAt
-        ))
+        """,
+            (
+                rule.id,
+                rule.userId,
+                rule.name,
+                1 if rule.enabled else 0,
+                rule.metric,
+                rule.operator,
+                rule.threshold,
+                json.dumps(rule.values) if rule.values else None,
+                rule.severity,
+                rule.cooldownMinutes,
+                rule.createdAt,
+                rule.updatedAt,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def get_alert_rules(self, user_id: Optional[str] = None, enabled_only: bool = False) -> List[AlertRule]:
+    async def get_alert_rules(
+        self, user_id: str | None = None, enabled_only: bool = False
+    ) -> list[AlertRule]:
         """List alert rules, optionally scoped to a user and/or filtered to enabled ones"""
         query = "SELECT * FROM alert_rules"
         clauses = []
@@ -48,7 +62,7 @@ class AlertRepository(Repository):
                 rows = await cursor.fetchall()
                 return [self._row_to_alert_rule(row) for row in rows]
 
-    async def get_alert_rule(self, rule_id: str) -> Optional[AlertRule]:
+    async def get_alert_rule(self, rule_id: str) -> AlertRule | None:
         """Get a specific alert rule by ID"""
         query = "SELECT * FROM alert_rules WHERE id = ?"
         if self.base.pool:
@@ -64,16 +78,26 @@ class AlertRepository(Repository):
 
     async def update_alert_rule(self, rule: AlertRule):
         """Update an existing alert rule"""
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             UPDATE alert_rules SET
                 name = ?, enabled = ?, metric = ?, operator = ?, threshold = ?,
                 values_json = ?, severity = ?, cooldown_minutes = ?, updated_at = ?
             WHERE id = ?
-        """, (
-            rule.name, 1 if rule.enabled else 0, rule.metric, rule.operator, rule.threshold,
-            json.dumps(rule.values) if rule.values else None, rule.severity,
-            rule.cooldownMinutes, rule.updatedAt, rule.id
-        ))
+        """,
+            (
+                rule.name,
+                1 if rule.enabled else 0,
+                rule.metric,
+                rule.operator,
+                rule.threshold,
+                json.dumps(rule.values) if rule.values else None,
+                rule.severity,
+                rule.cooldownMinutes,
+                rule.updatedAt,
+                rule.id,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
@@ -106,20 +130,33 @@ class AlertRepository(Repository):
     # Triggered alert methods
     async def add_triggered_alert(self, alert: TriggeredAlert):
         """Persist a triggered alert"""
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT INTO triggered_alerts
             (id, rule_id, rule_name, timestamp, severity, device_id, flow_id,
              metric, value, description, acknowledged)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            alert.id, alert.ruleId, alert.ruleName, alert.timestamp, alert.severity,
-            alert.deviceId, alert.flowId, alert.metric, alert.value, alert.description,
-            1 if alert.acknowledged else 0
-        ))
+        """,
+            (
+                alert.id,
+                alert.ruleId,
+                alert.ruleName,
+                alert.timestamp,
+                alert.severity,
+                alert.deviceId,
+                alert.flowId,
+                alert.metric,
+                alert.value,
+                alert.description,
+                1 if alert.acknowledged else 0,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def get_triggered_alerts(self, limit: int = 100, acknowledged: Optional[bool] = None) -> List[TriggeredAlert]:
+    async def get_triggered_alerts(
+        self, limit: int = 100, acknowledged: bool | None = None
+    ) -> list[TriggeredAlert]:
         """List triggered alerts, most recent first, optionally filtered by acknowledged state"""
         query = "SELECT * FROM triggered_alerts"
         params: list = []

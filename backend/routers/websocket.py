@@ -1,6 +1,6 @@
 """WebSocket endpoint for real-time updates."""
+
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
@@ -13,8 +13,9 @@ router = APIRouter(tags=["websocket"])
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    topics: Optional[str] = Query(
-        None, description="Comma-separated event types to receive (e.g. 'threat_update,new_device'). Omit for all events."
+    topics: str | None = Query(
+        None,
+        description="Comma-separated event types to receive (e.g. 'threat_update,new_device'). Omit for all events.",
     ),
 ):
     """WebSocket endpoint for real-time updates.
@@ -34,12 +35,14 @@ async def websocket_endpoint(
             devices = await state.storage.get_devices()
             flows = await state.storage.get_flows(limit=50)
             threats = await state.storage.get_threats(active_only=True, limit=50)
-            await websocket.send_json({
-                "type": "initial_state",
-                "devices": [device.dict() for device in devices],
-                "flows": [flow.dict() for flow in flows],
-                "threats": [threat.dict() for threat in threats],
-            })
+            await websocket.send_json(
+                {
+                    "type": "initial_state",
+                    "devices": [device.dict() for device in devices],
+                    "flows": [flow.dict() for flow in flows],
+                    "threats": [threat.dict() for threat in threats],
+                }
+            )
 
         while True:
             data = await websocket.receive_text()

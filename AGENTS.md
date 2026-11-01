@@ -67,7 +67,7 @@ npm run format            # prettier on src/
 
 cd backend
 pip install -r requirements-dev.txt
-ruff check .              # CI gate is E9 + F only (see backend/pyproject.toml)
+ruff check . && ruff format --check .   # CI gate (rules in backend/pyproject.toml)
 python -m pytest          # asyncio_mode=auto, 30s per-test timeout
 python main.py            # run the API locally (config from backend/.env)
 ```

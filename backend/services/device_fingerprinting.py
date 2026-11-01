@@ -1,22 +1,24 @@
 """
 Device fingerprinting and identification service
 """
+
 import logging
-import uuid
 import socket
-from typing import Optional, Callable
+import uuid
+from collections.abc import Callable
 from datetime import datetime
 
 try:
     from scapy.all import ARP
+
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
 
 from models.types import Device, Threat
-from services.storage import StorageService
 from services.dhcp_lease_service import DhcpLeaseService
-from services.oui_lookup import OuiLookup, PRIVATE_RANDOMIZED_VENDOR
+from services.oui_lookup import PRIVATE_RANDOMIZED_VENDOR, OuiLookup
+from services.storage import StorageService
 from utils.constants import VENDOR_DB
 
 logger = logging.getLogger(__name__)
@@ -54,10 +56,10 @@ class DeviceFingerprintingService:
     def __init__(
         self,
         storage: StorageService,
-        on_device_update: Optional[Callable] = None,
-        on_threat_update: Optional[Callable] = None,
-        oui_lookup: Optional[OuiLookup] = None,
-        dhcp_lease_service: Optional[DhcpLeaseService] = None,
+        on_device_update: Callable | None = None,
+        on_threat_update: Callable | None = None,
+        oui_lookup: OuiLookup | None = None,
+        dhcp_lease_service: DhcpLeaseService | None = None,
     ):
         self.storage = storage
         self.on_device_update = on_device_update
@@ -86,9 +88,7 @@ class DeviceFingerprintingService:
         except Exception as e:
             logger.error(f"Error processing ARP packet: {e}")
 
-    async def get_or_create_device(
-        self, ip: str, mac: Optional[str] = None, packet=None
-    ) -> Device:
+    async def get_or_create_device(self, ip: str, mac: str | None = None, packet=None) -> Device:
         """Get existing device or create new one"""
         # Try to find by MAC first (most reliable)
         device = None
@@ -124,12 +124,7 @@ class DeviceFingerprintingService:
             bytesTotal=0,
             connectionsCount=0,
             threatScore=0.0,
-            behavioral={
-                "peakHours": [],
-                "commonPorts": [],
-                "commonDomains": [],
-                "anomalyCount": 0
-            }
+            behavioral={"peakHours": [], "commonPorts": [], "commonDomains": [], "anomalyCount": 0},
         )
 
         await self.storage.upsert_device(device)
@@ -162,9 +157,9 @@ class DeviceFingerprintingService:
     def _detect_device_type(
         self,
         ip: str,
-        mac: Optional[str],
+        mac: str | None,
         vendor: str = "Unknown",
-        hostname: Optional[str] = None,
+        hostname: str | None = None,
     ) -> str:
         """Infer a coarse device type from gateway heuristics, hostname keywords, and vendor"""
         # Check if it's a router/gateway (typically .1)
@@ -208,7 +203,7 @@ class DeviceFingerprintingService:
 
         return "Unknown"
 
-    async def _resolve_hostname(self, ip: str, mac: Optional[str] = None) -> Optional[str]:
+    async def _resolve_hostname(self, ip: str, mac: str | None = None) -> str | None:
         """Resolve a device's display name: the router's DHCP-supplied hostname
         first (authoritative, cached, no per-call network round trip once
         warm), falling back to reverse DNS."""
@@ -219,7 +214,7 @@ class DeviceFingerprintingService:
         try:
             hostname = socket.gethostbyaddr(ip)[0]
             if hostname and hostname != ip:
-                return hostname.split('.')[0]
+                return hostname.split(".")[0]
         except (socket.herror, OSError):
             # Hostname resolution failed - use fallback
             pass
@@ -244,8 +239,12 @@ class DeviceFingerprintingService:
         for device in devices:
             vendor = self._detect_vendor(device.mac)
             is_fallback_name = device.name.startswith("Device ")
-            hostname = await self.dhcp_lease_service.get_hostname(device.mac) if is_fallback_name else None
-            device_type = self._detect_device_type(device.ip, device.mac, vendor, hostname or device.name)
+            hostname = (
+                await self.dhcp_lease_service.get_hostname(device.mac) if is_fallback_name else None
+            )
+            device_type = self._detect_device_type(
+                device.ip, device.mac, vendor, hostname or device.name
+            )
             changed = vendor != device.vendor or device_type != device.type
             if hostname and is_fallback_name:
                 device.name = hostname
@@ -259,6 +258,3 @@ class DeviceFingerprintingService:
         if updated:
             logger.info(f"Backfilled vendor/type/name for {updated} existing device(s)")
         return updated
-
-
-

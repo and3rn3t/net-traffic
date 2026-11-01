@@ -1,12 +1,13 @@
 """
 Simple rate limiting middleware
 """
+
+import logging
 import time
 from collections import defaultdict
-from typing import Dict
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         # Store request timestamps per IP: {ip: [timestamps]}
-        self.request_history: Dict[str, list] = defaultdict(list)
+        self.request_history: dict[str, list] = defaultdict(list)
         # Cleanup old entries every N requests
         self._cleanup_counter = 0
 
@@ -41,8 +42,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Remove old timestamps
         self.request_history[client_ip] = [
-            ts for ts in self.request_history[client_ip]
-            if ts > minute_ago
+            ts for ts in self.request_history[client_ip] if ts > minute_ago
         ]
 
         # Check if limit exceeded
@@ -54,9 +54,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             raise HTTPException(
                 status_code=429,
                 detail=(
-                    f"Rate limit exceeded. "
-                    f"Maximum {self.requests_per_minute} requests per minute."
-                )
+                    f"Rate limit exceeded. Maximum {self.requests_per_minute} requests per minute."
+                ),
             )
 
         # Record this request
@@ -74,12 +73,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Remove old IP entries
         ips_to_remove = []
         for ip, timestamps in self.request_history.items():
-            self.request_history[ip] = [
-                ts for ts in timestamps if ts > minute_ago
-            ]
+            self.request_history[ip] = [ts for ts in timestamps if ts > minute_ago]
             if not self.request_history[ip]:
                 ips_to_remove.append(ip)
 
         for ip in ips_to_remove:
             del self.request_history[ip]
-

@@ -1,4 +1,5 @@
 """Migration system: fresh DB reaches CURRENT_SCHEMA_VERSION, re-run is a no-op."""
+
 import pytest
 
 from utils.migrations import CURRENT_SCHEMA_VERSION, get_schema_version, run_migrations
@@ -28,5 +29,10 @@ async def test_multi_statement_migration_applied(storage):
     async with storage.pool.acquire() as conn:
         async with conn.execute("PRAGMA table_info(flows)") as cursor:
             columns = {row[1] for row in await cursor.fetchall()}
-    assert {"http_host", "http_status_code", "dns_query_name", "dns_answers", "tls_version"} <= columns
-
+    assert {
+        "http_host",
+        "http_status_code",
+        "dns_query_name",
+        "dns_answers",
+        "tls_version",
+    } <= columns

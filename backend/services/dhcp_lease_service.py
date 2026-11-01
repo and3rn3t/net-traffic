@@ -7,10 +7,10 @@ never do anything else even if it leaked) to resolve device hostnames that
 reverse DNS didn't catch. Optional - if unconfigured, get_hostname() always
 returns None and callers fall back to their existing resolution path.
 """
+
 import asyncio
 import logging
 import time
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class DhcpLeaseService:
         self.user = user
         self.ssh_key = ssh_key
         self.cache_ttl_seconds = cache_ttl_seconds
-        self._mac_to_hostname: Dict[str, str] = {}
+        self._mac_to_hostname: dict[str, str] = {}
         self._last_fetch: float = 0.0
         self._lock = asyncio.Lock()
 
@@ -40,7 +40,7 @@ class DhcpLeaseService:
     def is_configured(self) -> bool:
         return bool(self.host and self.ssh_key)
 
-    async def get_hostname(self, mac: str) -> Optional[str]:
+    async def get_hostname(self, mac: str) -> str | None:
         """Return the DHCP-supplied hostname for a MAC, refreshing the cache
         if stale. Returns None if unconfigured, unknown, or the client never
         sent a hostname (dnsmasq records that as '*')."""
@@ -58,10 +58,14 @@ class DhcpLeaseService:
     async def _fetch_leases(self) -> None:
         cmd = [
             "ssh",
-            "-i", self.ssh_key,
-            "-o", "StrictHostKeyChecking=accept-new",
-            "-o", "BatchMode=yes",
-            "-o", "ConnectTimeout=8",
+            "-i",
+            self.ssh_key,
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=8",
             f"{self.user}@{self.host}",
         ]
         # Mark the attempt now regardless of outcome, so a persistent failure
@@ -76,7 +80,7 @@ class DhcpLeaseService:
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=FETCH_TIMEOUT_SECONDS
             )
-        except (asyncio.TimeoutError, OSError) as e:
+        except (TimeoutError, OSError) as e:
             logger.warning(f"DHCP lease fetch from {self.host} failed: {e}")
             return
 
@@ -94,10 +98,10 @@ class DhcpLeaseService:
         )
 
     @staticmethod
-    def _parse_leases(text: str) -> Dict[str, str]:
+    def _parse_leases(text: str) -> dict[str, str]:
         """Parse dnsmasq lease lines: `<expiry> <mac> <ip> <hostname> <client_id>`.
         A hostname of '*' means the client sent none - not a usable name."""
-        result: Dict[str, str] = {}
+        result: dict[str, str] = {}
         for line in text.splitlines():
             parts = line.split()
             if len(parts) < 4:

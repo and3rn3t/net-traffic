@@ -1,8 +1,8 @@
 """Saved flow filter preset endpoints."""
+
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -41,7 +41,7 @@ async def create_filter_preset(
         userId=current_user.id,
         name=preset_create.name,
         filters=preset_create.filters,
-        createdAt=int(datetime.now(timezone.utc).timestamp() * 1000),
+        createdAt=int(datetime.now(UTC).timestamp() * 1000),
     )
     await handle_endpoint_error_call(
         lambda: state.storage.add_filter_preset(preset), "Failed to save filter preset"
@@ -49,13 +49,14 @@ async def create_filter_preset(
     return preset
 
 
-@router.get("", response_model=List[FilterPreset])
+@router.get("", response_model=list[FilterPreset])
 async def list_filter_presets(current_user: User = Depends(get_current_active_user)):
     """List the current user's saved filter presets."""
     if not state.storage:
         raise HTTPException(status_code=503, detail=ErrorMessages.STORAGE_NOT_INIT)
     return await handle_endpoint_error_call(
-        lambda: state.storage.get_filter_presets(current_user.id), "Failed to retrieve filter presets"
+        lambda: state.storage.get_filter_presets(current_user.id),
+        "Failed to retrieve filter presets",
     )
 
 

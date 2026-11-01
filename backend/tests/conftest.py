@@ -1,4 +1,5 @@
 """Shared pytest fixtures for the backend test suite."""
+
 import os
 import sys
 from pathlib import Path
@@ -15,11 +16,11 @@ os.environ.setdefault("DEFAULT_ADMIN_PASSWORD", "TestPassword123")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-not-for-production")
 os.environ.setdefault("USE_JSON_LOGGING", "false")
 
-import pytest
-import pytest_asyncio
-from fastapi.testclient import TestClient
+import pytest  # noqa: E402 - env must be set first
+import pytest_asyncio  # noqa: E402 - env must be set first
+from fastapi.testclient import TestClient  # noqa: E402 - env must be set first
 
-from services.storage import StorageService
+from services.storage import StorageService  # noqa: E402 - env must be set first
 
 
 @pytest_asyncio.fixture

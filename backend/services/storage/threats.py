@@ -1,9 +1,8 @@
 """Threat repository: CRUD, dedup, search, and hourly aggregates over the `threats` table."""
-from typing import List, Optional
 
 from models.types import Threat
-from utils.constants import THREAT_DEDUP_WINDOW_MINUTES
 from services.storage.base import Repository, log_slow_query
+from utils.constants import THREAT_DEDUP_WINDOW_MINUTES
 
 
 class ThreatRepository(Repository):
@@ -33,23 +32,33 @@ class ThreatRepository(Repository):
             await self.base._execute_with_retry(
                 "UPDATE threats SET timestamp = ?, description = ?, occurrence_count = occurrence_count + 1 "
                 "WHERE id = ?",
-                (threat.timestamp, threat.description, existing_id)
+                (threat.timestamp, threat.description, existing_id),
             )
         else:
-            await self.base._execute_with_retry("""
+            await self.base._execute_with_retry(
+                """
                 INSERT OR REPLACE INTO threats
                 (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed, occurrence_count)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                threat.id, threat.timestamp, threat.type, threat.severity,
-                threat.deviceId, threat.flowId, threat.description,
-                threat.recommendation, 1 if threat.dismissed else 0, threat.occurrenceCount
-            ))
+            """,
+                (
+                    threat.id,
+                    threat.timestamp,
+                    threat.type,
+                    threat.severity,
+                    threat.deviceId,
+                    threat.flowId,
+                    threat.description,
+                    threat.recommendation,
+                    1 if threat.dismissed else 0,
+                    threat.occurrenceCount,
+                ),
+            )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
     @log_slow_query("get_threats")
-    async def get_threats(self, active_only: bool = True, limit: int = 200) -> List[Threat]:
+    async def get_threats(self, active_only: bool = True, limit: int = 200) -> list[Threat]:
         """Get threats, most recent first"""
         query = "SELECT * FROM threats"
         if active_only:
@@ -104,16 +113,12 @@ class ThreatRepository(Repository):
 
     async def search_threats(
         self, query_text: str, limit: int = 50, active_only: bool = False
-    ) -> List[Threat]:
+    ) -> list[Threat]:
         """Search threats by type, description, or severity using database queries"""
         search_pattern = f"%{query_text}%"
 
         # Build query with search conditions
-        where_clauses = [
-            "type LIKE ?",
-            "description LIKE ?",
-            "severity LIKE ?"
-        ]
+        where_clauses = ["type LIKE ?", "description LIKE ?", "severity LIKE ?"]
         params = [search_pattern, search_pattern, search_pattern]
 
         # Add dismissed filter if needed
@@ -122,8 +127,8 @@ class ThreatRepository(Repository):
 
         query = f"""
             SELECT * FROM threats
-            WHERE ({' OR '.join(where_clauses[:3])})
-            {'AND dismissed = 0' if active_only else ''}
+            WHERE ({" OR ".join(where_clauses[:3])})
+            {"AND dismissed = 0" if active_only else ""}
             ORDER BY timestamp DESC
             LIMIT ?
         """
@@ -140,7 +145,7 @@ class ThreatRepository(Repository):
                 rows = await cursor.fetchall()
                 return [self._row_to_threat(row) for row in rows]
 
-    async def get_threat(self, threat_id: str) -> Optional[Threat]:
+    async def get_threat(self, threat_id: str) -> Threat | None:
         """Get a specific threat by ID"""
         query = "SELECT * FROM threats WHERE id = ?"
         if self.base.pool:
@@ -165,17 +170,20 @@ class ThreatRepository(Repository):
             (id, timestamp, type, severity, device_id, flow_id, description, recommendation, dismissed)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        await self.base._execute_with_retry(query, (
-            threat.id,
-            threat.timestamp,
-            threat.type,
-            threat.severity,
-            threat.deviceId,
-            threat.flowId,
-            threat.description,
-            threat.recommendation,
-            1 if threat.dismissed else 0
-        ))
+        await self.base._execute_with_retry(
+            query,
+            (
+                threat.id,
+                threat.timestamp,
+                threat.type,
+                threat.severity,
+                threat.deviceId,
+                threat.flowId,
+                threat.description,
+                threat.recommendation,
+                1 if threat.dismissed else 0,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
@@ -199,5 +207,5 @@ class ThreatRepository(Repository):
             description=row["description"],
             recommendation=row["recommendation"],
             dismissed=bool(row["dismissed"]),
-            occurrenceCount=row["occurrence_count"] if "occurrence_count" in row.keys() else 1
+            occurrenceCount=row["occurrence_count"] if "occurrence_count" in row.keys() else 1,
         )

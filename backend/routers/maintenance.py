@@ -1,9 +1,9 @@
 """Maintenance, search, and data export endpoints."""
+
 import csv
 import logging
 from datetime import datetime
 from io import StringIO
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -32,7 +32,9 @@ async def set_log_level(
     """
     level = level.upper()
     if level not in VALID_LOG_LEVELS:
-        raise HTTPException(status_code=400, detail=f"level must be one of {sorted(VALID_LOG_LEVELS)}")
+        raise HTTPException(
+            status_code=400, detail=f"level must be one of {sorted(VALID_LOG_LEVELS)}"
+        )
     previous_level = logging.getLevelName(logging.getLogger().getEffectiveLevel())
     logging.getLogger().setLevel(level)
     # WARNING (not DEBUG/INFO) so the change is visible regardless of the new level.
@@ -43,11 +45,12 @@ async def set_log_level(
 
 
 @router.post("/maintenance/cleanup")
-async def trigger_cleanup(days: Optional[int] = Query(None, ge=1, le=365)):
+async def trigger_cleanup(days: int | None = Query(None, ge=1, le=365)):
     """Manually trigger data cleanup."""
     if not state.storage:
         raise HTTPException(status_code=503, detail="Storage service not initialized")
     from utils.config import config
+
     retention_days = days or config.data_retention_days
     if retention_days < 1 or retention_days > 365:
         raise HTTPException(status_code=400, detail="retention_days must be between 1 and 365")
@@ -82,7 +85,8 @@ async def search(
         results["flows"] = await state.storage.search_flows(q, limit)
     if type in ["all", "threats"]:
         results["threats"] = await handle_endpoint_error_call(
-            lambda: state.storage.search_threats(q, limit, active_only=False), "Failed to search threats"
+            lambda: state.storage.search_threats(q, limit, active_only=False),
+            "Failed to search threats",
         )
     return results
 
@@ -90,50 +94,102 @@ async def search(
 @router.get("/export/flows")
 async def export_flows(
     format: str = Query("json", pattern="^(json|csv)$"),
-    start_time: Optional[int] = Query(None, ge=0),
-    end_time: Optional[int] = Query(None, ge=0),
-    device_id: Optional[str] = Query(None, min_length=1, max_length=100),
+    start_time: int | None = Query(None, ge=0),
+    end_time: int | None = Query(None, ge=0),
+    device_id: str | None = Query(None, min_length=1, max_length=100),
 ):
     """Export flows as JSON or CSV."""
     if not state.storage:
         raise HTTPException(status_code=503, detail=ErrorMessages.STORAGE_NOT_INIT)
     start_time, end_time = validate_time_range(start_time, end_time)
-    flows = await state.storage.get_flows(limit=10000, start_time=start_time, end_time=end_time, device_id=device_id)
+    flows = await state.storage.get_flows(
+        limit=10000, start_time=start_time, end_time=end_time, device_id=device_id
+    )
 
     if format.lower() == "csv":
         output = StringIO()  # type: ignore
         fieldnames = [
-            "id", "timestamp", "source_ip", "source_port", "dest_ip", "dest_port",
-            "protocol", "bytes_in", "bytes_out", "packets_in", "packets_out",
-            "duration", "status", "country", "city", "asn", "domain", "sni",
-            "threat_level", "device_id", "tcp_flags", "ttl", "connection_state",
-            "rtt", "retransmissions", "jitter", "application", "user_agent",
-            "http_method", "url", "dns_query_type", "dns_response_code",
+            "id",
+            "timestamp",
+            "source_ip",
+            "source_port",
+            "dest_ip",
+            "dest_port",
+            "protocol",
+            "bytes_in",
+            "bytes_out",
+            "packets_in",
+            "packets_out",
+            "duration",
+            "status",
+            "country",
+            "city",
+            "asn",
+            "domain",
+            "sni",
+            "threat_level",
+            "device_id",
+            "tcp_flags",
+            "ttl",
+            "connection_state",
+            "rtt",
+            "retransmissions",
+            "jitter",
+            "application",
+            "user_agent",
+            "http_method",
+            "url",
+            "dns_query_type",
+            "dns_response_code",
         ]
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
         for flow in flows:
-            writer.writerow({
-                "id": flow.id, "timestamp": flow.timestamp,
-                "source_ip": flow.sourceIp, "source_port": flow.sourcePort,
-                "dest_ip": flow.destIp, "dest_port": flow.destPort,
-                "protocol": flow.protocol, "bytes_in": flow.bytesIn, "bytes_out": flow.bytesOut,
-                "packets_in": flow.packetsIn, "packets_out": flow.packetsOut,
-                "duration": flow.duration, "status": flow.status,
-                "country": flow.country or "", "city": flow.city or "", "asn": flow.asn or "",
-                "domain": flow.domain or "", "sni": flow.sni or "",
-                "threat_level": flow.threatLevel, "device_id": flow.deviceId,
-                "tcp_flags": ",".join(flow.tcpFlags) if flow.tcpFlags else "",
-                "ttl": flow.ttl or "", "connection_state": flow.connectionState or "",
-                "rtt": flow.rtt or "", "retransmissions": flow.retransmissions or "",
-                "jitter": flow.jitter or "", "application": flow.application or "",
-                "user_agent": flow.userAgent or "", "http_method": flow.httpMethod or "",
-                "url": flow.url or "", "dns_query_type": flow.dnsQueryType or "",
-                "dns_response_code": flow.dnsResponseCode or "",
-            })
+            writer.writerow(
+                {
+                    "id": flow.id,
+                    "timestamp": flow.timestamp,
+                    "source_ip": flow.sourceIp,
+                    "source_port": flow.sourcePort,
+                    "dest_ip": flow.destIp,
+                    "dest_port": flow.destPort,
+                    "protocol": flow.protocol,
+                    "bytes_in": flow.bytesIn,
+                    "bytes_out": flow.bytesOut,
+                    "packets_in": flow.packetsIn,
+                    "packets_out": flow.packetsOut,
+                    "duration": flow.duration,
+                    "status": flow.status,
+                    "country": flow.country or "",
+                    "city": flow.city or "",
+                    "asn": flow.asn or "",
+                    "domain": flow.domain or "",
+                    "sni": flow.sni or "",
+                    "threat_level": flow.threatLevel,
+                    "device_id": flow.deviceId,
+                    "tcp_flags": ",".join(flow.tcpFlags) if flow.tcpFlags else "",
+                    "ttl": flow.ttl or "",
+                    "connection_state": flow.connectionState or "",
+                    "rtt": flow.rtt or "",
+                    "retransmissions": flow.retransmissions or "",
+                    "jitter": flow.jitter or "",
+                    "application": flow.application or "",
+                    "user_agent": flow.userAgent or "",
+                    "http_method": flow.httpMethod or "",
+                    "url": flow.url or "",
+                    "dns_query_type": flow.dnsQueryType or "",
+                    "dns_response_code": flow.dnsResponseCode or "",
+                }
+            )
         return Response(
             content=output.getvalue(),
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=flows_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"},
+            headers={
+                "Content-Disposition": f"attachment; filename=flows_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            },
         )
-    return {"export_date": datetime.now().isoformat(), "count": len(flows), "flows": [flow.dict() for flow in flows]}
+    return {
+        "export_date": datetime.now().isoformat(),
+        "count": len(flows),
+        "flows": [flow.dict() for flow in flows],
+    }

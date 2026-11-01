@@ -1,5 +1,4 @@
 """Device endpoints."""
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -10,18 +9,19 @@ from models.types import Device
 from utils.auth_dependencies import require_operator_or_admin
 from utils.constants import ErrorMessages
 from utils.error_handler import handle_endpoint_error_call
-from utils.validators import DeviceIdPath, HoursQuery
-from utils.validators import validate_string_param
+from utils.validators import DeviceIdPath, HoursQuery, validate_string_param
 
 router = APIRouter(prefix="/api", tags=["devices"])
 
 
-@router.get("/devices", response_model=List[Device])
+@router.get("/devices", response_model=list[Device])
 async def get_devices():
     """Get all discovered devices."""
     if not state.storage:
         raise HTTPException(status_code=503, detail=ErrorMessages.STORAGE_NOT_INIT)
-    return await handle_endpoint_error_call(lambda: state.storage.get_devices(), "Failed to retrieve devices")
+    return await handle_endpoint_error_call(
+        lambda: state.storage.get_devices(), "Failed to retrieve devices"
+    )
 
 
 @router.get("/devices/{device_id}", response_model=Device)
@@ -57,7 +57,9 @@ async def update_device(
     if update.type is not None:
         valid_types = ["smartphone", "laptop", "desktop", "tablet", "iot", "server", "unknown"]
         if update.type not in valid_types:
-            raise HTTPException(status_code=400, detail=f"type must be one of {valid_types}, got {update.type}")
+            raise HTTPException(
+                status_code=400, detail=f"type must be one of {valid_types}, got {update.type}"
+            )
     if update.tags is not None:
         if len(update.tags) > 20:
             raise HTTPException(status_code=400, detail="A device may have at most 20 tags")
@@ -92,7 +94,9 @@ async def get_device_analytics(device_id: str = DeviceIdPath(), hours: int = Hou
 
 
 @router.get("/analytics/devices/{device_id}/applications")
-async def get_device_application_profile(device_id: str = DeviceIdPath(), hours: int = HoursQuery(24, 720)):
+async def get_device_application_profile(
+    device_id: str = DeviceIdPath(), hours: int = HoursQuery(24, 720)
+):
     """Get application usage profile for a specific device."""
     if not state.application_analytics:
         raise HTTPException(status_code=503, detail="Application analytics not initialized")

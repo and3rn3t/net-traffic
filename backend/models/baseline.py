@@ -6,6 +6,7 @@ variance) from periodic aggregates of a device's flow activity, rather than
 computed per-packet - this keeps baseline learning off the packet-capture hot
 path (see services/baseline_learning.py).
 """
+
 from pydantic import BaseModel
 
 # Metrics tracked per device. Keep in sync with DeviceBaseline fields below.

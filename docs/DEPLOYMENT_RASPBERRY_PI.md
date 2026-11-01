@@ -12,7 +12,7 @@ Complete guide for running the NetInsight backend on a Raspberry Pi 5: pre-insta
 - **Ethernet connection** to the port/interface you intend to capture from
 - Adequate cooling (heatsink/fan) for 24/7 operation
 - Raspberry Pi OS 64-bit (Bookworm or later)
-- Python 3.10+
+- Python 3.11+ (Raspberry Pi OS Bookworm ships 3.11)
 
 ## 1. Pre-installation setup
 

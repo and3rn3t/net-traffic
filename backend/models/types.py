@@ -1,7 +1,7 @@
 """
 Type definitions matching frontend types
 """
-from typing import Optional, List
+
 from pydantic import BaseModel
 
 
@@ -19,35 +19,35 @@ class NetworkFlow(BaseModel):
     packetsOut: int
     duration: int
     status: str  # 'active' | 'closed'
-    country: Optional[str] = None
-    city: Optional[str] = None
-    asn: Optional[int] = None  # Autonomous System Number
-    domain: Optional[str] = None
-    sni: Optional[str] = None  # Server Name Indication from TLS
+    country: str | None = None
+    city: str | None = None
+    asn: int | None = None  # Autonomous System Number
+    domain: str | None = None
+    sni: str | None = None  # Server Name Indication from TLS
     threatLevel: str  # 'safe' | 'low' | 'medium' | 'high' | 'critical'
     deviceId: str
     # TCP layer details
-    tcpFlags: Optional[List[str]] = None  # SYN, ACK, FIN, RST, PSH, URG
-    ttl: Optional[int] = None  # Time To Live
-    connectionState: Optional[str] = None  # SYN_SENT, ESTABLISHED, FIN_WAIT, etc.
+    tcpFlags: list[str] | None = None  # SYN, ACK, FIN, RST, PSH, URG
+    ttl: int | None = None  # Time To Live
+    connectionState: str | None = None  # SYN_SENT, ESTABLISHED, FIN_WAIT, etc.
     # Network quality metrics
-    rtt: Optional[int] = None  # Round-trip time in milliseconds
-    retransmissions: Optional[int] = None
-    jitter: Optional[float] = None  # Packet delay variation
+    rtt: int | None = None  # Round-trip time in milliseconds
+    retransmissions: int | None = None
+    jitter: float | None = None  # Packet delay variation
     # Application layer
-    application: Optional[str] = None  # HTTP, HTTPS, SSH, FTP, etc.
-    userAgent: Optional[str] = None  # From HTTP headers
-    httpMethod: Optional[str] = None  # GET, POST, PUT, DELETE, etc.
-    url: Optional[str] = None  # From HTTP requests
-    httpHost: Optional[str] = None  # Host header from HTTP requests
-    httpStatusCode: Optional[int] = None  # Status code from HTTP responses
+    application: str | None = None  # HTTP, HTTPS, SSH, FTP, etc.
+    userAgent: str | None = None  # From HTTP headers
+    httpMethod: str | None = None  # GET, POST, PUT, DELETE, etc.
+    url: str | None = None  # From HTTP requests
+    httpHost: str | None = None  # Host header from HTTP requests
+    httpStatusCode: int | None = None  # Status code from HTTP responses
     # DNS details
-    dnsQueryType: Optional[str] = None  # A, AAAA, MX, TXT, etc.
-    dnsResponseCode: Optional[str] = None  # NOERROR, NXDOMAIN, etc.
-    dnsQueryName: Optional[str] = None  # The domain name being queried
-    dnsAnswers: Optional[List[str]] = None  # Resolved IPs/CNAMEs from a DNS response
+    dnsQueryType: str | None = None  # A, AAAA, MX, TXT, etc.
+    dnsResponseCode: str | None = None  # NOERROR, NXDOMAIN, etc.
+    dnsQueryName: str | None = None  # The domain name being queried
+    dnsAnswers: list[str] | None = None  # Resolved IPs/CNAMEs from a DNS response
     # TLS details
-    tlsVersion: Optional[str] = None  # e.g. "TLS 1.2", "TLS 1.3", from ClientHello
+    tlsVersion: str | None = None  # e.g. "TLS 1.2", "TLS 1.3", from ClientHello
 
 
 class Device(BaseModel):
@@ -57,20 +57,22 @@ class Device(BaseModel):
     mac: str
     type: str  # 'smartphone' | 'laptop' | 'desktop' | 'tablet' | 'iot' | 'server' | 'unknown'
     vendor: str
-    os: Optional[str] = None  # Detected operating system
+    os: str | None = None  # Detected operating system
     firstSeen: int  # Unix timestamp
     lastSeen: int  # Unix timestamp
     bytesTotal: int
     connectionsCount: int
     threatScore: float
-    behavioral: dict  # Contains peakHours, commonPorts, commonDomains, anomalyCount, applications, notes
-    notes: Optional[str] = None  # User-added notes about the device
+    behavioral: (
+        dict  # Contains peakHours, commonPorts, commonDomains, anomalyCount, applications, notes
+    )
+    notes: str | None = None  # User-added notes about the device
     # Enhanced fields
-    ipv6Support: Optional[bool] = None
-    avgRtt: Optional[float] = None  # Average round-trip time
-    connectionQuality: Optional[str] = None  # 'good' | 'fair' | 'poor'
-    applications: Optional[List[str]] = None  # Detected applications
-    tags: Optional[List[str]] = None  # User-defined tags/groups, e.g. 'iot', 'trusted', 'guest'
+    ipv6Support: bool | None = None
+    avgRtt: float | None = None  # Average round-trip time
+    connectionQuality: str | None = None  # 'good' | 'fair' | 'poor'
+    applications: list[str] | None = None  # Detected applications
+    tags: list[str] | None = None  # User-defined tags/groups, e.g. 'iot', 'trusted', 'guest'
 
 
 class FilterPreset(BaseModel):
@@ -91,7 +93,9 @@ class Threat(BaseModel):
     description: str
     recommendation: str
     dismissed: bool = False
-    occurrenceCount: int = 1  # Repeated same type+device threats increment this instead of duplicating rows
+    occurrenceCount: int = (
+        1  # Repeated same type+device threats increment this instead of duplicating rows
+    )
 
 
 class AnalyticsData(BaseModel):
@@ -107,4 +111,3 @@ class ProtocolStats(BaseModel):
     bytes: int
     connections: int
     percentage: float
-

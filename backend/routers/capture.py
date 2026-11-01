@@ -1,5 +1,4 @@
 """Packet capture control endpoints."""
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -12,7 +11,7 @@ router = APIRouter(prefix="/api/capture", tags=["capture"])
 
 
 @router.post("/start")
-async def start_capture(current_user: Optional[User] = Depends(get_current_user_optional)):
+async def start_capture(current_user: User | None = Depends(get_current_user_optional)):
     """Start packet capture — optional authentication for testing."""
     if not state.packet_capture:
         raise HTTPException(status_code=503, detail=ErrorMessages.CAPTURE_NOT_INIT)
@@ -23,7 +22,7 @@ async def start_capture(current_user: Optional[User] = Depends(get_current_user_
 
 
 @router.post("/stop")
-async def stop_capture(current_user: Optional[User] = Depends(get_current_user_optional)):
+async def stop_capture(current_user: User | None = Depends(get_current_user_optional)):
     """Stop packet capture — optional authentication for testing."""
     if not state.packet_capture:
         raise HTTPException(status_code=503, detail=ErrorMessages.CAPTURE_NOT_INIT)
@@ -31,7 +30,9 @@ async def stop_capture(current_user: Optional[User] = Depends(get_current_user_o
         await state.packet_capture.stop()
         return {"status": "stopped"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to stop packet capture: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to stop packet capture: {str(e)}"
+        ) from e
 
 
 @router.get("/status")

@@ -34,7 +34,7 @@ Or change the port: edit `PORT=8000` in `backend/.env`, then `sudo systemctl res
 
 - Confirm the service's `ExecStart` uses `backend/venv/bin/python` (`sudo systemctl cat netinsight-backend | grep ExecStart`).
 - Reinstall deps: `pip install --upgrade pip && pip install -r requirements.txt`.
-- Check Python version is 3.10+: `backend/venv/bin/python --version`.
+- Check Python version is 3.11+: `backend/venv/bin/python --version`.
 
 ### Service keeps restarting
 

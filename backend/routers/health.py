@@ -1,4 +1,5 @@
 """Health check endpoints."""
+
 import os
 from datetime import datetime
 
@@ -33,15 +34,23 @@ async def health():
         "capture": {
             "running": state.packet_capture.is_running() if state.packet_capture else False,
             "stale": state.packet_capture.is_stale() if state.packet_capture else False,
-            "mode": getattr(state.packet_capture, "capture_mode", "local") if state.packet_capture else None,
+            "mode": getattr(state.packet_capture, "capture_mode", "local")
+            if state.packet_capture
+            else None,
             "interface": state.packet_capture.interface if state.packet_capture else None,
-            "packets_captured": state.packet_capture.packets_captured if state.packet_capture else 0,
+            "packets_captured": state.packet_capture.packets_captured
+            if state.packet_capture
+            else 0,
             "performance_stats": {
                 "packets_dropped": getattr(state.packet_capture, "_packets_dropped", 0),
-                "packets_dropped_backpressure": getattr(state.packet_capture, "_packets_dropped_backpressure", 0),
+                "packets_dropped_backpressure": getattr(
+                    state.packet_capture, "_packets_dropped_backpressure", 0
+                ),
                 "packets_duplicate": getattr(state.packet_capture, "_packets_duplicate", 0),
                 "active_flows_count": len(getattr(state.packet_capture, "_active_flows", {})),
-            } if state.packet_capture else {},
+            }
+            if state.packet_capture
+            else {},
             "flows_detected": state.packet_capture.flows_detected if state.packet_capture else 0,
         },
         "database": {
@@ -52,8 +61,12 @@ async def health():
         },
         "geolocation": {
             "enabled": bool(state.geolocation_service and state.geolocation_service._initialized),
-            "db_path": state.geolocation_service.loaded_db_path if state.geolocation_service else None,
-        } if state.geolocation_service else {"enabled": False, "db_path": None},
+            "db_path": state.geolocation_service.loaded_db_path
+            if state.geolocation_service
+            else None,
+        }
+        if state.geolocation_service
+        else {"enabled": False, "db_path": None},
         "websocket": {
             "active_connections": len(state.active_connections),
         },
@@ -87,7 +100,7 @@ async def health_storage():
             "database": {"connected": True, "path": state.storage.db_path, "stats": db_stats},
         }
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Storage service unhealthy: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Storage service unhealthy: {str(e)}") from e
 
 
 @router.get("/capture")
@@ -129,7 +142,11 @@ async def health_device():
     """Health check for device fingerprinting service."""
     if not state.device_service:
         raise HTTPException(status_code=503, detail="Device service not initialized")
-    return {"status": "healthy", "service": "device_fingerprinting", "timestamp": datetime.now().isoformat()}
+    return {
+        "status": "healthy",
+        "service": "device_fingerprinting",
+        "timestamp": datetime.now().isoformat(),
+    }
 
 
 @router.get("/threat")
@@ -137,26 +154,60 @@ async def health_threat():
     """Health check for threat detection service."""
     if not state.threat_service:
         raise HTTPException(status_code=503, detail="Threat detection service not initialized")
-    return {"status": "healthy", "service": "threat_detection", "timestamp": datetime.now().isoformat()}
+    return {
+        "status": "healthy",
+        "service": "threat_detection",
+        "timestamp": datetime.now().isoformat(),
+    }
 
 
 @router.get("/cache")
 async def health_cache():
     """Health check for cache service."""
     if not state.cache_service:
-        return {"status": "disabled", "service": "cache", "timestamp": datetime.now().isoformat(), "message": "Cache service not initialized"}
+        return {
+            "status": "disabled",
+            "service": "cache",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Cache service not initialized",
+        }
     if not state.cache_service.is_enabled():
-        return {"status": "disabled", "service": "cache", "timestamp": datetime.now().isoformat(), "message": "Redis connection unavailable - caching disabled"}
+        return {
+            "status": "disabled",
+            "service": "cache",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Redis connection unavailable - caching disabled",
+        }
     stats = await state.cache_service.get_stats()
-    return {"status": "healthy", "service": "cache", "timestamp": datetime.now().isoformat(), "stats": stats}
+    return {
+        "status": "healthy",
+        "service": "cache",
+        "timestamp": datetime.now().isoformat(),
+        "stats": stats,
+    }
 
 
 @router.get("/db-pool")
 async def health_db_pool():
     """Health check for database connection pool."""
     if not state.storage:
-        return {"status": "unavailable", "service": "db_pool", "timestamp": datetime.now().isoformat(), "message": "Storage service not initialized"}
+        return {
+            "status": "unavailable",
+            "service": "db_pool",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Storage service not initialized",
+        }
     pool_stats = state.storage.get_pool_stats()
     if pool_stats.get("pool_enabled") is False:
-        return {"status": "disabled", "service": "db_pool", "timestamp": datetime.now().isoformat(), **pool_stats}
-    return {"status": "healthy", "service": "db_pool", "timestamp": datetime.now().isoformat(), **pool_stats}
+        return {
+            "status": "disabled",
+            "service": "db_pool",
+            "timestamp": datetime.now().isoformat(),
+            **pool_stats,
+        }
+    return {
+        "status": "healthy",
+        "service": "db_pool",
+        "timestamp": datetime.now().isoformat(),
+        **pool_stats,
+    }

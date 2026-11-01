@@ -2,11 +2,12 @@
 Global application state shared across all routers.
 Service references are None until initialized in main.py lifespan.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional, Set
+from typing import TYPE_CHECKING
 
 import requests
 from fastapi import WebSocket
@@ -15,49 +16,49 @@ from utils.config import config
 from utils.tasks import create_logged_task
 
 if TYPE_CHECKING:
-    from services.packet_capture import PacketCaptureService
-    from services.device_fingerprinting import DeviceFingerprintingService
-    from services.threat_detection import ThreatDetectionService
-    from services.storage import StorageService
-    from services.analytics import AnalyticsService
-    from services.geolocation import GeolocationService
-    from services.auth_service import AuthService
-    from services.cache_service import CacheService
     from services.alerting import AlertingService
+    from services.analytics import AnalyticsService
+    from services.auth_service import AuthService
     from services.baseline_learning import BaselineLearningService
+    from services.cache_service import CacheService
+    from services.device_fingerprinting import DeviceFingerprintingService
+    from services.geolocation import GeolocationService
+    from services.packet_capture import PacketCaptureService
+    from services.storage import StorageService
+    from services.threat_detection import ThreatDetectionService
     from utils.service_manager import ServiceManager
 
 logger = logging.getLogger(__name__)
 
 # Service instances (set by main.py lifespan)
-packet_capture: Optional["PacketCaptureService"] = None
-device_service: Optional["DeviceFingerprintingService"] = None
-threat_service: Optional["ThreatDetectionService"] = None
-storage: Optional["StorageService"] = None
-analytics: Optional["AnalyticsService"] = None
+packet_capture: PacketCaptureService | None = None
+device_service: DeviceFingerprintingService | None = None
+threat_service: ThreatDetectionService | None = None
+storage: StorageService | None = None
+analytics: AnalyticsService | None = None
 # advanced_analytics/network_quality_analytics/application_analytics were
 # previously distinct service classes, now all aliases of the same
 # consolidated AnalyticsService instance (see utils/service_manager.py) -
 # kept as separate attributes so router call sites don't need to change.
-advanced_analytics: Optional["AnalyticsService"] = None
-geolocation_service: Optional["GeolocationService"] = None
-network_quality_analytics: Optional["AnalyticsService"] = None
-application_analytics: Optional["AnalyticsService"] = None
-auth_service: Optional["AuthService"] = None
-cache_service: Optional["CacheService"] = None
-alerting_service: Optional["AlertingService"] = None
-baseline_learning_service: Optional["BaselineLearningService"] = None
-service_manager: Optional["ServiceManager"] = None
+advanced_analytics: AnalyticsService | None = None
+geolocation_service: GeolocationService | None = None
+network_quality_analytics: AnalyticsService | None = None
+application_analytics: AnalyticsService | None = None
+auth_service: AuthService | None = None
+cache_service: CacheService | None = None
+alerting_service: AlertingService | None = None
+baseline_learning_service: BaselineLearningService | None = None
+service_manager: ServiceManager | None = None
 
 # Active WebSocket connections
-active_connections: List[WebSocket] = []
+active_connections: list[WebSocket] = []
 
 # Per-connection topic subscriptions. A value of None means "subscribed to
 # all topics" (the default for clients that don't request filtering).
-connection_topics: Dict[WebSocket, Optional[Set[str]]] = {}
+connection_topics: dict[WebSocket, set[str] | None] = {}
 
 # Fire-and-forget webhook delivery tasks, tracked so they can be drained on shutdown.
-pending_webhook_tasks: Set[asyncio.Task] = set()
+pending_webhook_tasks: set[asyncio.Task] = set()
 
 # Running count of 5xx HTTP responses, incremented by RequestLoggingMiddleware
 # and surfaced in the periodic health heartbeat for troubleshooting.
@@ -78,7 +79,8 @@ async def notify_clients(data: dict) -> None:
 
     topic = data.get("type")
     recipients = [
-        c for c in active_connections
+        c
+        for c in active_connections
         if (topics := connection_topics.get(c)) is None or topic in topics
     ]
     if not recipients:
@@ -88,7 +90,7 @@ async def notify_clients(data: dict) -> None:
         try:
             await asyncio.wait_for(connection.send_json(data), timeout=5.0)
             return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("WebSocket send timeout - connection may be slow")
             return ("retry", connection)
         except (ConnectionError, RuntimeError) as e:
@@ -104,14 +106,23 @@ async def notify_clients(data: dict) -> None:
 
     results = await asyncio.gather(*(_send(c) for c in recipients))
 
-    disconnected = [conn for outcome in results if outcome and outcome[0] == "disconnect" for conn in [outcome[1]]]
-    failed_connections = [conn for outcome in results if outcome and outcome[0] == "retry" for conn in [outcome[1]]]
+    disconnected = [
+        conn
+        for outcome in results
+        if outcome and outcome[0] == "disconnect"
+        for conn in [outcome[1]]
+    ]
+    failed_connections = [
+        conn for outcome in results if outcome and outcome[0] == "retry" for conn in [outcome[1]]
+    ]
 
     for conn in disconnected:
         if conn in active_connections:
             active_connections.remove(conn)
             connection_topics.pop(conn, None)
-            logger.info(f"Removed disconnected WebSocket client. Remaining: {len(active_connections)}")
+            logger.info(
+                f"Removed disconnected WebSocket client. Remaining: {len(active_connections)}"
+            )
 
     if failed_connections:
         await asyncio.sleep(0.1)
@@ -129,7 +140,9 @@ async def notify_clients(data: dict) -> None:
             if connection is not None and connection in active_connections:
                 active_connections.remove(connection)
                 connection_topics.pop(connection, None)
-                logger.info(f"Removed WebSocket client after failed retry. Remaining: {len(active_connections)}")
+                logger.info(
+                    f"Removed WebSocket client after failed retry. Remaining: {len(active_connections)}"
+                )
 
 
 async def close_all_connections() -> None:
@@ -212,8 +225,10 @@ async def drain_webhook_tasks(timeout: float = 5.0) -> None:
         await asyncio.wait_for(
             asyncio.gather(*pending_webhook_tasks, return_exceptions=True), timeout=timeout
         )
-    except asyncio.TimeoutError:
-        logger.warning(f"Timed out waiting for {len(pending_webhook_tasks)} webhook task(s) to finish")
+    except TimeoutError:
+        logger.warning(
+            f"Timed out waiting for {len(pending_webhook_tasks)} webhook task(s) to finish"
+        )
 
 
 async def on_flow_update(data: dict) -> None:

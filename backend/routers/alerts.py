@@ -1,14 +1,18 @@
 """Configurable alert rule and triggered-alert endpoints."""
+
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 import state
 from models.alerts import (
-    AlertRule, AlertRuleCreate, AlertRuleUpdate, TriggeredAlert, validate_rule_fields,
+    AlertRule,
+    AlertRuleCreate,
+    AlertRuleUpdate,
+    TriggeredAlert,
+    validate_rule_fields,
 )
 from models.auth import User
 from utils.auth_dependencies import get_current_active_user
@@ -22,7 +26,7 @@ MAX_RULES_PER_USER = 50
 
 
 def _now_ms() -> int:
-    return int(datetime.now(timezone.utc).timestamp() * 1000)
+    return int(datetime.now(UTC).timestamp() * 1000)
 
 
 @router.post("/rules", response_model=AlertRule, status_code=status.HTTP_201_CREATED)
@@ -71,7 +75,7 @@ async def create_alert_rule(
     return rule
 
 
-@router.get("/rules", response_model=List[AlertRule])
+@router.get("/rules", response_model=list[AlertRule])
 async def list_alert_rules(current_user: User = Depends(get_current_active_user)):
     """List the current user's configurable alert rules."""
     if not state.storage:
@@ -102,7 +106,9 @@ async def update_alert_rule(
     updated = rule.model_copy(
         update={k: v for k, v in rule_update.model_dump(exclude_unset=True).items()}
     )
-    error = validate_rule_fields(updated.metric, updated.operator, updated.threshold, updated.values)
+    error = validate_rule_fields(
+        updated.metric, updated.operator, updated.threshold, updated.values
+    )
     if error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
@@ -135,10 +141,10 @@ async def delete_alert_rule(
     return None
 
 
-@router.get("/triggered", response_model=List[TriggeredAlert])
+@router.get("/triggered", response_model=list[TriggeredAlert])
 async def list_triggered_alerts(
     limit: int = Query(default=100, ge=1, le=500),
-    acknowledged: Optional[bool] = None,
+    acknowledged: bool | None = None,
     current_user: User = Depends(get_current_active_user),
 ):
     """List triggered alerts, most recent first."""
@@ -163,5 +169,7 @@ async def acknowledge_triggered_alert(
         f"Failed to acknowledge alert {alert_id}",
     )
     if not acknowledged:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Triggered alert not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Triggered alert not found"
+        )
     return {"status": "acknowledged", "alert_id": alert_id}

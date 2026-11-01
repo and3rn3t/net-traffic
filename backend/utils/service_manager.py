@@ -2,20 +2,23 @@
 Service initialization and management utilities
 Consolidates service initialization patterns
 """
+
 import logging
-from typing import Optional, Callable, Any
-from services.storage import StorageService
-from services.device_fingerprinting import DeviceFingerprintingService
-from services.oui_lookup import OuiLookup
-from services.dhcp_lease_service import DhcpLeaseService
-from services.threat_detection import ThreatDetectionService
-from services.analytics import AnalyticsService
-from services.geolocation import GeolocationService
-from services.packet_capture import PacketCaptureService
-from services.enhanced_identification import EnhancedIdentificationService
-from services.alerting import AlertingService
-from services.baseline_learning import BaselineLearningService
+from collections.abc import Callable
+from typing import Any
+
 from models.types import Device, Threat
+from services.alerting import AlertingService
+from services.analytics import AnalyticsService
+from services.baseline_learning import BaselineLearningService
+from services.device_fingerprinting import DeviceFingerprintingService
+from services.dhcp_lease_service import DhcpLeaseService
+from services.enhanced_identification import EnhancedIdentificationService
+from services.geolocation import GeolocationService
+from services.oui_lookup import OuiLookup
+from services.packet_capture import PacketCaptureService
+from services.storage import StorageService
+from services.threat_detection import ThreatDetectionService
 from utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -26,23 +29,23 @@ class ServiceManager:
 
     def __init__(self, storage: StorageService):
         self.storage = storage
-        self.device_service: Optional[DeviceFingerprintingService] = None
-        self.threat_service: Optional[ThreatDetectionService] = None
-        self.analytics: Optional[AnalyticsService] = None
-        self.advanced_analytics: Optional[AnalyticsService] = None
-        self.geolocation_service: Optional[GeolocationService] = None
-        self.network_quality_analytics: Optional[AnalyticsService] = None
-        self.application_analytics: Optional[AnalyticsService] = None
-        self.packet_capture: Optional[PacketCaptureService] = None
-        self.alerting_service: Optional[AlertingService] = None
-        self.baseline_learning_service: Optional[BaselineLearningService] = None
+        self.device_service: DeviceFingerprintingService | None = None
+        self.threat_service: ThreatDetectionService | None = None
+        self.analytics: AnalyticsService | None = None
+        self.advanced_analytics: AnalyticsService | None = None
+        self.geolocation_service: GeolocationService | None = None
+        self.network_quality_analytics: AnalyticsService | None = None
+        self.application_analytics: AnalyticsService | None = None
+        self.packet_capture: PacketCaptureService | None = None
+        self.alerting_service: AlertingService | None = None
+        self.baseline_learning_service: BaselineLearningService | None = None
 
     def initialize_services(
         self,
-        on_device_update: Optional[Callable[[Device], Any]] = None,
-        on_threat_update: Optional[Callable[[Threat], Any]] = None,
-        on_flow_update: Optional[Callable[[Any], Any]] = None,
-        on_alert_triggered: Optional[Callable[[Any], Any]] = None,
+        on_device_update: Callable[[Device], Any] | None = None,
+        on_threat_update: Callable[[Threat], Any] | None = None,
+        on_flow_update: Callable[[Any], Any] | None = None,
+        on_alert_triggered: Callable[[Any], Any] | None = None,
         network_interface: str = "eth0",
         capture_mode: str = "local",
         remote_capture_host: str = "",
@@ -92,13 +95,11 @@ class ServiceManager:
             enable_deep_packet_inspection=config.enable_deep_packet_inspection,
             enable_http_host_extraction=config.enable_http_host_extraction,
             enable_alpn_detection=config.enable_alpn_detection,
-            dns_servers=config.dns_servers if config.dns_servers else None
+            dns_servers=config.dns_servers if config.dns_servers else None,
         )
 
         # Initialize configurable alert rule engine
-        self.alerting_service = AlertingService(
-            self.storage, on_alert_triggered=on_alert_triggered
-        )
+        self.alerting_service = AlertingService(self.storage, on_alert_triggered=on_alert_triggered)
 
         # Initialize packet capture
         self.packet_capture = PacketCaptureService(
@@ -128,4 +129,3 @@ class ServiceManager:
         if self.geolocation_service:
             self.geolocation_service.close()
         logger.info("All services cleaned up")
-

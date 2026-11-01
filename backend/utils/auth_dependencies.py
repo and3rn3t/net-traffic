@@ -2,9 +2,10 @@
 FastAPI authentication dependencies
 Provides dependency injection for authentication and authorization
 """
-from typing import Optional
-from fastapi import Depends, HTTPException, status, Header
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordBearer
+
+from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
+
 from models.auth import User, UserRole
 from services.auth_service import AuthService
 from utils.constants import ErrorMessages
@@ -14,7 +15,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 bearer_scheme = HTTPBearer(auto_error=False)
 
 # Global auth service instance (will be initialized in main.py)
-auth_service: Optional[AuthService] = None
+auth_service: AuthService | None = None
 
 
 def set_auth_service(service: AuthService):
@@ -31,7 +32,7 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> Us
     if not auth_service:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication service not available"
+            detail="Authentication service not available",
         )
 
     credentials_exception = HTTPException(
@@ -50,14 +51,13 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> Us
 
     if user.disabled:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is disabled"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
         )
 
     return user
 
 
-async def get_current_user_from_api_key(x_api_key: Optional[str] = Header(None)) -> Optional[User]:
+async def get_current_user_from_api_key(x_api_key: str | None = Header(None)) -> User | None:
     """
     Get current user from API key header
     Returns None if no API key provided or invalid
@@ -76,8 +76,8 @@ async def get_current_user_from_api_key(x_api_key: Optional[str] = Header(None))
 
 
 async def get_current_user(
-    token_user: Optional[User] = Depends(get_current_user_from_token),
-    api_key_user: Optional[User] = Depends(get_current_user_from_api_key)
+    token_user: User | None = Depends(get_current_user_from_token),
+    api_key_user: User | None = Depends(get_current_user_from_api_key),
 ) -> User:
     """
     Get current user from either JWT token or API key
@@ -99,16 +99,13 @@ async def get_current_user(
     )
 
 
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Get current active user (not disabled)
     """
     if current_user.disabled:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is disabled"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is disabled"
         )
     return current_user
 
@@ -121,11 +118,11 @@ def require_role(allowed_roles: list[UserRole]):
     Usage:
         @app.get("/admin", dependencies=[Depends(require_role([UserRole.ADMIN]))])
     """
+
     async def check_role(current_user: User = Depends(get_current_active_user)):
         if current_user.role not in allowed_roles:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=ErrorMessages.FORBIDDEN
+                status_code=status.HTTP_403_FORBIDDEN, detail=ErrorMessages.FORBIDDEN
             )
         return current_user
 
@@ -136,28 +133,22 @@ def require_role(allowed_roles: list[UserRole]):
 async def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
     """Require admin role"""
     if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=ErrorMessages.FORBIDDEN
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorMessages.FORBIDDEN)
     return current_user
 
 
 async def require_operator_or_admin(current_user: User = Depends(get_current_active_user)) -> User:
     """Require operator or admin role"""
     if current_user.role not in [UserRole.OPERATOR, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=ErrorMessages.FORBIDDEN
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorMessages.FORBIDDEN)
     return current_user
 
 
 # Optional authentication (for endpoints that work with or without auth)
 async def get_current_user_optional(
-    authorization: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    x_api_key: Optional[str] = Header(None)
-) -> Optional[User]:
+    authorization: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    x_api_key: str | None = Header(None),
+) -> User | None:
     """
     Get current user if authenticated, None otherwise
     Useful for endpoints that provide additional features for authenticated users
@@ -173,7 +164,7 @@ async def get_current_user_optional(
                 user = await auth_service.get_user_without_password(token_data.username)
                 if user and not user.disabled:
                     return user
-        except:
+        except Exception:
             pass
 
     # Try API key
@@ -182,7 +173,7 @@ async def get_current_user_optional(
             user = await auth_service.verify_api_key(x_api_key)
             if user and not user.disabled:
                 return user
-        except:
+        except Exception:
             pass
 
     return None

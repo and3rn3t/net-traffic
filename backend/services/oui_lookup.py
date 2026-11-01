@@ -6,10 +6,10 @@ where `<block>` is a MAC prefix optionally suffixed with a CIDR-style bit
 length for non-standard allocation sizes, e.g. `AC:DE:48:00:00:00/28`.
 Download a copy via `scripts/update-oui-db.sh`.
 """
+
 import logging
 import os
 import re
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +37,12 @@ _CORP_SUFFIX_RE = re.compile(
 class OuiLookup:
     """Resolves a MAC address to its registered vendor via an offline OUI database."""
 
-    def __init__(self, db_path: Optional[str] = None):
-        self._prefixes: Dict[str, str] = {}
-        self.loaded_path: Optional[str] = None
+    def __init__(self, db_path: str | None = None):
+        self._prefixes: dict[str, str] = {}
+        self.loaded_path: str | None = None
         self._load(db_path)
 
-    def _load(self, db_path: Optional[str]) -> None:
+    def _load(self, db_path: str | None) -> None:
         candidates = [db_path, *_DEFAULT_PATHS] if db_path else _DEFAULT_PATHS
         for path in candidates:
             if path and os.path.isfile(path):
@@ -60,7 +60,7 @@ class OuiLookup:
         )
 
     def _parse_file(self, path: str) -> None:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(path, encoding="utf-8", errors="ignore") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
@@ -83,7 +83,7 @@ class OuiLookup:
     def is_loaded(self) -> bool:
         return bool(self._prefixes)
 
-    def lookup(self, mac: str) -> Optional[str]:
+    def lookup(self, mac: str) -> str | None:
         """Return the vendor short name for a MAC address, or None if unresolvable."""
         if not mac or mac == "unknown":
             return None

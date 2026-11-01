@@ -1,10 +1,13 @@
 """Storage CRUD and SQL-aggregate coverage."""
+
 import pytest
 
 from models.types import Device, NetworkFlow, Threat
 
 
-def make_device(device_id: str = "dev-1", ip: str = "10.0.0.1", mac: str = "AA:BB:CC:DD:EE:FF") -> Device:
+def make_device(
+    device_id: str = "dev-1", ip: str = "10.0.0.1", mac: str = "AA:BB:CC:DD:EE:FF"
+) -> Device:
     return Device(
         id=device_id,
         name="Test Device",
@@ -21,7 +24,9 @@ def make_device(device_id: str = "dev-1", ip: str = "10.0.0.1", mac: str = "AA:B
     )
 
 
-def make_flow(flow_id: str = "flow-1", device_id: str = "dev-1", timestamp: int = 1_700_000_000_000) -> NetworkFlow:
+def make_flow(
+    flow_id: str = "flow-1", device_id: str = "dev-1", timestamp: int = 1_700_000_000_000
+) -> NetworkFlow:
     return NetworkFlow(
         id=flow_id,
         timestamp=timestamp,
@@ -97,9 +102,12 @@ def make_quality_flow(
     )
 
 
-
-
-def make_threat(threat_id: str = "threat-1", device_id: str = "dev-1", severity: str = "high", type_: str = "anomaly") -> Threat:
+def make_threat(
+    threat_id: str = "threat-1",
+    device_id: str = "dev-1",
+    severity: str = "high",
+    type_: str = "anomaly",
+) -> Threat:
     return Threat(
         id=threat_id,
         timestamp=1_700_000_000_000,
@@ -252,8 +260,12 @@ async def test_aggregate_hourly_quality(storage):
 async def test_aggregate_hourly_quality_filters_by_device(storage):
     await storage.upsert_device(make_device("dev-1", "10.0.0.1", "AA:BB:CC:DD:EE:01"))
     await storage.upsert_device(make_device("dev-2", "10.0.0.2", "AA:BB:CC:DD:EE:02"))
-    await storage.add_flow(make_quality_flow("flow-1", rtt=10, jitter=1.0, device_id="dev-1", timestamp=0))
-    await storage.add_flow(make_quality_flow("flow-2", rtt=90, jitter=9.0, device_id="dev-2", timestamp=0))
+    await storage.add_flow(
+        make_quality_flow("flow-1", rtt=10, jitter=1.0, device_id="dev-1", timestamp=0)
+    )
+    await storage.add_flow(
+        make_quality_flow("flow-2", rtt=90, jitter=9.0, device_id="dev-2", timestamp=0)
+    )
 
     rows = await storage.aggregate_hourly_quality(0, device_id="dev-1")
 
@@ -275,5 +287,3 @@ async def test_aggregate_bytes_total(storage):
     totals_bounded = await storage.aggregate_bytes_total(1_000, 5_000)
     assert totals_bounded["bytes_in"] == 2000
     assert totals_bounded["bytes_out"] == 1000
-
-

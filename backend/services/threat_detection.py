@@ -1,55 +1,56 @@
 """
 Threat detection and analysis service
 """
+
 import logging
-from typing import Dict, Optional, Callable
-from datetime import datetime
 import uuid
+from collections.abc import Callable
+from datetime import datetime
 
 from models.types import Threat
 from services.storage import StorageService
 from utils.constants import (
-    LARGE_UPLOAD_BYTES,
-    SUSPICIOUS_PORTS,
-    HIGH_PACKET_COUNT,
-    LOW_DATA_TRANSFER,
-    HIGH_JITTER_MS,
-    HIGH_RTT_MS,
-    THREAT_SCORE_CRITICAL,
-    THREAT_SCORE_HIGH,
-    THREAT_SCORE_MEDIUM,
-    THREAT_SCORE_LOW,
-    HIGH_RETRANSMISSION_RATE,
-    SUSPICIOUS_DOMAIN_PATTERNS,
-    HIGH_RISK_COUNTRIES,
     ALLOWED_APPLICATIONS,
     DNS_NOERROR,
-    THREAT_SCORE_EXFILTRATION,
-    THREAT_SCORE_SUSPICIOUS_PORT,
-    THREAT_SCORE_PORT_SCAN,
-    THREAT_SCORE_TCP_ANOMALY,
-    THREAT_SCORE_CONNECTION_RESET,
-    THREAT_SCORE_HIGH_RETRANSMISSION,
-    THREAT_SCORE_HIGH_JITTER,
-    THREAT_SCORE_HIGH_RTT,
-    THREAT_SCORE_SUSPICIOUS_DOMAIN,
-    THREAT_SCORE_HIGH_RISK_COUNTRY,
-    THREAT_SCORE_UNAUTHORIZED_APP,
-    THREAT_SCORE_DNS_ANOMALY,
-    DDoS_RETRANSMISSION_THRESHOLD,
-    DDoS_JITTER_THRESHOLD,
     EARLY_RESET_PACKET_THRESHOLD,
+    HIGH_JITTER_MS,
+    HIGH_PACKET_COUNT,
+    HIGH_RETRANSMISSION_RATE,
+    HIGH_RISK_COUNTRIES,
+    HIGH_RTT_MS,
+    LARGE_UPLOAD_BYTES,
+    LOW_DATA_TRANSFER,
+    SUSPICIOUS_DOMAIN_PATTERNS,
+    SUSPICIOUS_PORTS,
+    THREAT_SCORE_CONNECTION_RESET,
+    THREAT_SCORE_CRITICAL,
+    THREAT_SCORE_DNS_ANOMALY,
+    THREAT_SCORE_EXFILTRATION,
+    THREAT_SCORE_HIGH,
+    THREAT_SCORE_HIGH_JITTER,
+    THREAT_SCORE_HIGH_RETRANSMISSION,
+    THREAT_SCORE_HIGH_RISK_COUNTRY,
+    THREAT_SCORE_HIGH_RTT,
+    THREAT_SCORE_LOW,
+    THREAT_SCORE_MEDIUM,
+    THREAT_SCORE_PORT_SCAN,
+    THREAT_SCORE_SUSPICIOUS_DOMAIN,
+    THREAT_SCORE_SUSPICIOUS_PORT,
+    THREAT_SCORE_TCP_ANOMALY,
+    THREAT_SCORE_UNAUTHORIZED_APP,
+    DDoS_JITTER_THRESHOLD,
+    DDoS_RETRANSMISSION_THRESHOLD,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class ThreatDetectionService:
-    def __init__(self, storage: StorageService, on_threat_update: Optional[Callable] = None):
+    def __init__(self, storage: StorageService, on_threat_update: Callable | None = None):
         self.storage = storage
         self.on_threat_update = on_threat_update
 
-    async def analyze_flow(self, flow_data: Dict) -> str:
+    async def analyze_flow(self, flow_data: dict) -> str:
         """Analyze flow and determine threat level using enhanced data"""
         threat_level = "safe"
         threat_score = 0
@@ -91,9 +92,7 @@ class ThreatDetectionService:
 
         # 5. High retransmission rate (NEW) - indicates network attack
         retransmissions = flow_data.get("retransmissions", 0)
-        total_packets = (
-            flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
-        )
+        total_packets = flow_data.get("packets_in", 0) + flow_data.get("packets_out", 0)
         if total_packets > 0:
             retransmission_rate = (retransmissions / total_packets) * 100
             if retransmission_rate > HIGH_RETRANSMISSION_RATE:
@@ -159,7 +158,7 @@ class ThreatDetectionService:
 
         return threat_level
 
-    async def _create_threat(self, flow_data: Dict, threat_level: str):
+    async def _create_threat(self, flow_data: dict, threat_level: str):
         """Create threat record"""
         try:
             threat_type = self._classify_threat(flow_data)
@@ -168,7 +167,7 @@ class ThreatDetectionService:
                 "low": "low",
                 "medium": "medium",
                 "high": "high",
-                "critical": "critical"
+                "critical": "critical",
             }
             severity = severity_map.get(threat_level, "low")
 
@@ -181,7 +180,7 @@ class ThreatDetectionService:
                 flowId=flow_data.get("id", "unknown"),
                 description=self._generate_threat_description(flow_data, threat_type),
                 recommendation=self._generate_recommendation(threat_type),
-                dismissed=False
+                dismissed=False,
             )
 
             await self.storage.add_threat(threat)
@@ -194,7 +193,7 @@ class ThreatDetectionService:
         except Exception as e:
             logger.error(f"Error creating threat: {e}")
 
-    def _classify_threat(self, flow_data: Dict) -> str:
+    def _classify_threat(self, flow_data: dict) -> str:
         """Classify threat type using enhanced data"""
         # Exfiltration
         if flow_data.get("bytes_out", 0) > LARGE_UPLOAD_BYTES:
@@ -224,7 +223,7 @@ class ThreatDetectionService:
         # Default to anomaly
         return "anomaly"
 
-    def _generate_threat_description(self, flow_data: Dict, threat_type: str) -> str:
+    def _generate_threat_description(self, flow_data: dict, threat_type: str) -> str:
         """Generate human-readable threat description with enhanced details"""
         dest_ip = flow_data.get("dest_ip", "unknown")
         dest_port = flow_data.get("dest_port", 0)
@@ -253,7 +252,7 @@ class ThreatDetectionService:
             "anomaly": (
                 f"Behavioral anomaly: {flow_data.get('application', 'unknown protocol')} "
                 f"connection to {sni or dest_ip}"
-            )
+            ),
         }
         return descriptions.get(threat_type, "Suspicious activity detected")
 
@@ -262,7 +261,6 @@ class ThreatDetectionService:
         recommendations = {
             "exfiltration": "Review device for unauthorized applications and check for data breaches",
             "scan": "Investigate device for compromise and check for malware",
-            "anomaly": "Monitor device closely and investigate if behavior continues"
+            "anomaly": "Monitor device closely and investigate if behavior continues",
         }
         return recommendations.get(threat_type, "Monitor device and review network activity")
-

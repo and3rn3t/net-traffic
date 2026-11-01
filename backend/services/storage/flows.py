@@ -1,5 +1,4 @@
 """Flow repository: CRUD, search, and analytics aggregates over the `flows` table."""
-from typing import Dict, List, Optional
 
 from models.types import NetworkFlow
 from services.storage.base import Repository, log_slow_query
@@ -11,7 +10,8 @@ class FlowRepository(Repository):
         # Convert TCP flags list to comma-separated string
         tcp_flags_str = ",".join(flow.tcpFlags) if flow.tcpFlags else None
 
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT OR REPLACE INTO flows
             (id, timestamp, source_ip, source_port, dest_ip, dest_port, protocol,
              bytes_in, bytes_out, packets_in, packets_out, duration, status,
@@ -21,20 +21,51 @@ class FlowRepository(Repository):
              http_host, http_status_code, dns_query_name, dns_answers, tls_version)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
-            flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
-            flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
-            flow.country, flow.city, flow.asn, flow.domain, flow.sni, flow.threatLevel, flow.deviceId,
-            tcp_flags_str, flow.ttl, flow.connectionState, flow.rtt, flow.retransmissions, flow.jitter,
-            flow.application, flow.userAgent, flow.httpMethod, flow.url, flow.dnsQueryType, flow.dnsResponseCode,
-            flow.httpHost, flow.httpStatusCode, flow.dnsQueryName,
-            ",".join(flow.dnsAnswers) if flow.dnsAnswers else None, flow.tlsVersion
-        ))
+        """,
+            (
+                flow.id,
+                flow.timestamp,
+                flow.sourceIp,
+                flow.sourcePort,
+                flow.destIp,
+                flow.destPort,
+                flow.protocol,
+                flow.bytesIn,
+                flow.bytesOut,
+                flow.packetsIn,
+                flow.packetsOut,
+                flow.duration,
+                flow.status,
+                flow.country,
+                flow.city,
+                flow.asn,
+                flow.domain,
+                flow.sni,
+                flow.threatLevel,
+                flow.deviceId,
+                tcp_flags_str,
+                flow.ttl,
+                flow.connectionState,
+                flow.rtt,
+                flow.retransmissions,
+                flow.jitter,
+                flow.application,
+                flow.userAgent,
+                flow.httpMethod,
+                flow.url,
+                flow.dnsQueryType,
+                flow.dnsResponseCode,
+                flow.httpHost,
+                flow.httpStatusCode,
+                flow.dnsQueryName,
+                ",".join(flow.dnsAnswers) if flow.dnsAnswers else None,
+                flow.tlsVersion,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def add_flows_batch(self, flows: List[NetworkFlow]):
+    async def add_flows_batch(self, flows: list[NetworkFlow]):
         """Insert multiple flows in a single transaction (Pi optimization: fewer commits/fsyncs)."""
         if not flows:
             return
@@ -52,16 +83,43 @@ class FlowRepository(Repository):
         """
         params = [
             (
-                flow.id, flow.timestamp, flow.sourceIp, flow.sourcePort, flow.destIp,
-                flow.destPort, flow.protocol, flow.bytesIn, flow.bytesOut,
-                flow.packetsIn, flow.packetsOut, flow.duration, flow.status,
-                flow.country, flow.city, flow.asn, flow.domain, flow.sni, flow.threatLevel, flow.deviceId,
-                ",".join(flow.tcpFlags) if flow.tcpFlags else None, flow.ttl, flow.connectionState,
-                flow.rtt, flow.retransmissions, flow.jitter,
-                flow.application, flow.userAgent, flow.httpMethod, flow.url,
-                flow.dnsQueryType, flow.dnsResponseCode,
-                flow.httpHost, flow.httpStatusCode, flow.dnsQueryName,
-                ",".join(flow.dnsAnswers) if flow.dnsAnswers else None, flow.tlsVersion
+                flow.id,
+                flow.timestamp,
+                flow.sourceIp,
+                flow.sourcePort,
+                flow.destIp,
+                flow.destPort,
+                flow.protocol,
+                flow.bytesIn,
+                flow.bytesOut,
+                flow.packetsIn,
+                flow.packetsOut,
+                flow.duration,
+                flow.status,
+                flow.country,
+                flow.city,
+                flow.asn,
+                flow.domain,
+                flow.sni,
+                flow.threatLevel,
+                flow.deviceId,
+                ",".join(flow.tcpFlags) if flow.tcpFlags else None,
+                flow.ttl,
+                flow.connectionState,
+                flow.rtt,
+                flow.retransmissions,
+                flow.jitter,
+                flow.application,
+                flow.userAgent,
+                flow.httpMethod,
+                flow.url,
+                flow.dnsQueryType,
+                flow.dnsResponseCode,
+                flow.httpHost,
+                flow.httpStatusCode,
+                flow.dnsQueryName,
+                ",".join(flow.dnsAnswers) if flow.dnsAnswers else None,
+                flow.tlsVersion,
             )
             for flow in flows
         ]
@@ -76,22 +134,30 @@ class FlowRepository(Repository):
             await self.base.db.commit()
 
     @log_slow_query("get_flows")
-    async def get_flows(self, limit: int = 100, device_id: Optional[str] = None,
-                       status: Optional[str] = None, protocol: Optional[str] = None,
-                       start_time: Optional[int] = None, end_time: Optional[int] = None,
-                       source_ip: Optional[str] = None, dest_ip: Optional[str] = None,
-                       threat_level: Optional[str] = None, min_bytes: Optional[int] = None,
-                       offset: int = 0,
-                       # New enhanced filters
-                       country: Optional[str] = None,
-                       city: Optional[str] = None,
-                       application: Optional[str] = None,
-                       min_rtt: Optional[int] = None,
-                       max_rtt: Optional[int] = None,
-                       max_jitter: Optional[float] = None,
-                       max_retransmissions: Optional[int] = None,
-                       sni: Optional[str] = None,
-                       connection_state: Optional[str] = None) -> List[NetworkFlow]:
+    async def get_flows(
+        self,
+        limit: int = 100,
+        device_id: str | None = None,
+        status: str | None = None,
+        protocol: str | None = None,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        source_ip: str | None = None,
+        dest_ip: str | None = None,
+        threat_level: str | None = None,
+        min_bytes: int | None = None,
+        offset: int = 0,
+        # New enhanced filters
+        country: str | None = None,
+        city: str | None = None,
+        application: str | None = None,
+        min_rtt: int | None = None,
+        max_rtt: int | None = None,
+        max_jitter: float | None = None,
+        max_retransmissions: int | None = None,
+        sni: str | None = None,
+        connection_state: str | None = None,
+    ) -> list[NetworkFlow]:
         """Get flows with advanced filters including enhanced data fields"""
         query = "SELECT * FROM flows WHERE 1=1"
         params = []
@@ -184,7 +250,7 @@ class FlowRepository(Repository):
                 return [self._row_to_flow(row) for row in rows]
 
     @log_slow_query("aggregate_geographic")
-    async def aggregate_geographic(self, start_time: int) -> List[dict]:
+    async def aggregate_geographic(self, start_time: int) -> list[dict]:
         """Aggregate connections by country in SQL (avoids loading flows)."""
         rows = await self.base._aggregate_fetchall(
             """
@@ -211,9 +277,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_top_domains")
-    async def aggregate_top_domains(
-        self, start_time: int, limit: int = 20
-    ) -> List[dict]:
+    async def aggregate_top_domains(self, start_time: int, limit: int = 20) -> list[dict]:
         """Aggregate top domains by traffic in SQL."""
         rows = await self.base._aggregate_fetchall(
             """
@@ -303,7 +367,7 @@ class FlowRepository(Repository):
         }
 
     @log_slow_query("aggregate_device_presence")
-    async def aggregate_device_presence(self, start_time: int) -> List[dict]:
+    async def aggregate_device_presence(self, start_time: int) -> list[dict]:
         """Aggregate per-device, per-hour-bucket flow counts in SQL (the raw
         material for an online/offline-by-hour presence heatmap)."""
         rows = await self.base._aggregate_fetchall(
@@ -328,8 +392,8 @@ class FlowRepository(Repository):
 
     @log_slow_query("aggregate_hourly_quality")
     async def aggregate_hourly_quality(
-        self, start_time: int, device_id: Optional[str] = None
-    ) -> List[dict]:
+        self, start_time: int, device_id: str | None = None
+    ) -> list[dict]:
         """Aggregate avg RTT/jitter per absolute hour bucket in SQL (the raw
         material for a day-of-week x hour-of-day latency quality calendar,
         which buckets further by local time in Python)."""
@@ -360,8 +424,8 @@ class FlowRepository(Repository):
 
     @log_slow_query("aggregate_bytes_total")
     async def aggregate_bytes_total(
-        self, start_time: int, end_time: Optional[int] = None
-    ) -> Dict[str, int]:
+        self, start_time: int, end_time: int | None = None
+    ) -> dict[str, int]:
         """Sum bytes_in/bytes_out over a timestamp range (used for the
         monthly data budget tracker's month-to-date and prior-month totals)."""
         query = """
@@ -383,7 +447,7 @@ class FlowRepository(Repository):
         }
 
     @log_slow_query("aggregate_top_devices")
-    async def aggregate_top_devices(self, start_time: int) -> List[dict]:
+    async def aggregate_top_devices(self, start_time: int) -> list[dict]:
         """Aggregate per-device traffic in SQL. Enrichment done by caller."""
         rows = await self.base._aggregate_fetchall(
             """
@@ -409,9 +473,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_bandwidth_timeline")
-    async def aggregate_bandwidth_timeline(
-        self, start_time: int, interval_ms: int
-    ) -> List[dict]:
+    async def aggregate_bandwidth_timeline(self, start_time: int, interval_ms: int) -> list[dict]:
         """Aggregate bandwidth into fixed time buckets in SQL."""
         rows = await self.base._aggregate_fetchall(
             """
@@ -439,9 +501,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_device_analytics")
-    async def aggregate_device_analytics(
-        self, device_id: str, start_time: int
-    ) -> dict:
+    async def aggregate_device_analytics(self, device_id: str, start_time: int) -> dict:
         """Aggregate per-device breakdowns in SQL for a single device."""
         summary_rows = await self.base._aggregate_fetchall(
             """
@@ -506,13 +566,8 @@ class FlowRepository(Repository):
                 }
                 for r in protocol_rows
             ],
-            "top_domains": [
-                {"domain": r["domain"], "bytes": r["bytes"]} for r in domain_rows
-            ],
-            "top_ports": [
-                {"port": r["port"], "connections": r["connections"]}
-                for r in port_rows
-            ],
+            "top_domains": [{"domain": r["domain"], "bytes": r["bytes"]} for r in domain_rows],
+            "top_ports": [{"port": r["port"], "connections": r["connections"]} for r in port_rows],
         }
 
     @log_slow_query("aggregate_rtt_trends")
@@ -520,9 +575,9 @@ class FlowRepository(Repository):
         self,
         start_time: int,
         interval_ms: int,
-        device_id: Optional[str] = None,
-        country: Optional[str] = None,
-    ) -> List[dict]:
+        device_id: str | None = None,
+        country: str | None = None,
+    ) -> list[dict]:
         """Aggregate RTT into fixed time buckets in SQL (avoids loading flows)."""
         query = """
             SELECT (timestamp / ?) * ? AS bucket,
@@ -555,9 +610,7 @@ class FlowRepository(Repository):
         ]
 
     @log_slow_query("aggregate_jitter_stats")
-    async def aggregate_jitter_stats(
-        self, start_time: int, device_id: Optional[str] = None
-    ) -> dict:
+    async def aggregate_jitter_stats(self, start_time: int, device_id: str | None = None) -> dict:
         """Aggregate jitter summary + distribution buckets in SQL."""
         summary_query = """
             SELECT AVG(jitter) AS avg_jitter, MIN(jitter) AS min_jitter,
@@ -593,8 +646,11 @@ class FlowRepository(Repository):
         s = summary_rows[0] if summary_rows else None
         if not s or not s["count"]:
             return {
-                "avg_jitter": 0.0, "min_jitter": 0.0, "max_jitter": 0.0,
-                "count": 0, "distribution": [],
+                "avg_jitter": 0.0,
+                "min_jitter": 0.0,
+                "max_jitter": 0.0,
+                "count": 0,
+                "distribution": [],
             }
         return {
             "avg_jitter": round(s["avg_jitter"], 2),
@@ -609,7 +665,7 @@ class FlowRepository(Repository):
 
     @log_slow_query("aggregate_retransmission_stats")
     async def aggregate_retransmission_stats(
-        self, start_time: int, device_id: Optional[str] = None
+        self, start_time: int, device_id: str | None = None
     ) -> dict:
         """Aggregate retransmission totals + per-protocol breakdown in SQL."""
         overall_query = """
@@ -651,12 +707,14 @@ class FlowRepository(Repository):
         protocol_stats = []
         for r in protocol_rows:
             rate = (r["retransmissions"] / r["packets"] * 100) if r["packets"] > 0 else 0
-            protocol_stats.append({
-                "protocol": r["protocol"],
-                "flows": r["flows"],
-                "retransmissions": r["retransmissions"],
-                "rate": round(rate, 2),
-            })
+            protocol_stats.append(
+                {
+                    "protocol": r["protocol"],
+                    "flows": r["flows"],
+                    "retransmissions": r["retransmissions"],
+                    "rate": round(rate, 2),
+                }
+            )
         protocol_stats.sort(key=lambda x: x["rate"], reverse=True)
 
         return {
@@ -670,7 +728,7 @@ class FlowRepository(Repository):
 
     @log_slow_query("aggregate_connection_quality")
     async def aggregate_connection_quality(
-        self, start_time: int, device_id: Optional[str] = None
+        self, start_time: int, device_id: str | None = None
     ) -> dict:
         """Aggregate the full connection-quality summary in SQL (avoids loading
         up to 100k flows into Pydantic objects per call - this endpoint is
@@ -757,7 +815,7 @@ class FlowRepository(Repository):
         }
 
     @log_slow_query("aggregate_analytics_hourly")
-    async def aggregate_analytics_hourly(self, start_time: int) -> Dict[int, dict]:
+    async def aggregate_analytics_hourly(self, start_time: int) -> dict[int, dict]:
         """Aggregate bytes/connections/active-devices/threat-flagged-flows into
         epoch-hour-aligned buckets in SQL (avoids loading flows; also matches the
         alignment used by aggregate_threat_counts_by_hour so the two can be merged)."""
@@ -787,9 +845,7 @@ class FlowRepository(Repository):
         }
 
     @log_slow_query("aggregate_protocol_stats")
-    async def aggregate_protocol_stats(
-        self, start_time: Optional[int] = None
-    ) -> List[dict]:
+    async def aggregate_protocol_stats(self, start_time: int | None = None) -> list[dict]:
         """Aggregate bytes/connections by protocol in SQL (avoids loading flows)."""
         query = """
             SELECT protocol,
@@ -812,8 +868,8 @@ class FlowRepository(Repository):
 
     @log_slow_query("aggregate_application_breakdown")
     async def aggregate_application_breakdown(
-        self, start_time: int, device_id: Optional[str] = None
-    ) -> List[dict]:
+        self, start_time: int, device_id: str | None = None
+    ) -> list[dict]:
         """Aggregate per-application traffic stats in SQL (avoids loading flows)."""
         query = """
             SELECT application,
@@ -846,8 +902,8 @@ class FlowRepository(Repository):
 
     @log_slow_query("aggregate_application_trends")
     async def aggregate_application_trends(
-        self, start_time: int, interval_ms: int, application: Optional[str] = None
-    ) -> List[dict]:
+        self, start_time: int, interval_ms: int, application: str | None = None
+    ) -> list[dict]:
         """Aggregate per-application traffic into time buckets in SQL (avoids loading flows)."""
         query = """
             SELECT (timestamp / ?) * ? AS bucket,
@@ -877,7 +933,7 @@ class FlowRepository(Repository):
     @log_slow_query("aggregate_device_application_profile")
     async def aggregate_device_application_profile(
         self, device_id: str, start_time: int
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Aggregate a single device's per-application usage in SQL (avoids loading flows)."""
         rows = await self.base._aggregate_fetchall(
             """
@@ -902,7 +958,7 @@ class FlowRepository(Repository):
             for r in rows
         ]
 
-    async def search_flows(self, query_text: str, limit: int = 50) -> List[NetworkFlow]:
+    async def search_flows(self, query_text: str, limit: int = 50) -> list[NetworkFlow]:
         """Search flows by IP address or domain"""
         query = """
             SELECT * FROM flows
@@ -919,7 +975,7 @@ class FlowRepository(Repository):
             rows = await cursor.fetchall()
             return [self._row_to_flow(row) for row in rows]
 
-    async def get_flow(self, flow_id: str) -> Optional[NetworkFlow]:
+    async def get_flow(self, flow_id: str) -> NetworkFlow | None:
         """Get flow by ID"""
         if self.base.pool:
             async with self.base.pool.acquire() as conn:
@@ -928,7 +984,9 @@ class FlowRepository(Repository):
                     return self._row_to_flow(row) if row else None
         else:
             await self.base._ensure_connection()
-            async with self.base.db.execute("SELECT * FROM flows WHERE id = ?", (flow_id,)) as cursor:
+            async with self.base.db.execute(
+                "SELECT * FROM flows WHERE id = ?", (flow_id,)
+            ) as cursor:
                 row = await cursor.fetchone()
                 return self._row_to_flow(row) if row else None
 
@@ -960,7 +1018,7 @@ class FlowRepository(Repository):
                 return int(row[0]) if row else 0
 
     @log_slow_query("get_device_flow_aggregates")
-    async def get_device_flow_aggregates(self, start_time: int, end_time: int) -> List[dict]:
+    async def get_device_flow_aggregates(self, start_time: int, end_time: int) -> list[dict]:
         """Aggregate flow activity per device over [start_time, end_time) for baseline learning.
 
         Uses SQL-level aggregation (not per-flow Python loops) since this only
@@ -1037,7 +1095,8 @@ class FlowRepository(Repository):
             dnsQueryName=row["dns_query_name"],
             dnsAnswers=(
                 [a.strip() for a in row["dns_answers"].split(",") if a.strip()]
-                if row["dns_answers"] else None
+                if row["dns_answers"]
+                else None
             ),
-            tlsVersion=row["tls_version"]
+            tlsVersion=row["tls_version"],
         )

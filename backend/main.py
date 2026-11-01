@@ -2,11 +2,12 @@
 NetInsight Backend API
 Raspberry Pi 5 compatible network traffic analysis service
 """
+
 import asyncio
 import logging
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,13 +16,13 @@ from fastapi.responses import JSONResponse
 
 import state
 from models.types import Threat
+from services.auth_service import AuthService
+from services.cache_service import CacheService
 from utils.config import config
 from utils.constants import CLEANUP_INTERVAL_HOURS, SECONDS_PER_HOUR
 from utils.logging_config import StructuredLogger, setup_logging
 from utils.rate_limit import RateLimitMiddleware
 from utils.request_logging import RequestLoggingMiddleware
-from services.cache_service import CacheService
-from services.auth_service import AuthService
 from utils.service_manager import ServiceManager
 
 # Configure structured logging
@@ -62,7 +63,9 @@ async def _periodic_health_heartbeat(interval_minutes: int) -> None:
             capture = state.packet_capture
             packets_captured = capture.packets_captured if capture else 0
             dropped = getattr(capture, "_packets_dropped", 0) if capture else 0
-            dropped_backpressure = getattr(capture, "_packets_dropped_backpressure", 0) if capture else 0
+            dropped_backpressure = (
+                getattr(capture, "_packets_dropped_backpressure", 0) if capture else 0
+            )
             capture_stale = capture.is_stale() if capture else None
 
             logger.info(
@@ -94,7 +97,9 @@ async def _periodic_health_heartbeat(interval_minutes: int) -> None:
 
             wal_bytes = db_stats.get("wal_size_bytes", 0)
             if wal_bytes > config.wal_warn_bytes and state.storage:
-                logger.warning(f"WAL size {wal_bytes} bytes exceeds threshold, running proactive checkpoint")
+                logger.warning(
+                    f"WAL size {wal_bytes} bytes exceeds threshold, running proactive checkpoint"
+                )
                 result = await state.storage.checkpoint_wal_if_needed(config.wal_warn_bytes)
                 if result:
                     logger.info(
@@ -150,21 +155,21 @@ async def _periodic_bandwidth_check(interval_hours: int) -> None:
             if not threshold_mb or not state.storage:
                 continue
 
-            since_ms = int((datetime.now(timezone.utc) - timedelta(hours=24)).timestamp() * 1000)
+            since_ms = int((datetime.now(UTC) - timedelta(hours=24)).timestamp() * 1000)
             total_bytes = await state.storage.get_total_bytes_since(since_ms)
             total_mb = total_bytes / (1024 * 1024)
 
             if total_mb < threshold_mb:
                 continue
 
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            today = datetime.now(UTC).strftime("%Y-%m-%d")
             if today == last_alert_date:
                 continue
             last_alert_date = today
 
             threat = Threat(
                 id=str(uuid.uuid4()),
-                timestamp=int(datetime.now(timezone.utc).timestamp() * 1000),
+                timestamp=int(datetime.now(UTC).timestamp() * 1000),
                 type="bandwidth_quota",
                 severity="medium",
                 deviceId="network",
@@ -178,7 +183,9 @@ async def _periodic_bandwidth_check(interval_hours: int) -> None:
             )
             await state.storage.add_threat(threat)
             await state.on_threat_update(threat)
-            logger.warning(f"Bandwidth alert triggered: {total_mb:.1f} MB / {threshold_mb:.1f} MB threshold")
+            logger.warning(
+                f"Bandwidth alert triggered: {total_mb:.1f} MB / {threshold_mb:.1f} MB threshold"
+            )
         except asyncio.CancelledError:
             logger.info("Bandwidth check task cancelled")
             break
@@ -215,7 +222,9 @@ async def lifespan(app: FastAPI):
         "Effective configuration",
         capture_mode=config.capture_mode,
         network_interface=config.network_interface if config.capture_mode == "local" else None,
-        remote_capture_host=config.remote_capture_host if config.capture_mode == "remote_ssh" else None,
+        remote_capture_host=config.remote_capture_host
+        if config.capture_mode == "remote_ssh"
+        else None,
         db_path=config.db_path,
         data_retention_days=config.data_retention_days,
         redis_host=config.redis_host,
@@ -231,9 +240,13 @@ async def lifespan(app: FastAPI):
 
     # Storage + cache are independent (no shared connection) - initialize concurrently
     state.storage = StorageService(db_path=config.db_path)
-    state.cache_service = CacheService(host=config.redis_host, port=config.redis_port, default_ttl=300)
+    state.cache_service = CacheService(
+        host=config.redis_host, port=config.redis_port, default_ttl=300
+    )
     await asyncio.gather(state.storage.initialize(), state.cache_service.initialize())
-    logger.info("Cache service initialized", redis_host=config.redis_host, redis_port=config.redis_port)
+    logger.info(
+        "Cache service initialized", redis_host=config.redis_host, redis_port=config.redis_port
+    )
 
     # Auth connects to the same db file with its own connection - run after
     # storage.initialize() so WAL mode is already set (avoids "database is
@@ -296,8 +309,12 @@ async def lifespan(app: FastAPI):
 
     cleanup_task = asyncio.create_task(_periodic_cleanup(CLEANUP_INTERVAL_HOURS))
     bandwidth_task = asyncio.create_task(_periodic_bandwidth_check(BANDWIDTH_CHECK_INTERVAL_HOURS))
-    baseline_task = asyncio.create_task(_periodic_baseline_learning(BASELINE_LEARNING_INTERVAL_HOURS))
-    heartbeat_task = asyncio.create_task(_periodic_health_heartbeat(config.heartbeat_interval_minutes))
+    baseline_task = asyncio.create_task(
+        _periodic_baseline_learning(BASELINE_LEARNING_INTERVAL_HOURS)
+    )
+    heartbeat_task = asyncio.create_task(
+        _periodic_health_heartbeat(config.heartbeat_interval_minutes)
+    )
 
     yield
 
@@ -388,10 +405,21 @@ async def root():
     }
 
 
-# Register routers
-from routers import (
-    alerts, analytics, auth, cache, capture, devices, filter_presets, flows, health, maintenance, threats, websocket,
-)  # noqa: E402
+# Register routers (imported after app setup)
+from routers import (  # noqa: E402
+    alerts,
+    analytics,
+    auth,
+    cache,
+    capture,
+    devices,
+    filter_presets,
+    flows,
+    health,
+    maintenance,
+    threats,
+    websocket,
+)
 
 app.include_router(health.router)
 app.include_router(auth.router)

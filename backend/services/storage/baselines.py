@@ -1,5 +1,4 @@
 """Baseline repository: learned per-device behavioral baselines (predictive anomaly detection)."""
-from typing import List, Optional
 
 from models.baseline import DeviceBaseline
 from services.storage.base import Repository
@@ -8,24 +7,35 @@ from services.storage.base import Repository
 class BaselineRepository(Repository):
     async def upsert_device_baseline(self, baseline: DeviceBaseline):
         """Insert or update a device's learned behavioral baseline"""
-        await self.base._execute_with_retry("""
+        await self.base._execute_with_retry(
+            """
             INSERT OR REPLACE INTO device_baselines
             (device_id, bytes_total_mean, bytes_total_stddev, connections_mean,
              connections_stddev, avg_rtt_mean, avg_rtt_stddev, avg_jitter_mean,
              avg_jitter_stddev, retransmission_rate_mean, retransmission_rate_stddev,
              sample_count, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            baseline.deviceId, baseline.bytesTotalMean, baseline.bytesTotalStdDev,
-            baseline.connectionsMean, baseline.connectionsStdDev, baseline.avgRttMean,
-            baseline.avgRttStdDev, baseline.avgJitterMean, baseline.avgJitterStdDev,
-            baseline.retransmissionRateMean, baseline.retransmissionRateStdDev,
-            baseline.sampleCount, baseline.updatedAt
-        ))
+        """,
+            (
+                baseline.deviceId,
+                baseline.bytesTotalMean,
+                baseline.bytesTotalStdDev,
+                baseline.connectionsMean,
+                baseline.connectionsStdDev,
+                baseline.avgRttMean,
+                baseline.avgRttStdDev,
+                baseline.avgJitterMean,
+                baseline.avgJitterStdDev,
+                baseline.retransmissionRateMean,
+                baseline.retransmissionRateStdDev,
+                baseline.sampleCount,
+                baseline.updatedAt,
+            ),
+        )
         await self.base._ensure_connection()
         await self.base.db.commit()
 
-    async def get_device_baseline(self, device_id: str) -> Optional[DeviceBaseline]:
+    async def get_device_baseline(self, device_id: str) -> DeviceBaseline | None:
         """Get a single device's learned baseline"""
         query = "SELECT * FROM device_baselines WHERE device_id = ?"
         if self.base.pool:
@@ -39,7 +49,7 @@ class BaselineRepository(Repository):
                 row = await cursor.fetchone()
                 return self._row_to_device_baseline(row) if row else None
 
-    async def get_all_device_baselines(self) -> List[DeviceBaseline]:
+    async def get_all_device_baselines(self) -> list[DeviceBaseline]:
         """Get all learned device baselines"""
         query = "SELECT * FROM device_baselines"
         if self.base.pool:
