@@ -1,6 +1,7 @@
 # Cloudflare Pages project for the NetInsight frontend (net-traffic.andernet.dev).
-# Build-time env vars (VITE_USE_REAL_API, VITE_API_BASE_URL) are set in the
-# Pages dashboard, not here.
+# CI builds dist/ in GitHub Actions and uploads it prebuilt, so the build-time
+# env vars (VITE_USE_REAL_API, VITE_API_BASE_URL) come from GitHub repository
+# secrets (see ci-cd.yml). Pages dashboard variables do not reach that bundle.
 name = "net-traffic"
 compatibility_date = "2026-10-01"
 pages_build_output_dir = "dist"
