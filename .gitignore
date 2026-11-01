@@ -54,6 +54,7 @@ build/
 *.egg
 .pytest_cache/
 .coverage
+coverage/
 htmlcov/
 .mypy_cache/
 .dmypy.json
