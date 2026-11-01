@@ -7,7 +7,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ApiClient } from '../api';
 
 // Mock fetch globally
-globalThis.fetch = vi.fn();
+const fetchMock = vi.fn();
+globalThis.fetch = fetchMock;
 
 // Mock WebSocket globally
 class MockWebSocket {
@@ -22,7 +23,7 @@ class MockWebSocket {
   onclose: ((event: CloseEvent) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
-  listeners: Map<string, Set<(data: any) => void>> = new Map();
+  listeners: Map<string, Set<(data: unknown) => void>> = new Map();
 
   constructor(url: string) {
     this.url = url;
@@ -46,20 +47,20 @@ class MockWebSocket {
     }
   }
 
-  addEventListener(event: string, handler: (event: any) => void) {
+  addEventListener(event: string, handler: (event: MessageEvent) => void) {
     if (event === 'message') {
       this.onmessage = handler;
     }
   }
 
-  removeEventListener(event: string, handler: (event: any) => void) {
+  removeEventListener(event: string, handler: (event: MessageEvent) => void) {
     if (event === 'message' && this.onmessage === handler) {
       this.onmessage = null;
     }
   }
 }
 
-globalThis.WebSocket = MockWebSocket as any;
+globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
 describe('ApiClient Integration Tests', () => {
   let apiClient: ApiClient;
@@ -91,7 +92,7 @@ describe('ApiClient Integration Tests', () => {
         },
       };
 
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => mockHealthResponse,
       });
@@ -110,7 +111,7 @@ describe('ApiClient Integration Tests', () => {
     });
 
     it('should handle health check failures', async () => {
-      (globalThis.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      fetchMock.mockRejectedValueOnce(new Error('Network error'));
 
       await expect(apiClient.healthCheck()).rejects.toThrow();
       // Should retry, so fetch will be called multiple times
@@ -125,12 +126,10 @@ describe('ApiClient Integration Tests', () => {
       };
 
       // First call fails, second succeeds
-      (globalThis.fetch as any)
-        .mockRejectedValueOnce(new Error('Temporary failure'))
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => mockResponse,
-        });
+      fetchMock.mockRejectedValueOnce(new Error('Temporary failure')).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
 
       const health = await apiClient.healthCheck();
 
@@ -146,7 +145,7 @@ describe('ApiClient Integration Tests', () => {
         { id: '2', name: 'Device 2', type: 'phone' },
       ];
 
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => mockDevices,
       });
@@ -160,7 +159,7 @@ describe('ApiClient Integration Tests', () => {
     it('should fetch a single device', async () => {
       const mockDevice = { id: '1', name: 'Device 1', type: 'laptop' };
 
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => mockDevice,
       });
@@ -174,7 +173,7 @@ describe('ApiClient Integration Tests', () => {
     it('should update device successfully', async () => {
       const updateData = { name: 'Updated Device', notes: 'Test notes' };
 
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ id: '1', ...updateData }),
       });
@@ -198,7 +197,7 @@ describe('ApiClient Integration Tests', () => {
         { id: '2', protocol: 'HTTP', bytes_in: 2000, bytes_out: 1000 },
       ];
 
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => mockFlows,
       });
@@ -215,7 +214,7 @@ describe('ApiClient Integration Tests', () => {
     it('should fetch flows with filters', async () => {
       const mockFlows = [{ id: '1', protocol: 'HTTPS' }];
 
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => mockFlows,
       });
@@ -223,7 +222,7 @@ describe('ApiClient Integration Tests', () => {
       const flows = await apiClient.getFlows(50, 0, 'device-1', 'active', 'HTTPS');
 
       expect(flows).toEqual(mockFlows);
-      const callUrl = (globalThis.fetch as any).mock.calls[0][0];
+      const callUrl = fetchMock.mock.calls[0][0];
       expect(callUrl).toContain('device_id=device-1');
       expect(callUrl).toContain('status=active');
       expect(callUrl).toContain('protocol=HTTPS');
@@ -236,7 +235,7 @@ describe('ApiClient Integration Tests', () => {
         blob: async () => mockBlob,
       };
 
-      (globalThis.fetch as any).mockResolvedValueOnce(mockResponse);
+      fetchMock.mockResolvedValueOnce(mockResponse);
 
       // Mock URL methods if they don't exist
       const createObjectURLSpy = vi
@@ -261,7 +260,7 @@ describe('ApiClient Integration Tests', () => {
     it('should fetch active threats', async () => {
       const mockThreats = [{ id: '1', level: 'high', description: 'Suspicious activity' }];
 
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => mockThreats,
       });
@@ -276,7 +275,7 @@ describe('ApiClient Integration Tests', () => {
     });
 
     it('should dismiss a threat', async () => {
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -294,7 +293,7 @@ describe('ApiClient Integration Tests', () => {
 
   describe('Capture Control', () => {
     it('should start capture', async () => {
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -310,7 +309,7 @@ describe('ApiClient Integration Tests', () => {
     });
 
     it('should stop capture', async () => {
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -369,7 +368,7 @@ describe('ApiClient Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle 404 errors', async () => {
-      (globalThis.fetch as any).mockResolvedValueOnce({
+      fetchMock.mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -383,7 +382,7 @@ describe('ApiClient Integration Tests', () => {
       const mockResponse = { id: '1', name: 'Device 1' };
 
       // First call fails with 500, second succeeds
-      (globalThis.fetch as any)
+      fetchMock
         .mockResolvedValueOnce({
           ok: false,
           status: 500,
@@ -402,7 +401,7 @@ describe('ApiClient Integration Tests', () => {
     });
 
     it('should handle timeout errors', async () => {
-      (globalThis.fetch as any).mockImplementation(
+      fetchMock.mockImplementation(
         () => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 100))
       );
 

@@ -224,7 +224,7 @@ export function HistoricalTrends({
                           borderRadius: '8px',
                           fontSize: '12px',
                         }}
-                        formatter={(value: any) => [formatBytesShort(value), 'Traffic']}
+                        formatter={value => [formatBytesShort(Number(value)), 'Traffic']}
                       />
                       <Area
                         type="monotone"

@@ -206,8 +206,8 @@ describe('ErrorBoundary', () => {
     it('should navigate home when Go Home is clicked', () => {
       // Mock window.location.href
       const originalLocation = globalThis.location;
-      delete (globalThis as any).location;
-      (globalThis as any).location = { href: '' };
+      Reflect.deleteProperty(globalThis, 'location');
+      Object.assign(globalThis, { location: { href: '' } });
 
       render(
         <ErrorBoundary>
@@ -289,7 +289,7 @@ describe('ErrorBoundary', () => {
       const mockErrorTracker = {
         captureException: vi.fn(),
       };
-      (window as any).errorTracker = mockErrorTracker;
+      window.errorTracker = mockErrorTracker;
 
       render(
         <ErrorBoundary>
@@ -308,7 +308,7 @@ describe('ErrorBoundary', () => {
         })
       );
 
-      delete (window as any).errorTracker;
+      delete window.errorTracker;
     });
   });
 });

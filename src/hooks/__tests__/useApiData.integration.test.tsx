@@ -10,6 +10,13 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/lib/queryClient';
 import { useApiData } from '../useApiData';
 import { apiClient } from '@/lib/api';
+import {
+  generateAnalyticsData,
+  generateDevice,
+  generateNetworkFlow,
+  generateProtocolStats,
+  generateThreat,
+} from '@/lib/mockData';
 
 // Mock the API client
 vi.mock('@/lib/api', async () => {
@@ -57,11 +64,12 @@ vi.mock('@/lib/api', async () => {
 
 // Mock toast
 vi.mock('sonner', () => {
-  const mockToast = vi.fn().mockReturnValue('toast-id') as any;
-  mockToast.success = vi.fn().mockReturnValue('toast-id');
-  mockToast.error = vi.fn().mockReturnValue('toast-id');
-  mockToast.warning = vi.fn().mockReturnValue('toast-id');
-  mockToast.info = vi.fn().mockReturnValue('toast-id');
+  const mockToast = Object.assign(vi.fn().mockReturnValue('toast-id'), {
+    success: vi.fn().mockReturnValue('toast-id'),
+    error: vi.fn().mockReturnValue('toast-id'),
+    warning: vi.fn().mockReturnValue('toast-id'),
+    info: vi.fn().mockReturnValue('toast-id'),
+  });
   return {
     toast: mockToast,
   };
@@ -92,18 +100,18 @@ describe('useApiData Integration Tests', () => {
         active_devices: 5,
       };
 
-      const mockDevices = [{ id: '1', name: 'Device 1' }];
-      const mockFlows = [{ id: '1', protocol: 'HTTPS' }];
-      const mockThreats = [{ id: '1', level: 'low' }];
-      const mockAnalytics = [{ timestamp: Date.now(), bytes_in: 1000 }];
-      const mockProtocolStats = [{ protocol: 'HTTPS', count: 10 }];
+      const mockDevices = [generateDevice('1')];
+      const mockFlows = [generateNetworkFlow('1', '1')];
+      const mockThreats = [generateThreat('1', '1', '1')];
+      const mockAnalytics = generateAnalyticsData(1);
+      const mockProtocolStats = generateProtocolStats();
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue(mockDevices);
-      (apiClient.getFlows as any).mockResolvedValue(mockFlows);
-      (apiClient.getThreats as any).mockResolvedValue(mockThreats);
-      (apiClient.getAnalytics as any).mockResolvedValue(mockAnalytics);
-      (apiClient.getProtocolStats as any).mockResolvedValue(mockProtocolStats);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue(mockDevices);
+      vi.mocked(apiClient.getFlows).mockResolvedValue(mockFlows);
+      vi.mocked(apiClient.getThreats).mockResolvedValue(mockThreats);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue(mockAnalytics);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue(mockProtocolStats);
 
       const { result } = renderHook(() => useApiData(), { wrapper });
 
@@ -125,12 +133,12 @@ describe('useApiData Integration Tests', () => {
     it('should handle API errors gracefully', async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const error = new Error('Network error');
-      (apiClient.healthCheck as any).mockRejectedValue(error);
-      (apiClient.getDevices as any).mockRejectedValue(error);
-      (apiClient.getFlows as any).mockRejectedValue(error);
-      (apiClient.getThreats as any).mockRejectedValue(error);
-      (apiClient.getAnalytics as any).mockRejectedValue(error);
-      (apiClient.getProtocolStats as any).mockRejectedValue(error);
+      vi.mocked(apiClient.healthCheck).mockRejectedValue(error);
+      vi.mocked(apiClient.getDevices).mockRejectedValue(error);
+      vi.mocked(apiClient.getFlows).mockRejectedValue(error);
+      vi.mocked(apiClient.getThreats).mockRejectedValue(error);
+      vi.mocked(apiClient.getAnalytics).mockRejectedValue(error);
+      vi.mocked(apiClient.getProtocolStats).mockRejectedValue(error);
 
       const { result } = renderHook(() => useApiData(), { wrapper });
 
@@ -159,14 +167,16 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: true,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
       // Disable WebSocket to test polling behavior
       const { result } = renderHook(
@@ -182,16 +192,16 @@ describe('useApiData Integration Tests', () => {
         { timeout: 3000 }
       );
 
-      const initialCallCount = (apiClient.getFlows as any).mock.calls.length;
+      const initialCallCount = vi.mocked(apiClient.getFlows).mock.calls.length;
       expect(initialCallCount).toBeGreaterThan(0); // Should have initial call
 
       // Clear mocks to track new polling calls
-      (apiClient.getFlows as any).mockClear();
-      (apiClient.healthCheck as any).mockClear();
-      (apiClient.getDevices as any).mockClear();
-      (apiClient.getThreats as any).mockClear();
-      (apiClient.getAnalytics as any).mockClear();
-      (apiClient.getProtocolStats as any).mockClear();
+      vi.mocked(apiClient.getFlows).mockClear();
+      vi.mocked(apiClient.healthCheck).mockClear();
+      vi.mocked(apiClient.getDevices).mockClear();
+      vi.mocked(apiClient.getThreats).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getProtocolStats).mockClear();
 
       // Wait for polling interval (100ms) - use real timers for this test
       await new Promise(resolve => setTimeout(resolve, 150));
@@ -199,7 +209,7 @@ describe('useApiData Integration Tests', () => {
       // Should have made new calls after polling interval
       await waitFor(
         () => {
-          const newCalls = (apiClient.getFlows as any).mock.calls.length;
+          const newCalls = vi.mocked(apiClient.getFlows).mock.calls.length;
           expect(newCalls).toBeGreaterThan(0);
         },
         { timeout: 2000 }
@@ -211,14 +221,16 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: true,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
       const { result } = renderHook(() => useApiData({ pollingInterval: 0 }), { wrapper });
 
@@ -230,22 +242,22 @@ describe('useApiData Integration Tests', () => {
         { timeout: 3000 }
       );
 
-      const initialCallCount = (apiClient.getFlows as any).mock.calls.length;
+      const initialCallCount = vi.mocked(apiClient.getFlows).mock.calls.length;
       expect(initialCallCount).toBeGreaterThan(0); // Initial fetch should still happen
 
       // Clear mocks
-      (apiClient.getFlows as any).mockClear();
-      (apiClient.healthCheck as any).mockClear();
-      (apiClient.getDevices as any).mockClear();
-      (apiClient.getThreats as any).mockClear();
-      (apiClient.getAnalytics as any).mockClear();
-      (apiClient.getProtocolStats as any).mockClear();
+      vi.mocked(apiClient.getFlows).mockClear();
+      vi.mocked(apiClient.healthCheck).mockClear();
+      vi.mocked(apiClient.getDevices).mockClear();
+      vi.mocked(apiClient.getThreats).mockClear();
+      vi.mocked(apiClient.getAnalytics).mockClear();
+      vi.mocked(apiClient.getProtocolStats).mockClear();
 
       // Wait a bit - should not trigger polling since interval is 0
       await new Promise(resolve => setTimeout(resolve, 200));
 
       // Should not have made additional calls (polling disabled)
-      expect((apiClient.getFlows as any).mock.calls.length).toBe(0);
+      expect(vi.mocked(apiClient.getFlows).mock.calls.length).toBe(0);
     });
   });
 
@@ -255,14 +267,16 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: true,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
       const { result } = renderHook(() => useApiData({ useWebSocket: true }), { wrapper });
 
@@ -287,14 +301,16 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: true,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
       const { result } = renderHook(() => useApiData({ useWebSocket: false }), { wrapper });
 
@@ -323,15 +339,17 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: false,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
-      (apiClient.startCapture as any).mockResolvedValue(undefined);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
+      vi.mocked(apiClient.startCapture).mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useApiData(), { wrapper });
 
@@ -349,15 +367,17 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: true,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
-      (apiClient.stopCapture as any).mockResolvedValue(undefined);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
+      vi.mocked(apiClient.stopCapture).mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useApiData(), { wrapper });
 
@@ -377,15 +397,17 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: true,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([{ id: 'threat-1', level: 'low' }]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
-      (apiClient.dismissThreat as any).mockResolvedValue(undefined);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([generateThreat('1', '1', 'threat-1')]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
+      vi.mocked(apiClient.dismissThreat).mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useApiData(), { wrapper });
 
@@ -410,14 +432,16 @@ describe('useApiData Integration Tests', () => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         capture_running: true,
+        active_flows: 0,
+        active_devices: 0,
       };
 
-      (apiClient.healthCheck as any).mockResolvedValue(mockHealth);
-      (apiClient.getDevices as any).mockResolvedValue([]);
-      (apiClient.getFlows as any).mockResolvedValue([]);
-      (apiClient.getThreats as any).mockResolvedValue([]);
-      (apiClient.getAnalytics as any).mockResolvedValue([]);
-      (apiClient.getProtocolStats as any).mockResolvedValue([]);
+      vi.mocked(apiClient.healthCheck).mockResolvedValue(mockHealth);
+      vi.mocked(apiClient.getDevices).mockResolvedValue([]);
+      vi.mocked(apiClient.getFlows).mockResolvedValue([]);
+      vi.mocked(apiClient.getThreats).mockResolvedValue([]);
+      vi.mocked(apiClient.getAnalytics).mockResolvedValue([]);
+      vi.mocked(apiClient.getProtocolStats).mockResolvedValue([]);
 
       const { result } = renderHook(() => useApiData(), { wrapper });
 
@@ -425,12 +449,12 @@ describe('useApiData Integration Tests', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      const initialCallCount = (apiClient.getDevices as any).mock.calls.length;
+      const initialCallCount = vi.mocked(apiClient.getDevices).mock.calls.length;
 
       await result.current.refresh();
 
       // Should have made additional calls
-      expect((apiClient.getDevices as any).mock.calls.length).toBeGreaterThan(initialCallCount);
+      expect(vi.mocked(apiClient.getDevices).mock.calls.length).toBeGreaterThan(initialCallCount);
     });
   });
 });
