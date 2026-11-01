@@ -14,7 +14,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173",
-    "kill": "fuser -k 5000/tcp",
     "build": "tsc -b && vite build",
     "build:check": "tsc --noEmit && vite build",
     "build:cloudflare": "npm run build",
@@ -24,7 +23,6 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:fix": "prettier --write --end-of-line lf \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "type-check": "tsc --noEmit",
-    "optimize": "vite optimize",
     "preview": "vite preview",
     "validate": "npm run type-check && npm run lint && npm run format:check",
     "test": "vitest",

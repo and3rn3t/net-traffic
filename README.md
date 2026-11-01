@@ -225,7 +225,7 @@ Comprehensive documentation is available in the project:
 
 ### For Developers
 
-- **[AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md)** - Instructions for AI agents and developers
+- **[AGENTS.md](./AGENTS.md)** - Architecture, commands and conventions for AI agents and developers
 - **[INTEGRATION_GUIDE.md](./docs/INTEGRATION_GUIDE.md)** - Frontend-backend integration guide
 - **[PERFORMANCE_OPTIMIZATIONS.md](./docs/PERFORMANCE_OPTIMIZATIONS.md)** - Performance optimization guide
 - **[TESTING_STRATEGY.md](./docs/TESTING_STRATEGY.md)** - Complete testing strategy, workflows, and setup

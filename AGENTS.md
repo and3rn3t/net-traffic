@@ -3,7 +3,6 @@
 <!--
   Single source of truth for AI assistant instructions in this repo.
   CLAUDE.md is a thin pointer to this file — edit HERE.
-  AGENT_INSTRUCTIONS.md is the older long-form guide (coding patterns, examples).
 -->
 
 ## Project Overview
@@ -12,7 +11,7 @@
 packets (Scapy), fingerprints devices, detects threats and stores flows in SQLite; a
 React dashboard on Cloudflare Pages reads it over HTTPS + WebSocket.
 
-```
+```text
 Cloudflare Pages (React app, net-traffic.andernet.dev)
         │ HTTPS / WSS
         ▼
@@ -27,14 +26,14 @@ see `docs/ARCHITECTURE.md` before proposing a move to D1/Workers.
 
 - **Frontend** (repo root): React 19 + TypeScript 5.7 + Vite 6, Tailwind CSS 4, Radix/shadcn
   UI (`src/components/ui/`), TanStack Query, Recharts. **npm** (`package-lock.json`),
-  Node `24.13.0` (`.nvmrc`).
+  Node `24.22.0` (`.nvmrc`).
 - **Backend** (`backend/`): Python, FastAPI, aiosqlite (WAL), Scapy, Pydantic.
 - Tests: Vitest + Testing Library (unit), a separate Vitest integration config, Playwright
   (e2e); pytest for the backend.
 
 ## Layout
 
-```
+```text
 src/
   App.tsx, main.tsx
   components/           # dashboard views; ui/ = shadcn primitives
@@ -103,6 +102,11 @@ usually needs both, and `backend/tests/test_migrations.py` coverage.
 ## Conventions
 
 - TypeScript strict, no `any`; functional components; reusable logic in hooks; `@/` alias.
+- Frontend data: TanStack Query over the typed client in `src/lib/api/`; render failures with
+  `ErrorDisplay`; debounce search/filter input with `useDebounce`; lazy-load heavy views via
+  `src/components/lazy.tsx`.
+- Shipping a roadmap item: move it from Backlog to Shipped in `docs/ROADMAP.md` in the same
+  commit as the work.
 - Backend: type hints, Pydantic request/response models, async I/O, `HTTPException` for API
   errors, `logging` not `print`.
 - Conventional commits enforced by commitlint (`.husky/commit-msg`, header ≤ 100 chars).

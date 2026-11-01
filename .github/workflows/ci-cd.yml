@@ -92,8 +92,8 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          # Build-time environment variables (optional - can be set in GitHub secrets)
-          # If not set, defaults are used. Recommended: Set in Cloudflare Dashboard instead.
+          # Build-time env vars come from GitHub secrets; defaults apply if unset.
+          # dist/ is uploaded prebuilt, so Pages dashboard variables have no effect.
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_USE_REAL_API: ${{ secrets.VITE_USE_REAL_API }}
 

@@ -1,8 +1,7 @@
 # CLAUDE.md — NetInsight (net-traffic)
 
-**Read `AGENTS.md` first** — it holds the architecture, commands, schema gotcha and deploy
-flow. `AGENT_INSTRUCTIONS.md` has longer coding-pattern examples (some file paths there
-predate the `src/lib/api/` split). This file only adds Claude-specific notes.
+**Read `AGENTS.md` first** — it holds the architecture, commands, conventions, schema gotcha
+and deploy flow. This file only adds Claude-specific notes.
 
 React dashboard on Cloudflare Pages + FastAPI/Scapy backend on a Raspberry Pi 5. npm, not pnpm.
 
