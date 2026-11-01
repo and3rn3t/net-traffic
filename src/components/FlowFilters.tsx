@@ -124,7 +124,6 @@ export function FlowFiltersComponent({
   const handleTimePresetChange = (preset: string) => {
     const now = Date.now();
     let startTime: number | null = null;
-    const endTime: number | null = null;
 
     switch (preset) {
       case '1h':

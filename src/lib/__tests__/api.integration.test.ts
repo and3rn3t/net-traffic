@@ -35,7 +35,7 @@ class MockWebSocket {
     }, 10);
   }
 
-  send(data: string) {
+  send(_data: string) {
     // Mock send
   }
 
@@ -179,7 +179,7 @@ describe('ApiClient Integration Tests', () => {
         json: async () => ({ id: '1', ...updateData }),
       });
 
-      const result = await apiClient.updateDevice('1', updateData);
+      await apiClient.updateDevice('1', updateData);
 
       expect(globalThis.fetch).toHaveBeenCalledWith(
         `${baseURL}/api/devices/1`,
@@ -344,12 +344,6 @@ describe('ApiClient Integration Tests', () => {
 
       // Wait for connection
       await new Promise(resolve => setTimeout(resolve, 50));
-
-      // Simulate a message
-      const mockMessage = {
-        type: 'flow',
-        data: { id: '1', protocol: 'HTTPS' },
-      };
 
       // Get the WebSocket instance and trigger message
       // This is a simplified test - in real scenario, the WebSocket would receive messages

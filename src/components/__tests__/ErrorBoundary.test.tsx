@@ -183,7 +183,6 @@ describe('ErrorBoundary', () => {
   describe('User Actions', () => {
     it('should reload page when Reload Page is clicked', () => {
       // Mock window.location.reload by replacing it
-      const originalReload = window.location.reload;
       const reloadSpy = vi.fn();
       Object.defineProperty(window, 'location', {
         value: { ...window.location, reload: reloadSpy },

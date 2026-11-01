@@ -65,7 +65,7 @@ export function useOfflineDetection(options: UseOfflineDetectionOptions = {}) {
         } else if (!response.ok && isOnline) {
           handleOffline();
         }
-      } catch (error) {
+      } catch {
         if (isOnline) {
           handleOffline();
         }

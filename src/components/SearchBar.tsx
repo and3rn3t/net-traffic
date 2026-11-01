@@ -30,7 +30,7 @@ interface SearchBarProps {
 
 export function SearchBar({ onResultClick }: SearchBarProps) {
   const [query, setQuery] = useState('');
-  const [searchType, setSearchType] = useState<'all' | 'devices' | 'flows' | 'threats'>('all');
+  const [searchType] = useState<'all' | 'devices' | 'flows' | 'threats'>('all');
   const [showResults, setShowResults] = useState(false);
 
   // Debounce search query to avoid excessive API calls

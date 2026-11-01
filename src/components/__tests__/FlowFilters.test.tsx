@@ -3,7 +3,7 @@
  * Tests filter UI, preset saving/loading, and filter interactions
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FlowFiltersComponent, FlowFilters } from '@/components/FlowFilters';

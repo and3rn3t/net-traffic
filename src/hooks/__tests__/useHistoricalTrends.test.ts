@@ -122,7 +122,7 @@ describe('useHistoricalTrends', () => {
     }, 15000);
 
     it('should not fetch data when autoFetch is disabled', async () => {
-      const { result } = renderHook(() => useHistoricalTrends({ autoFetch: false }));
+      renderHook(() => useHistoricalTrends({ autoFetch: false }));
 
       // Wait a bit to ensure no fetch occurs
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -273,7 +273,6 @@ describe('useHistoricalTrends', () => {
 
       // Verify API was called for '7d'
       expect(apiClient.getAnalytics).toHaveBeenCalledWith(168); // 7d = 168 hours
-      const callsAfter7d = vi.mocked(apiClient.getAnalytics).mock.calls.length;
 
       // Clear mock again before switching back to '24h'
       vi.mocked(apiClient.getAnalytics).mockClear();

@@ -4,12 +4,7 @@
  */
 
 import { test, expect } from './fixtures/test-fixtures';
-import {
-  waitForAppReady,
-  navigateToView,
-  waitForDataLoad,
-  expectVisibleWithContent,
-} from './helpers/test-helpers';
+import { waitForAppReady, navigateToView, waitForDataLoad } from './helpers/test-helpers';
 
 test.describe('Application Core', () => {
   test.beforeEach(async ({ page }) => {
