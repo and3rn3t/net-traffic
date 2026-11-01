@@ -54,16 +54,13 @@ export function ApplicationUsageDashboard({
 }: ApplicationUsageDashboardProps) {
   const [applicationBreakdown, setApplicationBreakdown] = useState<ApplicationBreakdown>([]);
   const [applicationTrends, setApplicationTrends] = useState<ApplicationTrends>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(API_CONFIG.USE_REAL_API);
   const [selectedHours, setSelectedHours] = useState(hours);
   const [selectedApplication, setSelectedApplication] = useState<string>('all');
   const USE_REAL_API = API_CONFIG.USE_REAL_API;
 
   useEffect(() => {
-    if (!USE_REAL_API) {
-      setIsLoading(false);
-      return;
-    }
+    if (!USE_REAL_API) return;
 
     const fetchData = async () => {
       setIsLoading(true);

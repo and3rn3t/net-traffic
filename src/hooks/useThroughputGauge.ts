@@ -44,26 +44,28 @@ export function useThroughputGauge() {
     ? (latestInterval.bytes_in + latestInterval.bytes_out) / 60
     : 0;
 
-  const [peakBytesPerSecond, setPeakBytesPerSecond] = useState(0);
-  const peakTimestampRef = useRef(0);
-
-  useEffect(() => {
-    if (bytesPerSecond > peakBytesPerSecond) {
-      setPeakBytesPerSecond(bytesPerSecond);
-      peakTimestampRef.current = Date.now();
-    }
-  }, [bytesPerSecond, peakBytesPerSecond]);
+  // heldSince is stamped by the decay tick rather than during render (Date.now()
+  // is impure there), so a new peak's hold starts at most one tick late.
+  const [peak, setPeak] = useState<{ value: number; heldSince: number | null }>({
+    value: 0,
+    heldSince: null,
+  });
+  if (bytesPerSecond > peak.value) {
+    setPeak({ value: bytesPerSecond, heldSince: null });
+  }
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setPeakBytesPerSecond(current => {
-        if (Date.now() - peakTimestampRef.current < PEAK_HOLD_MS) return current;
-        const decayed = current * PEAK_DECAY_RATE;
-        return decayed < bytesPerSecond ? bytesPerSecond : decayed;
+      setPeak(current => {
+        const now = Date.now();
+        if (current.heldSince === null) return { ...current, heldSince: now };
+        if (now - current.heldSince < PEAK_HOLD_MS) return current;
+        const next = Math.max(current.value * PEAK_DECAY_RATE, bytesPerSecond);
+        return next === current.value ? current : { ...current, value: next };
       });
     }, PEAK_DECAY_TICK_MS);
     return () => clearInterval(interval);
   }, [bytesPerSecond]);
 
-  return { bytesPerSecond, peakBytesPerSecond };
+  return { bytesPerSecond, peakBytesPerSecond: peak.value };
 }

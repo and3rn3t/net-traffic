@@ -28,6 +28,8 @@ interface SearchBarProps {
   onResultClick?: (type: 'device' | 'flow' | 'threat', id: string) => void;
 }
 
+const EMPTY_RESULTS = { devices: [], flows: [], threats: [] };
+
 export function SearchBar({ onResultClick }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [searchType] = useState<'all' | 'devices' | 'flows' | 'threats'>('all');
@@ -39,7 +41,7 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
 
   // Use React Query for search with automatic caching and deduplication
   const {
-    data: results = { devices: [], flows: [], threats: [] },
+    data,
     isLoading: isSearching,
     isFetching,
     error,
@@ -59,15 +61,16 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
     staleTime: 2 * 60 * 1000, // Cache search results for 2 minutes
   });
 
-  // Auto-show results when search completes
-  useEffect(() => {
-    if (debouncedQuery.trim() && !isSearching && results) {
-      const totalResults = results.devices.length + results.flows.length + results.threats.length;
-      if (totalResults > 0) {
-        setShowResults(true);
-      }
+  const results = data ?? EMPTY_RESULTS;
+
+  // Auto-show results once per completed search that found something.
+  const [autoShownFor, setAutoShownFor] = useState(data);
+  if (data !== autoShownFor && data && debouncedQuery.trim() && !isSearching) {
+    setAutoShownFor(data);
+    if (data.devices.length + data.flows.length + data.threats.length > 0) {
+      setShowResults(true);
     }
-  }, [debouncedQuery, isSearching, results]);
+  }
 
   // Show error toast if search fails
   useEffect(() => {

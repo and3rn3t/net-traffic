@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,9 +111,12 @@ export function FlowFiltersComponent({
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
 
-  useEffect(() => {
+  // Reset the local copy when the parent passes new filters.
+  const [syncedFilters, setSyncedFilters] = useState(filters);
+  if (filters !== syncedFilters) {
+    setSyncedFilters(filters);
     setLocalFilters(filters);
-  }, [filters]);
+  }
 
   const updateFilters = (updates: Partial<FlowFilters>) => {
     const newFilters = { ...localFilters, ...updates };
