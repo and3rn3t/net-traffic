@@ -64,10 +64,13 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
   const results = data ?? EMPTY_RESULTS;
 
   // Auto-show results once per completed search that found something.
+  // The marker tracks every data transition (including back to undefined), so
+  // repeating a search that's served from cache still re-opens the dialog.
   const [autoShownFor, setAutoShownFor] = useState(data);
-  if (data !== autoShownFor && data && debouncedQuery.trim() && !isSearching) {
+  if (data !== autoShownFor) {
     setAutoShownFor(data);
-    if (data.devices.length + data.flows.length + data.threats.length > 0) {
+    const totalFound = data ? data.devices.length + data.flows.length + data.threats.length : 0;
+    if (totalFound > 0 && debouncedQuery.trim() && !isSearching) {
       setShowResults(true);
     }
   }
