@@ -11,21 +11,19 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ## Development Setup
 
-<!-- TODO: Replace these steps with your project's actual setup instructions. -->
-
 ```bash
-# Clone your fork
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
-cd YOUR_REPO
+git clone https://github.com/and3rn3t/net-traffic.git
+cd net-traffic
 
-# Install dependencies
-npm install        # TODO: Replace with your install command
+# Frontend (Node version in .nvmrc)
+npm install
+npm run dev                    # http://localhost:5001, mock data unless VITE_USE_REAL_API=true
 
-# Run tests
-npm test           # TODO: Replace with your test command
-
-# Start development server
-npm run dev        # TODO: Replace with your dev command
+# Backend
+cd backend
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements-dev.txt
+python -m pytest
 ```
 
 ## Branch Naming
@@ -37,7 +35,7 @@ Use the format `type/short-description`:
 - `docs/update-api-reference`
 - `chore/upgrade-dependencies`
 
-See [git-conventions.instructions.md](.github/instructions/git-conventions.instructions.md) for full details.
+Commit messages follow Conventional Commits and are checked by commitlint (`.husky/commit-msg`, header ≤ 100 chars).
 
 ## Commit Messages
 
@@ -77,31 +75,33 @@ Keep PRs focused on a single logical change. Large changes should be split into 
 This project uses shared code style guidelines enforced through:
 
 - [`.editorconfig`](.editorconfig) — Cross-editor formatting
-- [Code style instructions](.github/instructions/code-style.instructions.md) — Naming, formatting, and organization conventions
+- [`eslint.config.js`](eslint.config.js) and [`.prettierrc.json`](.prettierrc.json) — lint and format rules (frontend)
+- [`backend/pyproject.toml`](backend/pyproject.toml) — ruff rules (backend)
+- [AGENTS.md](AGENTS.md#conventions) — naming and code conventions
 
 Run the linter before submitting:
 
 ```bash
-npm run lint       # TODO: Replace with your lint command
+npm run validate               # type-check + lint + format check
+cd backend && ruff check .     # backend
 ```
 
 ## Testing
 
 All new code should include tests. Follow the patterns documented in:
 
-- [Testing instructions](.github/instructions/testing.instructions.md) — Unit test patterns and conventions
+- [docs/TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) — test layers, patterns and CI expectations
 
 ```bash
-npm test           # TODO: Replace with your test command
+npm run test:run                       # frontend unit tests
+cd backend && python -m pytest         # backend
 ```
 
 ## AI-Assisted Development
 
 This repository includes configuration files for AI coding assistants (Copilot, Cursor, Windsurf, Cline, Claude Code). These files define project conventions so AI tools produce consistent, high-quality code.
 
-- See [docs/AI-CUSTOMIZATION-GUIDE.md](docs/AI-CUSTOMIZATION-GUIDE.md) for details
-- AI instructions in `.github/instructions/` are auto-loaded based on file patterns
-- Prompts in `.github/prompts/` provide reusable task templates
+- [AGENTS.md](AGENTS.md) is the single source of truth for AI assistants; `CLAUDE.md` points to it
 
 You can use AI tools while contributing — the config files ensure generated code aligns with project standards.
 
@@ -111,6 +111,4 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
 ## Questions?
 
-<!-- TODO: Add your preferred communication channel. -->
-
-Open a [GitHub Discussion](https://github.com/YOUR_ORG/YOUR_REPO/discussions) or file an issue.
+[File an issue](https://github.com/and3rn3t/net-traffic/issues).

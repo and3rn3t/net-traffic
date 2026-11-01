@@ -146,6 +146,7 @@ Every setting has a default in `backend/utils/config.py`, so the backend starts 
 | `NETWORK_INTERFACE` | Interface to capture on (default `eth0`; list with `ip link show`). |
 | `ALLOWED_ORIGINS` | CORS allow-list, e.g. `https://net-traffic.andernet.dev,https://net-traffic.pages.dev,http://localhost:5001`. |
 | `DB_PATH`, `DATA_RETENTION_DAYS` | SQLite location and retention (defaults `netinsight.db`, 30). |
+| `DEFAULT_ADMIN_PASSWORD` | Optional. Password for the `admin` user created on first boot; if unset, a random one is generated and printed once in the service log (`journalctl -u netinsight-backend`). |
 
 `backend/.env.example` documents most of the rest (DNS/DPI/fingerprinting toggles, rate
 limit, logging, remote capture, slow-query thresholds); `backend/utils/config.py` is the

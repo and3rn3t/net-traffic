@@ -2,7 +2,7 @@
 
 Complete guide for running the NetInsight backend on a Raspberry Pi 5: pre-install setup, install, systemd, network configuration, and performance tuning.
 
-> For architecture/topology background (why the backend lives on the Pi at all), see [ARCHITECTURE.md](./ARCHITECTURE.md) and [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md).
+> For architecture/topology background (why the backend lives on the Pi at all), see [ARCHITECTURE.md](./ARCHITECTURE.md) and [CAPTURE.md](./CAPTURE.md#getting-traffic-to-the-pi).
 
 ## Hardware & software requirements
 
@@ -95,7 +95,7 @@ sudo apt install -y tcpdump
 sudo tcpdump -i eth0 -c 10 -v
 ```
 
-> ⚠️ **Known issue on UniFi UDM Pro**: switch-based port mirroring does not work on this router (DSA tagging isn't applied to `tc`-injected frames from a non-DSA NIC — a driver/hardware limitation, not a config issue). If you're on the same hardware, skip local port-mirror capture entirely and use the `remote_ssh` capture mode instead — see [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md).
+> ⚠️ **Known issue on UniFi UDM Pro**: switch-based port mirroring does not work on this router (DSA tagging isn't applied to `tc`-injected frames from a non-DSA NIC — a driver/hardware limitation, not a config issue). If you're on the same hardware, skip local port-mirror capture entirely and use the `remote_ssh` capture mode instead — see [CAPTURE.md](./CAPTURE.md#getting-traffic-to-the-pi).
 
 ## 2. Install NetInsight
 
@@ -172,7 +172,7 @@ ip link show
 
 Capture options, in order of preference for a home setup:
 1. **Port mirroring/SPAN** on a managed switch (doesn't work on UniFi UDM Pro — see warning above)
-2. **Remote SSH capture** (`capture_mode=remote_ssh`) — pulls a tcpdump stream from the router over SSH; see [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md)
+2. **Remote SSH capture** (`capture_mode=remote_ssh`) — pulls a tcpdump stream from the router over SSH; see [CAPTURE.md](./CAPTURE.md#getting-traffic-to-the-pi)
 3. **Gateway mode** — run the Pi inline with two NICs
 4. **USB-to-Ethernet adapter** for passive monitoring
 
@@ -199,7 +199,7 @@ WAL mode + tuned pragmas are already the baseline in `backend/services/storage.p
 - [ ] Systemd service enabled for boot persistence (`sudo systemctl status netinsight-backend`)
 - [ ] Firewall allows only the ports/IPs you intend (22, 8000)
 - [ ] Default Pi password changed / SSH key auth configured
-- [ ] `DATA_RETENTION_DAYS` reviewed for your Pi's RAM (see [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md))
+- [ ] `DATA_RETENTION_DAYS` reviewed for your Pi's RAM (see [DEPLOYMENT.md](./DEPLOYMENT.md#configuration))
 
 ## Troubleshooting
 

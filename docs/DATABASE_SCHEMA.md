@@ -1,6 +1,6 @@
 # Database Schema
 
-SQLite database (`aiosqlite`), WAL mode with tuned pragmas (see [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md#database-sqlite)). Path set via `DB_PATH` (see [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md)).
+SQLite database (`aiosqlite`), WAL mode with tuned pragmas (see [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md#database-sqlite)). Path set via `DB_PATH` (see [DEPLOYMENT.md](./DEPLOYMENT.md#configuration)).
 
 ## Tables are defined in TWO places — update both that apply
 
@@ -53,7 +53,7 @@ Indexes: `timestamp DESC`, `device_id`, `status`, `source_ip`, `dest_ip`, `domai
 `id` (PK), `rule_id`, `rule_name`, `timestamp`, `severity`, `device_id`, `flow_id`, `metric`, `value`, `description`, `acknowledged`. Indexes on `timestamp DESC` and `acknowledged`.
 
 ### `users`
-`id` (PK), `username` (UNIQUE), `email`, `full_name`, `hashed_password`, `role` (default `viewer`), `disabled`, `created_at`, `last_login`. A default `admin` account is auto-created on first boot with a random password (see `DEFAULT_ADMIN_PASSWORD` in [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md)). `auth_service.py` connects to the same db file with its own separate `aiosqlite` connection, but the table itself is created by `storage/base.py`.
+`id` (PK), `username` (UNIQUE), `email`, `full_name`, `hashed_password`, `role` (default `viewer`), `disabled`, `created_at`, `last_login`. A default `admin` account is auto-created on first boot with a random password (see `DEFAULT_ADMIN_PASSWORD` in [DEPLOYMENT.md](./DEPLOYMENT.md#configuration)). `auth_service.py` connects to the same db file with its own separate `aiosqlite` connection, but the table itself is created by `storage/base.py`.
 
 ### `api_keys`
 `id` (PK), `key_hash` (UNIQUE), `name`, `user_id` (FK → `users.id`, `ON DELETE CASCADE`), `created_at`, `last_used`, `expires_at`, `disabled`, `permissions` (JSON array).

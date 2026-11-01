@@ -24,8 +24,8 @@
 ```
 
 - **Frontend**: `net-traffic.andernet.dev`, deployed to Cloudflare Pages via Git push (`npm run build` → `dist/`).
-- **Backend**: runs on a Raspberry Pi 5 (`pi@192.168.1.23`, systemd unit `netinsight-backend.service`), exposed publicly at `net-backend.andernet.dev` through a `cloudflared` tunnel (see [CLOUDFLARE_TUNNEL_SETUP.md](./CLOUDFLARE_TUNNEL_SETUP.md)).
-- Router is a UniFi UDM Pro; see [NETWORK_TOPOLOGY_AND_PLACEMENT.md](./NETWORK_TOPOLOGY_AND_PLACEMENT.md) for interface layout and how packet capture reaches the backend.
+- **Backend**: runs on a Raspberry Pi 5 (`pi@192.168.1.23`, systemd unit `netinsight-backend.service`), exposed publicly at `net-backend.andernet.dev` through a `cloudflared` tunnel (see [DEPLOYMENT.md](./DEPLOYMENT.md#backend-tunnel-cloudflare-tunnel)).
+- Router is a UniFi UDM Pro; see [CAPTURE.md](./CAPTURE.md#getting-traffic-to-the-pi) for interface layout and how packet capture reaches the backend.
 
 ## Why the database and processing stay on the Pi (not Cloudflare D1/Workers)
 
@@ -48,8 +48,8 @@ Cloudflare is **not** used for storage, processing, or packet capture.
 ## Frontend ↔ backend connection
 
 - WebSocket URL is derived from `VITE_API_BASE_URL` (`https://` → `wss://`, `http://` → `ws://`) — see `src/lib/api.ts`.
-- Backend `ALLOWED_ORIGINS` must include the exact frontend origin(s); see [ENV_FILE_REQUIREMENTS.md](./ENV_FILE_REQUIREMENTS.md).
-- Deploying frontend changes: push to `main`, Cloudflare Pages rebuilds automatically. See [CLOUDFLARE_DEPLOYMENT.md](./CLOUDFLARE_DEPLOYMENT.md).
+- Backend `ALLOWED_ORIGINS` must include the exact frontend origin(s); see [DEPLOYMENT.md](./DEPLOYMENT.md#configuration).
+- Deploying frontend changes: push to `main`; CI builds `dist/` and uploads it to Pages. See [DEPLOYMENT.md](./DEPLOYMENT.md#one-time-setup).
 - Deploying backend changes: `rsync` straight to the Pi's working tree (not `git pull`) and restart the systemd service — see [DEPLOYMENT_RASPBERRY_PI.md](./DEPLOYMENT_RASPBERRY_PI.md).
 
 ## When a different architecture might make sense
