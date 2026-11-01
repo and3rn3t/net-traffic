@@ -37,6 +37,7 @@ import { AccountMenu } from '@/components/AccountMenu';
 import { formatBytes, formatBytesShort } from '@/lib/formatters';
 import { useDataSource } from '@/hooks/useDataSource';
 import { useUrlTab } from '@/hooks/useUrlTab';
+import { useNow } from '@/hooks/useNow';
 import { API_CONFIG } from '@/hooks/useApiConfig';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,7 @@ function App() {
     USE_REAL_API,
     useRealApi,
   } = useDataSource();
+  const now = useNow();
 
   // Handle loading state (only when using real API)
   if (isLoading && API_CONFIG.USE_REAL_API) {
@@ -100,7 +102,7 @@ function App() {
   const activeDevicesCount =
     useRealApi && summaryStats
       ? summaryStats.active_devices
-      : devices.filter(d => Date.now() - d.lastSeen < 5 * 60 * 1000).length;
+      : devices.filter(d => now - d.lastSeen < 5 * 60 * 1000).length;
 
   const avgThreatScore = devices.reduce((sum, d) => sum + d.threatScore, 0) / (devices.length || 1);
 

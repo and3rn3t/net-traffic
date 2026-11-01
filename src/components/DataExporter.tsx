@@ -362,8 +362,13 @@ End of Report
   };
 
   // Calculate default time range (last 24 hours)
-  const defaultStartTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
-  const defaultEndTime = new Date().toISOString().slice(0, 16);
+  const [{ defaultStartTime, defaultEndTime }] = useState(() => {
+    const now = Date.now();
+    return {
+      defaultStartTime: new Date(now - 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+      defaultEndTime: new Date(now).toISOString().slice(0, 16),
+    };
+  });
 
   return (
     <>
