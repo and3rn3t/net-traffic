@@ -15,6 +15,7 @@ import { loadSnapshot, saveSnapshot } from '@/lib/snapshotCache';
 
 const SNAPSHOT_KEY = 'netinsight_snapshot_core';
 const SNAPSHOT_SAVE_DEBOUNCE_MS = 10000;
+const NO_DATA: never[] = [];
 
 interface CoreSnapshot {
   devices: Device[];
@@ -54,10 +55,13 @@ export function useApiData(options: UseApiDataOptions = {}) {
   // despite the `as` cast needed to satisfy the strict overload typing.)
   const snapshotHydration = { initialDataUpdatedAt: () => 0 };
 
-  const [isCapturing, setIsCapturing] = useState(false);
-  // True once we've painted from a cached snapshot but haven't confirmed it
-  // with a fresh fetch yet - lets the UI show a "stale data" hint.
-  const [isShowingStaleSnapshot, setIsShowingStaleSnapshot] = useState(!!snapshot);
+  // startCapture/stopCapture override the health-reported capture state for
+  // instant UI feedback, until the next health poll lands.
+  const [captureOverride, setCaptureOverride] = useState<{
+    running: boolean;
+    healthUpdatedAt: number;
+  } | null>(null);
+  const [hadSnapshotAtMount] = useState(!!snapshot);
 
   const healthQuery = useQuery({
     queryKey: QUERY_KEYS.health,
@@ -118,11 +122,13 @@ export function useApiData(options: UseApiDataOptions = {}) {
     ...dataQueryOptions,
   });
 
-  const devices = devicesQuery.data ?? [];
-  const flows = flowsQuery.data ?? [];
-  const threats = threatsQuery.data ?? [];
-  const analyticsData = analyticsQuery.data ?? [];
-  const protocolStats = protocolStatsQuery.data ?? [];
+  // Shared empty fallback keeps these referentially stable while a query has
+  // no data, so effects depending on them don't re-run every render.
+  const devices = devicesQuery.data ?? NO_DATA;
+  const flows = flowsQuery.data ?? NO_DATA;
+  const threats = threatsQuery.data ?? NO_DATA;
+  const analyticsData = analyticsQuery.data ?? NO_DATA;
+  const protocolStats = protocolStatsQuery.data ?? NO_DATA;
 
   const isLoading =
     USE_REAL_API &&
@@ -145,35 +151,22 @@ export function useApiData(options: UseApiDataOptions = {}) {
       : 'Failed to fetch data'
     : null;
 
-  // Sync isCapturing from the health check (background poll keeps it fresh);
-  // startCapture/stopCapture below override it immediately for instant UI feedback.
-  useEffect(() => {
-    if (healthQuery.data) {
-      setIsCapturing(healthQuery.data.capture_running || false);
-    }
-  }, [healthQuery.data]);
+  const isCapturing =
+    captureOverride && captureOverride.healthUpdatedAt === healthQuery.dataUpdatedAt
+      ? captureOverride.running
+      : (healthQuery.data?.capture_running ?? false);
 
-  // Clear the "stale snapshot" flag once every core query has completed at
-  // least one real network fetch (not just the hydrated snapshot).
-  useEffect(() => {
-    if (
-      isShowingStaleSnapshot &&
+  // True once we've painted from a cached snapshot but haven't confirmed it
+  // with a fresh fetch of every core query yet - lets the UI show a hint.
+  const isShowingStaleSnapshot =
+    hadSnapshotAtMount &&
+    !(
       devicesQuery.isFetched &&
       flowsQuery.isFetched &&
       threatsQuery.isFetched &&
       analyticsQuery.isFetched &&
       protocolStatsQuery.isFetched
-    ) {
-      setIsShowingStaleSnapshot(false);
-    }
-  }, [
-    isShowingStaleSnapshot,
-    devicesQuery.isFetched,
-    flowsQuery.isFetched,
-    threatsQuery.isFetched,
-    analyticsQuery.isFetched,
-    protocolStatsQuery.isFetched,
-  ]);
+    );
 
   const refetchAll = useCallback(async () => {
     if (!USE_REAL_API) return;
@@ -302,7 +295,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
     });
 
     return disconnect;
-  }, [useWebSocket, isConnected, queryClient]);
+  }, [USE_REAL_API, useWebSocket, isConnected, queryClient]);
 
   // Persist a trimmed snapshot to localStorage (debounced) so a reload can
   // paint instantly from cache instead of showing a blank loading screen.
@@ -318,42 +311,50 @@ export function useApiData(options: UseApiDataOptions = {}) {
       });
     }, SNAPSHOT_SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
-  }, [devices, flows, threats, analyticsData, protocolStats]);
+  }, [USE_REAL_API, devices, flows, threats, analyticsData, protocolStats]);
+
+  const overrideCapture = useCallback(
+    (running: boolean) => {
+      const healthUpdatedAt = queryClient.getQueryState(QUERY_KEYS.health)?.dataUpdatedAt ?? 0;
+      setCaptureOverride({ running, healthUpdatedAt });
+    },
+    [queryClient]
+  );
 
   // Control functions
   const startCapture = useCallback(async () => {
     if (!USE_REAL_API) {
-      setIsCapturing(true);
+      overrideCapture(true);
       return;
     }
 
     try {
       await apiClient.startCapture();
-      setIsCapturing(true);
+      overrideCapture(true);
       toast.success('Packet capture started');
     } catch (err) {
       toast.error('Failed to start capture', {
         description: err instanceof Error ? err.message : 'Unknown error',
       });
     }
-  }, []);
+  }, [USE_REAL_API, overrideCapture]);
 
   const stopCapture = useCallback(async () => {
     if (!USE_REAL_API) {
-      setIsCapturing(false);
+      overrideCapture(false);
       return;
     }
 
     try {
       await apiClient.stopCapture();
-      setIsCapturing(false);
+      overrideCapture(false);
       toast.success('Packet capture stopped');
     } catch (err) {
       toast.error('Failed to stop capture', {
         description: err instanceof Error ? err.message : 'Unknown error',
       });
     }
-  }, []);
+  }, [USE_REAL_API, overrideCapture]);
 
   const dismissThreat = useCallback(
     async (threatId: string) => {
@@ -374,7 +375,7 @@ export function useApiData(options: UseApiDataOptions = {}) {
         });
       }
     },
-    [queryClient]
+    [USE_REAL_API, queryClient]
   );
 
   return {
