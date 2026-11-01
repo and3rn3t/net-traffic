@@ -30,9 +30,8 @@ export default defineConfig({
 
   // Shared settings for all projects
   use: {
-    // Base URL for the application - dev server always listens on 5001
-    // (forced by vite.config.ts's sparkPlugin({ port: 5001 }), regardless of
-    // any --port flag), so this must match webServer.url below
+    // Base URL for the application - vite.config.ts pins the dev server to
+    // 5001 (strictPort), so this must match webServer.url below
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5001',
 
     // Trace on first retry

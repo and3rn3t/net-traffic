@@ -1,25 +1,16 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react-swc';
-import { defineConfig, PluginOption } from 'vite';
+import { defineConfig } from 'vite';
 
-import sparkPlugin from '@github/spark/spark-vite-plugin';
-import createIconImportProxy from '@github/spark/vitePhosphorIconProxyPlugin';
 import { resolve } from 'path';
 
 const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname;
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(),
-    // DO NOT REMOVE
-    createIconImportProxy() as PluginOption,
-    sparkPlugin({ port: 5001 }) as PluginOption,
-  ],
+  plugins: [react(), tailwindcss()],
   server: {
-    // Actual listen port is forced to 5001 by sparkPlugin({ port: 5001 })'s
-    // config() hook below, which overrides this regardless of CLI --port flags
+    // playwright.config.ts expects the dev server on 5001
     port: 5001,
     strictPort: true, // Fail if port 5001 is in use
     host: true, // Listen on all addresses
@@ -46,7 +37,7 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-error-boundary'],
           'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs'],
           'chart-vendor': ['recharts'],
-          'animation-vendor': ['framer-motion'],
+          'animation-vendor': ['motion/react'],
           'query-vendor': ['@tanstack/react-query'],
           // Feature chunks
           analytics: ['./src/components/HistoricalTrends', './src/components/AnomalyDetection'],

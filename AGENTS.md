@@ -57,7 +57,7 @@ docs/                   # ARCHITECTURE, DATABASE_SCHEMA, DEPLOYMENT_RASPBERRY_PI
 
 ```bash
 npm install
-npm run dev               # Vite on :5173 (mock data unless VITE_USE_REAL_API=true)
+npm run dev               # Vite on :5001 (mock data unless VITE_USE_REAL_API=true)
 npm run validate          # type-check + lint + format:check
 npm run test:run          # vitest unit tests (npm test = watch mode)
 npm run test:integration  # vitest.integration.config.ts
