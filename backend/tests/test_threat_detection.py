@@ -2,7 +2,7 @@
 
 from models.types import Threat
 from services.threat_detection import ThreatDetectionService
-from utils.constants import EARLY_RESET_PACKET_THRESHOLD, LARGE_UPLOAD_BYTES
+from utils.constants import EARLY_RESET_PACKET_THRESHOLD, HIGH_RTT_MS, LARGE_UPLOAD_BYTES
 
 
 class FakeStorage:
@@ -98,9 +98,12 @@ async def test_rst_without_syn_is_classified_as_scan() -> None:
 
 async def test_rtt_sample_list_is_averaged() -> None:
     service = ThreatDetectionService(FakeStorage())
+    # RST without SYN scores 25 ("low"); a high average RTT adds 10, reaching "medium".
+    scan = {"tcp_flags": ["RST"]}
 
-    # Average 1500 ms exceeds HIGH_RTT_MS; on its own that's below the "low" cut-off.
-    assert await service.analyze_flow(benign_flow(rtt=[1000, 2000])) == "safe"
+    assert await service.analyze_flow(benign_flow(**scan, rtt=[1000, 2000])) == "medium"
+    assert await service.analyze_flow(benign_flow(**scan, rtt=[HIGH_RTT_MS, HIGH_RTT_MS])) == "low"
+    assert await service.analyze_flow(benign_flow(**scan, rtt=[500, 1500])) == "low"
     assert await service.analyze_flow(benign_flow(rtt=[])) == "safe"
 
 
