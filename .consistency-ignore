@@ -1,0 +1,2 @@
+# npm repo: commit-msg keeps npx instead of the template's pnpm exec
+.husky/commit-msg
